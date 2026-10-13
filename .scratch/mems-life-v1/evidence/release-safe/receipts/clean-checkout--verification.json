@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "verifiedUtc": "2026-10-13T04:45:56.850127+00:00",
+  "scope": "Independent clean checkout; native device/Expo SQLite gate owned separately and unclaimed.",
+  "identity": {
+    "checkout": "/Users/memfactor/.codex/worktrees/mems-life-clean-verification/open-life",
+    "commit": "9a8a584fa708ec23d945f9e49675b48d04d8401a",
+    "tree": "bfcd90ed96a8310c07b8468c0f4820c7ec7089e3",
+    "status": "",
+    "trackedFileCount": 1565,
+    "trackedContentManifestSha256": "c4ea948dd4c40d84be8800b52a25d9854601eaec632c23c71e7d3d3377d958aa",
+    "lockfileSha256": "e16a4ba9056bf8d16a8d739b3581e398902729142a1662563648048ccfc522ce",
+    "capturedUtc": "2026-10-13T04:44:44.349684+00:00"
+  },
+  "sourceSha256": {
+    "package-lock.json": "e16a4ba9056bf8d16a8d739b3581e398902729142a1662563648048ccfc522ce",
+    "apps/web/src/main.tsx": "c07a17f703ce46a0c93381a037ab93e7575c81f8fed874e867e62758c9560781",
+    "apps/web/src/validation.ts": "1a9ca32d3f60886fc3e8de05a33de7321c659758759736ec17ad4bdbcf5d84be",
+    "apps/web/src/styles.css": "f51716306b1af20888dc0893d2ff5c6a625ad3a5d5725ea23eb43ef9c5df1ef9",
+    "apps/web/e2e/production.spec.ts": "21ae0019363d6adb808bae517ff7ce4fb4b892f7df01b1adbf24337062363cdc",
+    "apps/server/src/app.ts": "424d62c28184c20e25373088559cac1557ba8cd34ad0e97c264411e32804ac02",
+    "apps/mobile/src/offline/store.ts": "b896b7028842337d81cca6dc89a8b326ac12c9a28b63c5d4f1e028c6b91ef56d",
+    "scripts/verify-offline-live.mjs": "0d7fd87a88b3807236963ea73a83bf3f673fb7c3a712c0b252c091c4d80f6970"
+  },
+  "artifacts": {
+    "fileCount": 139,
+    "contentManifestSha256": "68d9f5e6e6484faa384f9a2ce61c9088f8aacd2a604477150ab3875ccef6c98d",
+    "webIndexSha256": "8dfbcfb563262a06dc68b462bb8695a8baeb2df0d5ebc4f7111a29e181a82036",
+    "mobileBundle": {
+      "apps/mobile/dist/_expo/static/js/ios/index-83e90ab1203ec6f431ff07fe837a0c6b.hbc": "56a4da9ed6abba0f721eb32c86e603322fa8ed66156c253d646f89d710201b9c"
+    }
+  },
+  "environment": {
+    "node": "24.21.0",
+    "npm": "11.19.0",
+    "postgresqlBinaryPath": "/opt/homebrew/opt/postgresql@16/bin",
+    "postgresqlPort": 55432,
+    "testDatabaseGuards": "Read exact isolated suffix guards before canonical tests; no mems_life development database reset.",
+    "TLS": "Self-signed loopback laboratory only; no public HTTPS claim"
+  },
+  "commands": [
+    {
+      "command": "npm run verify:toolchain",
+      "exitCode": 0
+    },
+    {
+      "command": "npm ci",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run lint",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run format:check",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run test",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run build",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/verify-native-offline.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/verify-offline-recovery.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/verify-orphan-photo-recovery.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/verify-sync-cursor-recovery.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "node scripts/verify-offline-live.mjs",
+      "exitCode": 0
+    },
+    {
+      "command": "WEB_PRODUCTION_TEST=1 npx playwright test --config evidence/production-web/playwright.config.ts production.spec.ts --output .runtime/clean-checkout/production-results-reinitialized",
+      "exitCode": 0
+    },
+    {
+      "command": "node evidence/production-web/auth-compatibility.mjs",
+      "exitCode": 0
+    }
+  ],
+  "tests": {
+    "domain": {
+      "suites": 9,
+      "passed": 39,
+      "failed": 0,
+      "skipped": 0
+    },
+    "mobile": {
+      "suites": 21,
+      "passed": 94,
+      "failed": 0,
+      "skipped": 0
+    },
+    "server": {
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0
+    },
+    "canonicalTotal": 156,
+    "standaloneRecoveryScripts": {
+      "passed": 5,
+      "failed": 0,
+      "testFrameworkCount": null,
+      "scope": "Actual Node SQLite seam; last script additionally uses actual HTTP, PostgreSQL, backup/restore."
+    },
+    "productionCriticalFlows": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "browsers": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "cspViolations": 0
+    },
+    "productionAuthCompatibility": {
+      "browser": "chromium",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "builds": {
+    "domain": "passed",
+    "server": "passed",
+    "web": "passed",
+    "mobileIosExpoExport": "passed",
+    "nativeCompile": "not run; separately owned"
+  },
+  "fixtureIncident": {
+    "initialProductionAttempt": {
+      "failed": 3,
+      "stage": "Login before product journey",
+      "reason": "Fresh checkout generated fixture credentials while pre-existing dedicated production test DB retained an earlier password."
+    },
+    "remedy": "Stopped only owned fixture; asserted exact mems_life_production_web_test database path, reset its public schema, restarted original fixture with current credentials. No source change.",
+    "rerun": "Three browsers passed",
+    "shutdown": "Owned PID 40990 terminated; lsof verifies no 3002/3443 listener."
+  },
+  "installAudit": {
+    "reported": 61,
+    "moderate": 15,
+    "high": 46,
+    "action": "No dependency mutations; separate audit finding, not classified as resolved."
+  },
+  "visualInspection": [
+    "Chromium Today phone",
+    "Chromium food phone with both private photos",
+    "Chromium task-file tablet dialog",
+    "Chromium dark settings phone at 125% root text scale"
+  ],
+  "limitations": [
+    "Actual Expo SQLite driver/force-quit native gate remains separate and in progress.",
+    "No physical device, signing/distribution, live WHOOP consent/push or public MCP verification in this task.",
+    "Root text scaling, focus and layout assertions are bounded checks, not a comprehensive accessibility audit."
+  ],
+  "evidence": {
+    "rawLogs": "/Users/memfactor/.codex/worktrees/mems-life-clean-verification/open-life/.runtime/clean-checkout",
+    "fullSourceAndArtifactManifest": "/Users/memfactor/.codex/worktrees/mems-life-clean-verification/open-life/.runtime/clean-checkout/identity.json",
+    "productionReceipts": [
+      "/Users/memfactor/.codex/worktrees/mems-life-clean-verification/open-life/.runtime/clean-checkout/production-results-reinitialized/production-production-CSP--3af69-iles-and-accessible-layouts-chromium/production-verification.json",
+      "/Users/memfactor/.codex/worktrees/mems-life-clean-verification/open-life/.runtime/clean-checkout/production-results-reinitialized/production-production-CSP--3af69-iles-and-accessible-layouts-firefox/production-verification.json",
+      "/Users/memfactor/.codex/worktrees/mems-life-clean-verification/open-life/.runtime/clean-checkout/production-results-reinitialized/production-production-CSP--3af69-iles-and-accessible-layouts-webkit/production-verification.json"
+    ],
+    "rawLogsRetainedAfterCheckoutArchive": ".runtime/clean-checkout-evidence",
+    "fullSourceAndArtifactManifestRetainedAfterCheckoutArchive": ".runtime/clean-checkout-evidence/identity.json",
+    "checkoutArchive": "Managed verification worktree archived after successful checks; original paths remain historical provenance."
+  }
+}

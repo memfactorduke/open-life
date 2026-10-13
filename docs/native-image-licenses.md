@@ -10,7 +10,7 @@ behavior. This work does not change the package manifest or lock.
 
 The previous generator scanned only top-level LICENSE/COPYING/NOTICE filenames
 and omitted this package's README. The current generator includes its entire
-published README, checks every component version against the signed upstream
+published README, checks every component version against the pinned upstream
 v1.3.4 build provenance, and copies a reviewed bundle into both runtime and
 operator images at `/app/native-licenses`. This directory contains LGPLv3 and
 GPLv3 terms, all recursively discovered upstream component notice texts,
@@ -80,7 +80,7 @@ corresponding-source coverage complete for external redistribution. This is a
 source-provenance barrier; successful application/runtime tests do not close it.
 
 Primary evidence: [v1.3.4 release and component versions](https://github.com/lovell/sharp-libvips/releases/tag/v1.3.4),
-[signed-tag packaging source](https://github.com/lovell/sharp-libvips/tree/ebb95f8add54eee8bed840e3fb587e4cbec857d7),
+[pinned packaging source](https://github.com/lovell/sharp-libvips/tree/ebb95f8add54eee8bed840e3fb587e4cbec857d7),
 [sharp installation and system-libvips options](https://sharp.pixelplumbing.com/install/),
 and [GNU LGPLv3 terms](https://www.gnu.org/licenses/lgpl-3.0.html). The collector
 and notice validator provide engineering evidence rather than legal certification.

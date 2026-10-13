@@ -64,7 +64,7 @@ The maintainer confirmed the workout scope below, including notes, and delegates
 
 The selected client and shared-service direction is recorded in [ADR-0001](adr/0001-mobile-and-web-clients.md) and [ADR-0002](adr/0002-shared-service-for-people-and-agents.md). The [wayfinding map](../.scratch/mems-life-wayfinding/map.md) now resolves access/deployment, durable offline records/private media, WHOOP scope, toolchain verification, and licensing. These are researched choices, not claims of working implementation.
 
-The [first-release specification](../.scratch/mems-life-v1/spec.md) defines the behavior and implementation boundaries. Its [29 implementation tickets](../.scratch/mems-life-v1/tickets.md) cover the work and verification in dependency order. The maintainer authorized completing this planning sequence and will set the implementation goal separately.
+The [first-release specification](../.scratch/mems-life-v1/spec.md) defines the behavior and implementation boundaries. Its [29 implementation tickets](../.scratch/mems-life-v1/tickets.md) cover the work and verification in dependency order. The maintainer subsequently set the full implementation goal. The [release progress](release-progress.md) records the current verified scope and remaining gates.
 
 Remaining implementation-time inputs include exact compatible dependency patches, the deployment hostname, owner-provided credentials/consent, and available signed-build/device access. They do not require reopening the product interview or choosing an agent runtime. Ask only when an unavailable input genuinely blocks its corresponding verification.
 

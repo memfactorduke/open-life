@@ -147,6 +147,15 @@
       "review": "Explicit reviewed receipt; original evidence links are local-only"
     },
     {
+      "file": "receipts/clean-checkout--verification.json",
+      "bytes": 7383,
+      "sha256": "96b66574e1a1355b3587ea402ea7b7b6347b456d8d5a5254f3bb607d00e81e24",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/clean-checkout/verification.json",
+      "rawBytes": 7383,
+      "rawSha256": "96b66574e1a1355b3587ea402ea7b7b6347b456d8d5a5254f3bb607d00e81e24",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
       "file": "screenshots/productivity-web--phone-chromium.png",
       "bytes": 29932,
       "sha256": "e158aa29e61ab6c28315d0514455df9ff3e00b57e3cb5e0835a93fff627576bc",

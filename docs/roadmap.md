@@ -31,7 +31,7 @@ These slices define implementation order, not separate products or permission ga
 
 Personal workflow requirements and automatic continuation are confirmed. The specification records the researched offline, access, deployment, WHOOP, toolchain, and license choices. Exact dependency patches and external credentials are checked when their implementation tickets run.
 
-The specification and separate implementation tickets are saved under `.scratch/mems-life-v1/`. Their `ready-for-agent` status records clear behavior, boundaries, and acceptance criteria. That status describes readiness, not authorization to begin implementation during this planning phase.
+The specification and separate implementation tickets are saved under `.scratch/mems-life-v1/`. Their `ready-for-agent` status describes clear behavior, boundaries, and acceptance criteria. The active implementation goal supplies authorization. Ticket states and evidence describe progress separately.
 
 ## Candidate acceptance criteria
 
