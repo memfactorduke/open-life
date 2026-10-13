@@ -1,11 +1,11 @@
 # 27: Export, back up and restore personal records
 
 Status: ready-for-agent
-State: claimed
+State: resolved
 Blocked by: 18, 22, 24
 Spec: [Mem's Life first release](../spec.md)
 Coverage: US-04–05, US-67
-Phase: authorized implementation and release verification in progress; acceptance remains unverified
+Phase: verified implementation with scoped composite execution evidence; external release gates remain in ticket29
 
 ## What to build
 
@@ -38,3 +38,5 @@ Evidence remaining: Current literal unchecked criteria retain only the concrete 
 Evidence: Current acceptance reconciliation (2026-10-13). 27.1/27.2/27.4/27.5: [final independent container/restore execution](../evidence/final-container/verification.json), [independent clean-checkout execution](../evidence/clean-checkout/verification.json), `migration-reconciliation/verification.md`, executed PG `portability.test.ts`/`release-reconciliation.test.ts` and SQLite/photo recovery scripts. Independent database/media restore, protected checksums/config, epoch rotation, earlier-schema row preservation and atomic upgrade failure, reference-safe cleanup and documented retention are established. 27.3 awaits actual current Expo attempted/never-sent recovery after restore; Node/HTTP protocol evidence is real but its deviceProof=false boundary is preserved.
 
 Evidence: Current native recovery reconciliation (2026-10-13). 27.3 now qualifies by supported independent restore plus actual native epoch review. [Independent native-target restore](../evidence/native-restore-proof/complete.json) verifies preserved installation identity, rotated target epoch, matching domain tables/media and unchanged original records/media. [Actual native paused epoch](../evidence/native-gym-food/recovery-final-release/epoch-paused-assertion.json) preserves never-sent operation115b4410/payload/expectedRevision0 at attempts0, pauses replay and observes target404 before owner review. [Explicit checked-send/resume](../evidence/native-gym-food/recovery-final-release/epoch-final-assertion.json) retains operation/payload, confirms once with attempts1/history1 and releases pause; `epoch-restored-target-server.json` identifies the exact target record. Existing actual SQLite/HTTP/PG restore proof separately deletes post-backup receipts and reconciles previously attempted uncertain operations before fresh reviewed work. This is explicitly composite attempted/never-sent coverage, not a claim that every attempted-operation branch ran on native hardware. Current native source c6a295/JS537465 identities are in recovery-final-release/build-hashes.json. Original database/epoch is separately preserved and restored target changes do not modify original installation. All criteria qualify; State awaits18/22.
+
+Evidence: Dependency reconciliation (2026-10-13). All literal criteria are verified by the scoped receipts above; all listed prerequisites are now resolved. State resolved. External physical/live-provider gates remain in29 and are not inferred from this resolution.

@@ -1,11 +1,11 @@
 # 22: Recover offline food entries and photo uploads
 
 Status: ready-for-agent
-State: claimed
+State: resolved
 Blocked by: 17, 19
 Spec: [Mem's Life first release](../spec.md)
 Coverage: US-51–53
-Phase: authorized implementation and release verification in progress; acceptance remains unverified
+Phase: verified implementation with scoped composite execution evidence; external release gates remain in ticket29
 
 ## What to build
 
@@ -43,3 +43,5 @@ Evidence: Current acceptance reconciliation (2026-10-13). 22.1/22.3: actual Expo
 Evidence: Acceptance update (2026-10-13). 22.6 now has concrete full-disk evidence: [media capacity receipt](../evidence/media-capacity-proof/receipt.json) records an owned 32 MiB HFS+ image producing actual OS ENOSPC through current food HTTP service and isolated PostgreSQL. Failed upload leaves entry unchanged and upload pending, finalization is rejected422, retained input retries under the same upload ID and finalizes exactly one attachment with private bytes/checksum preserved. This is macOS filesystem failure proof, not Linux quota or physical-disk exhaustion. Combined with executed PG `food.test.ts` final-file/uncommitted-DB crash reconstruction/reconciliation and [independent container/media restore](../evidence/final-container/verification.json), it establishes crash/storage/persistent-media recovery. The capacity receipt does not itself store a whole-source manifest; current app/food/media hashes independently match the final-container source manifest. Remaining native auth/conflict/confirmed-photo-cache proofs are separate22.2/22.4/22.5 boundaries.
 
 Evidence: Current native recovery reconciliation (2026-10-13). 22.2/22.4/22.5 now qualify by existing actual photo upload/restart, real private-media failure/retry, shared native auth/error recovery, and current retained-reference tests. `native-gym-food/photo-fixed-release/ipad-downloaded-cache.json` records actual private JPEG bytes/checksums and OS SQLite cache references; immutable d357cdf bundle actual phone-cold-photos and ipad-cold-photos journeys verify confirmed photos after offline restart. Source/cache checks are bound by `mobile-final-photo-checks.json`; native build identity is in photo-fixed-release/build-hashes.json. Real revoked-session pending-command retention/re-authentication and native full-store failure/retry supply driver/error behavior; executed `verify-offline-recovery.mjs` and `verify-orphan-photo-recovery.mjs` preserve tombstones, conflict copies, retained photos, fresh reviewed identities and text-ack gates without resurrecting deleted entries. Retained-photo tests validate pending/active references and unsent-byte preservation, combined with actual source-bound OS files. Food/task-file actual ENOSPC receipts and exact native media convergence prove safe retry rather than duplicate attachments. No physical camera or new Linux quota claim. All criteria qualify; State awaits ticket17.
+
+Evidence: Dependency reconciliation (2026-10-13). All literal criteria are verified by the scoped receipts above; all listed prerequisites are now resolved. State resolved. External physical/live-provider gates remain in29 and are not inferred from this resolution.

@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "ownedSimulators": [
+    "09981CDA-7E87-406A-A204-97962B96E080",
+    "2886B922-06FD-4FA2-A321-0B0B1F38D067"
+  ],
+  "artifacts": {
+    "sqlite-fixed-release": {
+      "sourceManifest": "e8d66d1fbfcc4ee0580fb092d08e77b36baf4af9b4c5517e28c082d86c8107b5",
+      "nativeAssetManifest": "f5f03bc8ed6cc7df724e2f243a7438bcbfba575c68afb57764845c4544a6dd86",
+      "mainJsBundle": "020cb537665f525308f7ff5005d32e4f29af7445a8c46073e40c253857d2f05f",
+      "nativeBinary": "33f084e3035bc068fc7cfcd56c4e3bfef4573d882e2d3c7e78529f6f37da52cd"
+    },
+    "cold-start-release": {
+      "sourceManifest": "ec6bdcca705f632a427b18c7877db668c5b01f7ae9c7c2636caeef02a9b46854",
+      "nativeAssetManifest": "becf8ecdf2e7086cce01f7c7215a63e8d217c56279e61fee886c9a2f17381b63",
+      "mainJsBundle": "93add25482454c896b76ef5a3f7ae956be458e21206630cf116471f42f2a6a0a",
+      "nativeBinary": "d7b8ac83c7e4af66d1537b883b450bc8110ed3b8c0d3814bb503622ea979371e"
+    },
+    "photo-fixed-release": {
+      "sourceManifest": "9997751910e4328afa6e5239284c6224db1103a03aec24205c1090ffa3e27aab",
+      "nativeAssetManifest": "0eb578cdf8f401547e6cfcd88589c37a2ce9914638c5f59a5f979f233357b618",
+      "mainJsBundle": "d357cdf406360f6b7ac2f81e3a868c8cdbac190901322aaf5f7bf5137ab9b55f",
+      "nativeBinary": "ef8128a104f72d493ad81617a8bc9ac3eb0db45317a1a6459773a720cd22f47d"
+    },
+    "recovery-final-release": {
+      "sourceManifest": "c6a295eef46616393a3e80c15ee2e8f61a758b14f84eb93c0cfe1bd4841a97f3",
+      "nativeAssetManifest": "a6b86c455954e50441b3abcd0c10e30c04c567b66de2aed6794a5a27641b8036",
+      "mainJsBundle": "537465de5c11f3e80199dcf65a17de294850a3939779ac1795042a4523c1eee8",
+      "nativeBinary": "a628a6411ec53daa400ae0971be99b247ed5c4451de413fe6296e205b0ec0337"
+    },
+    "navigation-final-release": {
+      "sourceManifest": "8918f989b70102677e37a8d8c180bcd35a497bf4da2c8c2616bcae23ee68d515",
+      "nativeAssetManifest": "4bd67958767f8fd5e3fe77dec67ed370233e343a6fb6716121c66e32bed7f8fc",
+      "mainJsBundle": "5fde698342f1486409cb1e0af7e3dcf5f23ac55cbe9a0cc08f704a4302f95465",
+      "nativeBinary": "57a5f7891e6765d9f8cf218b7df8e04df0e3047141d9a802c2c998539bb60892"
+    },
+    "icon-final-release": {
+      "sourceManifest": "1630b30305f6926451895c28282cad4a8d39047aed4d6c8f2056b61e124bc499",
+      "nativeAssetManifest": "6e8db101fbb832e97d16a088a6e253acd5bb22d77774bd7c39d2e1b8dda7932c",
+      "mainJsBundle": "5fde698342f1486409cb1e0af7e3dcf5f23ac55cbe9a0cc08f704a4302f95465",
+      "nativeBinary": "7aeb74ade686b484fa0c4772b0a46a2683fe271da9c957b9f65a15acec4a91b8"
+    }
+  },
+  "observed": {
+    "537": "supported independent restored installation epoch pause, no blind replay, explicit never-sent operation revalidation and Resume; return original epoch; normal nav scroll reset; actual phone notifications denied, timer persists and cancel; actual Pad landscape1210x834 and compact375x775; actual Pad permissionAllow, local request schedule/replace/cancel",
+    "d357": "two-device confirmed-photo cold offline pixels; real revision conflict with explicit new reviewed operation; unrelated task sync; revoked auth fail-closed and retained operation; actual zero-free bounded SQLite Save failure with input retained/no false acknowledgement",
+    "5fde": "compact largest accessibility font readable current-area navigation; public XCTest all5area selections, selected state and fixedClose return pass; actual opt-in120s timer scheduled once before background, delivered by OS and tapped from NotificationCenter/unlock to exact session; private due task reminder scheduled then removed after task deletion/preferences restoration",
+    "icon-final-release": "Original icon visible on actual simulator Home; normal authenticated Today launch/capture action passes. JavaScript bundle SHA256 is exactly unchanged from5fde; only icon/config/native asset packaging differs."
+  },
+  "remainingGates": [
+    "physical camera capture",
+    "physical airplane mode",
+    "sound/haptic perception",
+    "remote push provider",
+    "distribution signing",
+    "full VoiceOver traversal",
+    "native friendly-full-storage message on final fix (actual failure retained from d357)"
+  ],
+  "fullStorageRestoration": "whole original closed SQLite directory exact hash/mode restored; original data healthy; both successful mounted-copy tasks synced before restoration",
+  "cleanup": {
+    "exactOwnedFixtures": "Nine original task/food/exercise fixture cleanup assertions retained",
+    "mcpFoodDeletedRoutineArchivedGrantsRevoked": true,
+    "timerProbe": "Abandoned revision6, no performed sets, timer null",
+    "obsoleteNativeRequests": "Pending archive3 empty; Delivered archive1 empty",
+    "simulatorShutdown": "Both exact owned simulators stopped; actual simctl booted list empty. Physical iPad and other project devices untouched."
+  },
+  "notificationDelivery": {
+    "status": "passed",
+    "sessionId": "4b479dd2-5534-4ce1-81dd-e68d90061843",
+    "timerId": "71d2f37d-16b4-4d04-a93f-1ccca3414ba6",
+    "notificationId": "a03b0c74-5862-4c8b-bc9d-647569beaf22",
+    "deadline": "2026-10-13T07:23:27.143Z",
+    "pendingBeforeBackground": true,
+    "deliveredArchiveObjects": 110,
+    "actualCardTapExactSessionVerified": true,
+    "scope": "Owned iPad simulator on immutable5fde; silent timer. Sound/haptic physical perception not claimed. Initial setup/label-tap failures retained separately."
+  },
+  "dueReminder": {
+    "taskId": "4ab90bd4-6a68-477e-abc7-c353645c0c0f",
+    "nativePendingVerified": true,
+    "genericPrivatePreview": true,
+    "rootTaskDeletedAndPreferencesRestored": true,
+    "afterColdBootstrapPendingEmpty": true,
+    "deliveredEmpty": true,
+    "scope": "OS scheduling and obsolete-request cancellation; separate timer proves OS delivery. Remote push not configured."
+  },
+  "accessibility": {
+    "inspected": "actual normal-font wide/compact dimensions and pixels, largest-font navigation, public XCTest all5area selected/Close, full labels for native radio Other elements in XCTest AX (Maestro serializer omits labels)",
+    "limits": "cropped XCUI screenshot attachments do not establish every full area layout visually; full VoiceOver traversal not claimed"
+  },
+  "receiptPaths": [
+    "navigation-final-release/ipad-120s-before-background.json",
+    "navigation-final-release/ipad-120s-server.json",
+    "navigation-final-release/ipad-120s-after-deadline.json",
+    "navigation-final-release/ipad-delivered-coordinate-tap.xcresult",
+    "navigation-final-release/ipad-due-pending.json",
+    "navigation-final-release/due-fixture-receipt.json",
+    "navigation-final-release/ipad-after-due-cleanup.json",
+    "navigation-final-release/timer-probe-completed.json",
+    "final-owned-cleanup.json"
+  ]
+}

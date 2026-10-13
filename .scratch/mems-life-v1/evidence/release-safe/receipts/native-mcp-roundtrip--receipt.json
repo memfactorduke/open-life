@@ -97,5 +97,12 @@
     "receiptContainsCredentials": false,
     "receiptContainsOwnershipTokens": false,
     "credentialLifetime": "process memory only"
+  },
+  "cleanup": {
+    "at": "2026-10-13T07:08:10.784Z",
+    "foodDeleted": true,
+    "routineArchived": true,
+    "ownedGrantsRevoked": true,
+    "ownedSessionInactive": true
   }
 }

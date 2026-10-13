@@ -23,5 +23,12 @@
     "package-lock.json": "e16a4ba9056bf8d16a8d739b3581e398902729142a1662563648048ccfc522ce"
   },
   "rawLogLocalOnly": ".runtime/final-mobile-navigation-tests.log",
-  "countsBoundary": "134 overlaps prior131/119/94 mobile runs; do not sum historical counts. Shared domain39/server23 tests executed at cdf1f84 have unchanged source."
+  "countsBoundary": "134 overlaps prior131/119/94 mobile runs; do not sum historical counts. Shared domain39/server23 tests executed at cdf1f84 have unchanged source.",
+  "nativeArtifact": {
+    "sourceManifest": "8918f989b70102677e37a8d8c180bcd35a497bf4da2c8c2616bcae23ee68d515",
+    "nativeAssetManifest": "4bd67958767f8fd5e3fe77dec67ed370233e343a6fb6716121c66e32bed7f8fc",
+    "mainJsBundle": "5fde698342f1486409cb1e0af7e3dcf5f23ac55cbe9a0cc08f704a4302f95465",
+    "nativeBinary": "57a5f7891e6765d9f8cf218b7df8e04df0e3047141d9a802c2c998539bb60892",
+    "scope": "Fresh immutable native build; actual largest-text smoke recorded separately"
+  }
 }

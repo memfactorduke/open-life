@@ -166,11 +166,11 @@
     },
     {
       "file": "receipts/native-mcp-roundtrip--receipt.json",
-      "bytes": 3811,
-      "sha256": "67d7fe0d5f8651f93c64eb7c3f64cf80fb8ea5b1978ac1446b9246a55aad43f6",
+      "bytes": 3988,
+      "sha256": "9749173e8dbe39acd112c86e9743a413644af3fc067bca053614533b79a9af0a",
       "rawLocalOnly": ".scratch/mems-life-v1/evidence/native-mcp-roundtrip/receipt.json",
-      "rawBytes": 3811,
-      "rawSha256": "67d7fe0d5f8651f93c64eb7c3f64cf80fb8ea5b1978ac1446b9246a55aad43f6",
+      "rawBytes": 3988,
+      "rawSha256": "9749173e8dbe39acd112c86e9743a413644af3fc067bca053614533b79a9af0a",
       "review": "Explicit reviewed receipt; original evidence links are local-only"
     },
     {
@@ -256,11 +256,11 @@
     },
     {
       "file": "receipts/final-mobile-navigation-checks.json",
-      "bytes": 1604,
-      "sha256": "c21a3e1a8cdee98cde5e4b128fcbd2dc0f1d2407e744338e9fef13c729a2fb42",
+      "bytes": 2083,
+      "sha256": "1245ce93aec6d0eef08e0f8786ef88c8ac1ec41a8725e47b87bc796ed749571e",
       "rawLocalOnly": ".scratch/mems-life-v1/evidence/final-mobile-navigation-checks.json",
-      "rawBytes": 1604,
-      "rawSha256": "c21a3e1a8cdee98cde5e4b128fcbd2dc0f1d2407e744338e9fef13c729a2fb42",
+      "rawBytes": 2083,
+      "rawSha256": "1245ce93aec6d0eef08e0f8786ef88c8ac1ec41a8725e47b87bc796ed749571e",
       "review": "Explicit reviewed receipt; original evidence links are local-only"
     },
     {
@@ -270,6 +270,60 @@
       "rawLocalOnly": ".scratch/mems-life-v1/evidence/native-restore-proof/complete.json",
       "rawBytes": 1116,
       "rawSha256": "b4fdc1a802ba06a623427a14db308e1bc23aa88989c15251ac77d5415e3db8d5",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/physical-ipad-proof--reviewed-summary.json",
+      "bytes": 5671,
+      "sha256": "04c535c346ce47acc78e1654c1fdbf84c3ac7878c730f0b4c0d9b2ba1865b8c6",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/physical-ipad-proof/reviewed-summary.json",
+      "rawBytes": 5717,
+      "rawSha256": "d82defc5546fa19c763bbb970c81f508c5c35345d397fc0f1bc01ffdff24c5ad",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/native-gym-food--final-native-receipt.json",
+      "bytes": 6741,
+      "sha256": "562fac7713b60eb16d3753c48590c6fbf783f090ed627b51499f8b3d888ae707",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/native-gym-food/final-native-receipt.json",
+      "rawBytes": 6741,
+      "rawSha256": "6bf4b90347d02f48cf6cb5705b5f2eead9c8d9300872579e9e5757edffd255d2",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/native-gym-food--icon-final-release--verification.json",
+      "bytes": 1316,
+      "sha256": "81b38724aac41dac312fd457213afd0f44842805bc50c236547df1d65f0b6fb2",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/native-gym-food/icon-final-release/verification.json",
+      "rawBytes": 1316,
+      "rawSha256": "81b38724aac41dac312fd457213afd0f44842805bc50c236547df1d65f0b6fb2",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/final-icon-container--verification.json",
+      "bytes": 5475,
+      "sha256": "feceb8359bd5f68568e66f7ef805e993cce799c642892857d0abfce1f3267ec9",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/final-icon-container/verification.json",
+      "rawBytes": 5475,
+      "rawSha256": "feceb8359bd5f68568e66f7ef805e993cce799c642892857d0abfce1f3267ec9",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/external-configuration-check.json",
+      "bytes": 459,
+      "sha256": "02d17336155268079541615aa3824ead3698a7dd735cca8c6e8fd73fed985542",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/external-configuration-check.json",
+      "rawBytes": 459,
+      "rawSha256": "02d17336155268079541615aa3824ead3698a7dd735cca8c6e8fd73fed985542",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/final-scope-audit.json",
+      "bytes": 1200,
+      "sha256": "5bdbe5a173b4bd244316ce97bb77e04aac4c3f9a2669419cdfa6ffe9e0d5a6d8",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/final-scope-audit.json",
+      "rawBytes": 1200,
+      "rawSha256": "5bdbe5a173b4bd244316ce97bb77e04aac4c3f9a2669419cdfa6ffe9e0d5a6d8",
       "review": "Explicit reviewed receipt; original evidence links are local-only"
     },
     {

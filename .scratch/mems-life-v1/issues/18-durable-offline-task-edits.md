@@ -1,11 +1,11 @@
 # 18: Preserve ordinary task edits offline
 
 Status: ready-for-agent
-State: claimed
+State: resolved
 Blocked by: 05, 07, 15, 17
 Spec: [Mem's Life first release](../spec.md)
 Coverage: US-21
-Phase: authorized implementation and release verification in progress; acceptance remains unverified
+Phase: verified implementation with scoped composite execution evidence; external release gates remain in ticket29
 
 ## What to build
 
@@ -36,3 +36,5 @@ Evidence remaining: Current literal unchecked criteria retain only the concrete 
 Evidence: Current acceptance reconciliation (2026-10-13). 18.1/18.2/18.4: [actual SQLite/HTTP/PG recovery execution](../evidence/offline-live/protocol-proof.json), [independent clean-checkout execution](../evidence/clean-checkout/verification.json), [later mobile execution at b5cdf94](../evidence/mobile-final-photo-checks.json); actual Expo offline task creation/relaunch/resync and SQLite identities are in `native-gym-food/cold-start-release/final-offline-durability-assertion.json` and `final-server-convergence.json`. Executed SQLite recovery/domain/PG assertions preserve local/confirmed/conflict states, tombstones and recurrence history. 18.3/18.5 retain the concrete native consequential-action/logout/expired-auth proof boundary; component policy checks alone are not an OS account lifecycle claim.
 
 Evidence: Current native recovery reconciliation (2026-10-13). 18.3/18.5 now qualify by composite policy and actual native account recovery proof: executed `verify-native-offline.mjs` rejects execution-sensitive changes, preserves pending work across logout and verifies isolated account partitions; current client/session-bootstrap assertions and later real revoked-session denial/reauth captures preserve immutable pending task operation06b8520d through termination and record exactly one server history event after sign-in (`native-gym-food/photo-fixed-release/revoked-task-pending-assertion.json`, `revoked-task-server-convergence.json`). Real native cached identity is closed after401; ordinary offline views are not treated as an active authorized session. Online-only artifact approval is independently verified by ticket20 fresh actual browser/PG receipt. This combines a real OS account journey with deterministic policy/partition tests; it does not invent a second native logout journey. All literal criteria qualify; State awaits ticket17.
+
+Evidence: Dependency reconciliation (2026-10-13). All literal criteria are verified by the scoped receipts above; all listed prerequisites are now resolved. State resolved. External physical/live-provider gates remain in29 and are not inferred from this resolution.

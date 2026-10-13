@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "commit": "63f2a92285007197316ab046f56b1fee317c8ff2",
+  "nativeBuild": "Normal ad-hoc cached Release after pinned pod install --deployment; Podfile.lock matches preserved previously tested lock",
+  "sourceStableBeforeAfter": true,
+  "buildIdentity": {
+    "sourceManifest": "1630b30305f6926451895c28282cad4a8d39047aed4d6c8f2056b61e124bc499",
+    "nativeAssetManifest": "6e8db101fbb832e97d16a088a6e253acd5bb22d77774bd7c39d2e1b8dda7932c",
+    "mainJsBundle": "5fde698342f1486409cb1e0af7e3dcf5f23ac55cbe9a0cc08f704a4302f95465",
+    "nativeBinary": "7aeb74ade686b484fa0c4772b0a46a2683fe271da9c957b9f65a15acec4a91b8"
+  },
+  "functionalBundleUnchangedFrom5fde": true,
+  "smoke": [
+    "actual installed Home icon visually reviewed",
+    "actual authenticated Today with Capture a task visible",
+    "normal owner cache/session remains usable"
+  ],
+  "sourceGateRepair": "Expo prebuild regenerated ignored native workspace; deployment-only CocoaPods recreated workspace with identical locked native versions. Initial no-install attempt failed before compilation, preserved privately.",
+  "limits": [
+    "No rerun of all earlier functional journeys",
+    "No physical camera or personalWHOOP consent claim",
+    "Simulator ad-hoc is not store distribution"
+  ],
+  "ownedSimulatorsStopped": true
+}
