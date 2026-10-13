@@ -1,0 +1,90 @@
+.agent-workflow {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line, #dce2dc);
+}
+.agent-workflow h4 {
+  margin: 0 0 8px;
+}
+.agent-workflow h5 {
+  font-size: 1rem;
+  margin: 0 0 10px;
+}
+.agent-workflow label {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+}
+.agent-workflow input,
+.agent-workflow select,
+.agent-workflow textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+}
+.agent-workflow input[type='checkbox'] {
+  width: 24px;
+  min-height: 24px;
+}
+.agent-workflow pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  padding: 12px;
+  background: var(--background, #f5f4f0);
+  border-radius: 8px;
+}
+.agent-workflow small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.workflow-steps {
+  display: grid;
+  gap: 14px;
+}
+.workflow-steps article,
+.workflow-result,
+.workflow-recovery {
+  padding: 16px;
+  border: 1px solid var(--line, #dce2dc);
+  border-radius: 12px;
+  margin: 12px 0;
+}
+.workflow-result {
+  background: var(--surface, #fff);
+}
+.workflow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.agent-workflow button {
+  min-height: 44px;
+  margin: 4px 8px 4px 0;
+}
+.agent-workflow details summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.workflow-notice {
+  border-left: 3px solid #24614c;
+  padding: 10px;
+}
+.agent-workflow fieldset {
+  border: 0;
+  padding: 0;
+}
+.agent-workflow a {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .workflow-steps article {
+    padding: 12px;
+  }
+  .agent-workflow button {
+    width: 100%;
+    margin: 4px 0;
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "symptom": "Native retained photo upload returns HTTP500 INTERNAL_ERROR",
+  "actualFixture": {
+    "entryId": "89f56e3d-a8a1-4c95-84f6-83b6b1ebc426",
+    "uploadId": "61934d4a-745f-43e9-b491-994917cf4386",
+    "bytes": 85897,
+    "sha256": "81a7ae38584a20b21fe1a9dd494d9b15a822f7c4372e933c2f69f15c62e05b16"
+  },
+  "differential": {
+    "application/octet-stream": 200,
+    "image/jpeg": 500,
+    "chunkedOctetStream": 200,
+    "parameterizedOctetStream": 200
+  },
+  "cause": "Installed Expo fetch normalizes File as Blob and overrides the explicitly supplied Content-Type with File.type (image/jpeg). Server food route previously registered only application/octet-stream. Fastify unsupported media type was wrapped as generic500.",
+  "dependencyEvidence": [
+    "node_modules/expo/src/winter/fetch/RequestUtils.ts normalizeBodyInitAsync Blob branch",
+    "node_modules/expo/src/winter/fetch/fetch.ts overriddenHeaders application"
+  ],
+  "fix": "Food binary parser accepts bounded raw octet-stream, image/jpeg and image/png; existing declared-size/checksum/type/decode verification remains authoritative. Mobile owner separately changes File body to Uint8Array to preserve intended transport header.",
+  "regression": {
+    "command": "node --import tsx --test apps/server/test/native-media.test.ts",
+    "before": "500 !==200 on image/jpeg upload",
+    "after": "passed allocation/upload/finalize/idempotentfinalize/private read; anonymous401, oversized413, checksum mismatch422"
+  },
+  "verification": [
+    "food.test.ts passed",
+    "server typecheck passed"
+  ],
+  "liveCheckpoint": "Root must activate server fix and native owner must retry original retained upload; this evidence does not assert that native retry is already complete.",
+  "instrumentation": "No debug logging added. No cookies, credentials or request bodies saved."
+}

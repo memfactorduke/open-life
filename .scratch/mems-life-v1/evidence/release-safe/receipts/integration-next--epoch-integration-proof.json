@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-13",
+  "source": "apps/server/test/next-wiring.test.ts",
+  "database": "mems_life_next_wiring_test",
+  "verified": [
+    "Migration dispatch 1 through 14 is idempotent",
+    "Actual SDK scoped WHOOP and agent workflow paths use shared application wiring",
+    "Agent cannot weaken human responsibility, required steps, or task final review",
+    "Old snapshot epoch rejected with HTTP 409 and current epoch details before receipt lookup",
+    "Rejected old epoch mutation leaves task, receipt, and change feed unchanged"
+  ],
+  "checks": {
+    "postgresqlIntegrationSuites": 4,
+    "postgresqlIntegrationPassed": 4,
+    "nativeSettingsNotificationTests": 14,
+    "nativeSettingsNotificationPassed": 14,
+    "workspaceTypechecks": "domain, mobile, server, web passed",
+    "sharedScopedEslint": "passed"
+  },
+  "remainingEvidenceGates": [
+    "Parent coordinated server activation",
+    "Rebuilt native binary after date picker and sharing installation",
+    "Native force-quit/offline/photo recovery and notification interaction",
+    "Production browser private photo rendering under CSP",
+    "Configured Expo provider, Apple signing, and real remote delivery"
+  ]
+}

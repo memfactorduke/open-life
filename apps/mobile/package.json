@@ -1,0 +1,47 @@
+{
+  "name": "@mems-life/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit",
+    "bundle:ios": "expo export --platform ios --output-dir dist",
+    "test": "jest --runInBand",
+    "build": "expo export --platform ios --output-dir dist"
+  },
+  "dependencies": {
+    "@better-auth/expo": "1.7.7",
+    "@mems-life/domain": "*",
+    "@react-native-community/datetimepicker": "9.1.0",
+    "better-auth": "1.7.7",
+    "expo": "57.0.28",
+    "expo-build-properties": "~57.0.22",
+    "expo-constants": "~57.0.21",
+    "expo-crypto": "~57.0.4",
+    "expo-document-picker": "57.0.3",
+    "expo-file-system": "57.0.7",
+    "expo-haptics": "57.0.3",
+    "expo-image-manipulator": "57.0.21",
+    "expo-image-picker": "57.0.20",
+    "expo-linking": "~57.0.12",
+    "expo-network": "~57.0.2",
+    "expo-notifications": "57.0.22",
+    "expo-secure-store": "~57.0.4",
+    "expo-sharing": "57.0.23",
+    "expo-sqlite": "~57.0.4",
+    "expo-web-browser": "~57.0.3",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0"
+  },
+  "devDependencies": {
+    "@testing-library/react-native": "14.1.0",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^19.2.0",
+    "jest": "30.5.2",
+    "jest-expo": "57.0.6",
+    "typescript": "5.9.3"
+  }
+}

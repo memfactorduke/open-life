@@ -1,0 +1,84 @@
+{
+  "scope": "Today client components and fictional browser projection layout; not live database or native-device proof",
+  "native_component_tests": {
+    "command": "npm run test --workspace @mems-life/mobile -- --runTestsByPath tests/today.test.tsx",
+    "passed": 3,
+    "snapshots": 0
+  },
+  "browser_fixture": {
+    "command": "npm run test:e2e --workspace @mems-life/web -- e2e/today.spec.ts -g fictional daily focus",
+    "passed_browsers": [
+      "chromium",
+      "firefox",
+      "webkit"
+    ],
+    "final_primary_action_rerun": [
+      "chromium"
+    ],
+    "sizes": [
+      [
+        390,
+        844
+      ],
+      [
+        600,
+        800
+      ],
+      [
+        834,
+        1194
+      ],
+      [
+        1194,
+        834
+      ],
+      [
+        1440,
+        900
+      ]
+    ],
+    "visual_checks": [
+      "phone.png",
+      "web.png"
+    ],
+    "no_horizontal_overflow": true
+  },
+  "source_checks": [
+    "prettier check passed",
+    "eslint scoped files passed",
+    "web typecheck passed"
+  ],
+  "live_proof": {
+    "test": "live PostgreSQL day reaches its exact task, workout and food records",
+    "status": "passed on actual PostgreSQL via localhost3001 service and localhost5173 web",
+    "browser": "chromium",
+    "responsive_sizes": [
+      [
+        390,
+        844
+      ],
+      [
+        600,
+        800
+      ],
+      [
+        834,
+        1194
+      ],
+      [
+        1194,
+        834
+      ],
+      [
+        1440,
+        900
+      ]
+    ],
+    "evidence": "../daily-focus-live/adaptive-final-browser",
+    "log": "../daily-focus-live/adaptive-final-run.log",
+    "cleanup": "own session confirmed abandoned revision2; own food deleted revision2; due task deleted revision4; agent handoff task deleted revision5; exact IDs in cleanup-confirmed.json",
+    "prior_run_cleanup": "../daily-focus-live/prior-owned-cleanup.json",
+    "remaining_observation": "Today uses saved Asia/Tokyo preference while web Food editor uses device America/New_York timezone; reported to parent and Food glue owner"
+  },
+  "native_device_proof": "not performed by this worker; coordinator retains exclusive device ownership"
+}

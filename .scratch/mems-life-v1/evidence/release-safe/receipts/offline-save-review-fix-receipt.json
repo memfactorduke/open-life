@@ -1,0 +1,28 @@
+{
+  "createdAt": "2026-10-13T04:27:31.532667+00:00",
+  "status": "source-barrier-ready",
+  "runtime": "Node 24.21.0",
+  "checks": {
+    "targetedJest": "3 suites, 15 tests passed",
+    "mobileTypecheck": "passed",
+    "scopedESLint": "passed",
+    "verify-native-offline.mjs": "passed",
+    "verify-offline-recovery.mjs": "passed, including later immutable schedule and text fork",
+    "verify-orphan-photo-recovery.mjs": "passed",
+    "verify-sync-cursor-recovery.mjs": "passed"
+  },
+  "sourceSHA256": {
+    "apps/mobile/src/offline/store.ts": "b896b7028842337d81cca6dc89a8b326ac12c9a28b63c5d4f1e028c6b91ef56d",
+    "apps/mobile/src/offline-client.ts": "84251483e04397eec91d69736af32b805ea3ca38e7f371cab5c8e838e5f1d218",
+    "apps/mobile/src/features/Food.tsx": "2973cfadda130ccd9e06a9a2b626707109ae1dc5dff8bff3d9cdb823a69de25d",
+    "apps/mobile/src/SyncStatus.tsx": "aadba3742918b2c099570bece22abd90185322fc2f91d851312082565c6a486a",
+    "apps/mobile/src/offline/recovery.ts": "9581d2e3f8a62f571e53c58dba01b7d5d94cf2d0f2054884ce307ee3e3ab020c",
+    "apps/mobile/src/__tests__/food-durable-save.test.tsx": "84c7189cc7ad668d92f0f5fdc00521a77ac6a9374c317bef627a039fc3d9895d",
+    "apps/mobile/src/__tests__/sync-status.test.tsx": "9e8d521ae531975eb694e6a2c63c96b00b776230e593e6a9689dd9849651b9cf",
+    "scripts/verify-offline-recovery.mjs": "02395a42fce9a0906288c3720b359b4cb26618fb82f5e8a8c72b952f6ec915cb"
+  },
+  "limits": [
+    "SQLite fixture uses real file-backed Node driver; native Expo and device lifecycle remain separate",
+    "Native upload callback mock establishes actual client allocation/finalization call sequence; live PostgreSQL bridge checked separately"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "recordedAt": "2026-10-13T03:04:44.945029+00:00",
+  "sourceBase": "5516089a31de5bb41165e44b3490c893bf442424",
+  "sourceStatus": "uncommitted working tree, per-file hashes below",
+  "sourceSha256": {
+    "package-lock.json": "6f58f3eab90cdb9e259d48bbc0918327ffc4bb6021ad37d71bf5911764ce54f7",
+    "apps/server/src/app.ts": "86b6a6a851e7c0b3f43712d74416288cdb0aa97436066ba6021e8f73afb07bac",
+    "apps/server/src/auth.ts": "f630ce74f17433df6ce3b6ebdf362629e66e5eaddfe01e527716d22f8333b720",
+    "apps/server/src/operations.ts": "1b59dca6f42a05783837e4b44868ae5e05ce65260fcb5c84ffc62d3e54b3083a",
+    "apps/server/src/database.ts": "796ce76d55d6c41019d0cbbee6deaf5c2839b15d21c43270e20bde8158a4b430",
+    "apps/server/test/integration.test.ts": "02c3faf20042bc211861949490f039d1f8867c161f588a26516a12d6b4217f3b",
+    "apps/server/test/cli.test.ts": "488eed9d20a9d09ec2fb36c407ed70da6743d909c20e15c03e10744ed64deb68",
+    "apps/web/e2e/private-workspace.spec.ts": "67e91c94086741f31ea8dd5e46342bff7551dfcdc3bb507f0bdb5b3dea894e5b"
+  },
+  "checks": [
+    {
+      "command": "TEST_DATABASE_URL=postgresql://mems_life@127.0.0.1:55432/mems_life_test FEATURES_TEST_DATABASE_URL=postgresql://mems_life@127.0.0.1:55432/mems_life_features_test npm run test --workspace @mems-life/server",
+      "runtime": "Node24.21.0 npm11.19.0",
+      "result": "pass",
+      "tests": 3,
+      "skipped": 0,
+      "durationMs": 4354.34125,
+      "log": "tests.log"
+    },
+    {
+      "command": "WEB_TEST_EMAIL=owner@example.test WEB_TEST_PASSWORD=<fictional fixture> WEB_TEST_URL=http://127.0.0.1:5173 npm run test:e2e --workspace @mems-life/web -- private-workspace.spec.ts --reporter=line",
+      "runtime": "Node24.21.0 npm11.19.0",
+      "result": "pass",
+      "tests": 15,
+      "engines": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ],
+      "durationSeconds": 16.7,
+      "toolSession": 53280,
+      "scope": "sign-in, persistence, conflict review, invalid credentials, response loss, session revocation; actual local PostgreSQL service"
+    }
+  ],
+  "nativeEvidence": "../native-foundation/results.json",
+  "sourceHashBoundary": "Hashes inventoried after these runs in a concurrently edited working tree. They identify the inspected files, not a complete frozen release snapshot. The immutable native foundation bundle is separately identified."
+}

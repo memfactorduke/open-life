@@ -1,0 +1,78 @@
+.agent-access {
+  display: grid;
+  gap: 1.4rem;
+  margin-top: 2rem;
+  padding: clamp(1rem, 3vw, 2rem);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.agent-access h2,
+.agent-access h3,
+.agent-access h4,
+.agent-access p {
+  margin: 0;
+}
+.agent-access header,
+.agent-access form,
+.agent-connection,
+.agent-key,
+.agent-grants article {
+  display: grid;
+  gap: 0.8rem;
+}
+.agent-access label {
+  display: grid;
+  gap: 0.45rem;
+}
+.agent-access textarea {
+  min-height: 100px;
+  overflow-wrap: anywhere;
+  font-family: monospace;
+}
+.agent-access code {
+  overflow-wrap: anywhere;
+}
+.agent-key {
+  padding: 1rem;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+}
+.agent-scope-grid,
+.agent-grants {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 1rem;
+}
+.agent-scope-grid fieldset {
+  display: grid;
+  gap: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem;
+}
+.agent-access .agent-scope {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.agent-access .agent-scope input {
+  width: 20px;
+  min-height: 20px;
+  margin: 2px 0;
+  flex-shrink: 0;
+}
+.agent-grants article {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.agent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem;
+}
+.agent-access button {
+  min-height: 44px;
+}

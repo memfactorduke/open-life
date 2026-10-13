@@ -1,0 +1,108 @@
+{
+  "scope": "old immutable gym-food Release only",
+  "hashes": {
+    "sourceSnapshot": "ca9cf1e22a418d9c6455b3083a7172470231bb346feb110fa5f6dc51781ae91d",
+    "mainJsBundle": "5ded709b8e031a1ef6ba6542a2aa88370f6e3d728481d0e6e9b361a8a6250861",
+    "nativeBinary": "4abcf1d9734783977ec4a0eb3cef322da0af5c832fd5e4ab80d6a5472773c4c5"
+  },
+  "rows": [
+    {
+      "status": "Verified",
+      "area": "Embedded native Release",
+      "finding": "Expo prebuild, Pods, Release build, installed both owned iOS26.5 simulators. JS/source/binary hashes bind this evidence.",
+      "evidence": "hashes.txt"
+    },
+    {
+      "status": "Verified",
+      "area": "Tablet gym actuals",
+      "finding": "Completed session f14b033a-e342-49ed-994c-90b76649c209 rev19: warm-up5×20kg; corrected working9×40kg and6×42kg; bodyweight10 and8reps;35sec hold;500m/120sec distance.612kg-reps working volume.",
+      "evidence": "session-finished.json"
+    },
+    {
+      "status": "Verified",
+      "area": "Plan and history",
+      "finding": "Routine remained rev1; skip/reorder/add/substitute retained recorded results; two unperformed substitutions remained0results.19 history events include correction reason and snapshots.",
+      "evidence": "session-history.json"
+    },
+    {
+      "status": "Verified",
+      "area": "Superset and drafts",
+      "finding": "Ordered Press→Body superset rounds recorded. Exercise navigation retained6reps42kg round1 before save.",
+      "evidence": "session-rounds.json"
+    },
+    {
+      "status": "Verified",
+      "area": "Timer recovery",
+      "finding": "Start/pause/resume, background and forcequit/relaunch retained same server deadline and actuals. This was online recovery, not an offline claim.",
+      "evidence": "session-after-restart.json"
+    },
+    {
+      "status": "Verified with recorded test correction",
+      "area": "Phone gym and previous performance",
+      "finding": "Own partial session5f01f326-55d6-4629-a9ea-46a057fbd421 abandonedrev4. Automation first entered520reps/null load; native correction changed to5reps20kg with reason. Previous display showed completed tablet actuals and612kg-reps.",
+      "evidence": "phone-session-history.json"
+    },
+    {
+      "status": "Verified",
+      "area": "Two-photo diary persistence",
+      "finding": "Native picker imported fictional JPEG+PNG, normalized to private JPEGs. Entry89f56e3d-a8a1-4c95-84f6-83b6b1ebc426 Oct11 12:30 savedrev3 after sameidentity retry. Forcequit/relaunch phone and tablet both displayed correct text and two images.",
+      "evidence": "food-native-retry-fixed.json"
+    },
+    {
+      "status": "Verified",
+      "area": "Shared detach and deletion",
+      "finding": "Tablet Remove photo produced rev4; phone relaunch displayed remaining yellow image; native Delete produced rev5 softdelete. Tablet UI read after deletion was not performed.",
+      "evidence": "food-native-history.json"
+    },
+    {
+      "status": "Verified creation only",
+      "area": "Text diary",
+      "finding": "Tablet created two distinct backdated text records rev1, one containing corrected wording. A same-record native edit was not proven; do not interpret the earlier flow label as a correction pass.",
+      "evidence": "tablet-food-exact-records.json"
+    },
+    {
+      "status": "Failed visual gate",
+      "area": "Phone Session and Routine modal safe areas",
+      "finding": "Save a partial workout? and New routine headings overlap status time, Wi-Fi and battery in immutable bundle. Task modal is clear and tallscroll returned to top. iPad modal headings were clear.",
+      "evidence": "phone-correct-static/2026-10-13_001848/phone-correct-static/takeScreenshot/phone-abandon-confirm.png"
+    },
+    {
+      "status": "Verified portrait; rotation open",
+      "area": "First-class iPad layout",
+      "finding": "Sidebar navigation and side-by-side private photos visible. Maestro reported landscape rotation but screenshots stayed1668×2420 portrait; wide rotation gate not proven.",
+      "evidence": "ipad-shared-media/2026-10-13_001143/food-shared-restart/takeScreenshot/shared-food-two-photos.png"
+    },
+    {
+      "status": "Simulator boundary",
+      "area": "Camera and permissions",
+      "finding": "Take photo opened native gray simulator camera UI. No hardware photograph proven. Permission denial, meaningful retained-draft cancel, notifications delivery and native two-device conflict retry remain open.",
+      "evidence": "phone-camera/2026-10-13_002301/phone-camera/takeScreenshot/phone-camera-simulator.png"
+    },
+    {
+      "status": "Verified",
+      "area": "Food top spacing",
+      "finding": "Fresh launch keyboard-dismissed Food heading and form have normal top spacing. Prior blank was a transient keyboard/scroll state. Partial historydate typing leaves stale invalid-values notice after valid results load.",
+      "evidence": "phone-food-visible/2026-10-13_001040/food-shared-restart/takeScreenshot/food-normal-top.png"
+    },
+    {
+      "status": "Verified",
+      "area": "Exact fixture cleanup",
+      "finding": "Two text entries and own task softdeleted, routine and five exercises archived. Photo entry native softdeleted. Completed/abandoned session history retained. No schema reset or preferences change.",
+      "evidence": "cleanup-receipts.json"
+    }
+  ],
+  "limitations": [
+    "Current offline/Today/AgentWorkflow/native datepicker/sharing/documentpicker source outside this bundle.",
+    "Do not claim all flow files pass: failed exploratory fragments retained.",
+    "Maestro hidden accessibility bounds can tap bottom navigation or keep previous field focus; centered fields/static label keyboard dismissal and screenshots required.",
+    "Exact owned phone dasd was killed after scoped recovery diagnosis; no global daemon touched."
+  ],
+  "commandTemplates": [
+    "PATH=/opt/homebrew/opt/node@24/bin:$PATH npx expo prebuild --platform ios --no-install",
+    "pod install",
+    "npx expo run:ios --device 09981CDA-7E87-406A-A204-97962B96E080 --configuration Release --no-bundler",
+    "JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home maestro --udid OWNED_UUID test --test-output-dir EVIDENCE_DIR FLOW.yaml",
+    "xcrun simctl install OWNED_UUID .runtime/native/gym-food-release.app",
+    "python3 .scratch/mems-life-v1/evidence/native-gym-food/cleanup.py"
+  ]
+}

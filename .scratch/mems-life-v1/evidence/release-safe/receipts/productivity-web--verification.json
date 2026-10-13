@@ -1,0 +1,30 @@
+{
+  "verifiedAt": "2026-10-13T03:34:34.527014+00:00",
+  "result": "15 passed (25.3s)",
+  "browsers": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "checks": [
+    "configuration, organization, dates, mixed parallel dependencies and completion readiness",
+    "390px width without horizontal overflow",
+    "committed step command with dropped response replays exact operation payload once",
+    "monthly future edit, occurrence skip and cancellation preserve archived history",
+    "real card drag and Move up order persist after reload",
+    "externally stale card requires saved-version review before overwriting"
+  ],
+  "sourceSha256": {
+    "apps/web/src/features/Tasks.tsx": "24966bfd3e61a9f356d999aefa932e5a4a0c1f9ad39c3edc474f7c21ce257264",
+    "apps/web/src/features/Productivity.tsx": "cce3d15c9fd6e3d189ae57e6819c6654334ec741eeebc3cca231d9698eff4b00",
+    "apps/web/src/features/productivity.css": "a66309aa502b64da898c5dba11c8b367bbc9e7171f8701e08c64ca7b827562d9",
+    "apps/web/e2e/productivity.spec.ts": "46b6ad23cc3743e0259c6cb2e86111911a4c856389bf918f5126022ee0afb17b"
+  },
+  "validation": [
+    "web TypeScript typecheck passed",
+    "owned files ESLint passed"
+  ],
+  "evidence": "browser.log plus desktop/phone screenshots for all browsers",
+  "fixturePolicy": "Fictional owner, own created task IDs deleted and series cancelled. Board/project configuration retained because API has no delete commands. No owner preference writes.",
+  "scopeLimit": "Web browser viewport verification is not a physical iPhone/iPad verification. Provider/runtime orchestration remains separate scope."
+}

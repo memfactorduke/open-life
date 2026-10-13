@@ -1,0 +1,74 @@
+{
+  "environment": {
+    "node": "24",
+    "service": "NODE_ENV=production createApp with actual static web dist",
+    "database": "mems_life_production_web_test",
+    "origin": "https://localhost:3443",
+    "tls": "Self-signed local laboratory certificate; Playwright ignoreHTTPSErrors limited to this fixture",
+    "providers": "No WHOOP credentials or external provider traffic configured"
+  },
+  "commands": [
+    "PATH=/opt/homebrew/opt/node@24/bin:$PATH npm run build --workspace @mems-life/server",
+    "PATH=/opt/homebrew/opt/node@24/bin:$PATH npm run build --workspace @mems-life/web",
+    "PATH=/opt/homebrew/opt/node@24/bin:$PATH node evidence/production-web/fixture.mjs",
+    "PATH=/opt/homebrew/opt/node@24/bin:$PATH WEB_PRODUCTION_TEST=1 npx playwright test --config apps/web/playwright.config.ts production.spec.ts --output evidence/production-web/results"
+  ],
+  "contrast": {
+    "method": "WCAG relative sRGB luminance ratio",
+    "lightMutedBeforeSurface": 4.34,
+    "lightMutedAfterSurface": 5.02,
+    "lightMutedAfterBackground": 4.64,
+    "darkPrimaryBefore": 3.11,
+    "darkPrimaryAfter": 6.27,
+    "darkPrimaryHoverAfter": 4.75
+  },
+  "limitations": [
+    "Loopback TLS does not prove public HTTPS, DNS, deployment, or physical native devices.",
+    "No Axe dependency installed; manual role/focus/overflow and calculated primary text contrasts are bounded checks, not a complete WCAG audit.",
+    "125% root text scaling does not prove full 200% browser text zoom for every fixed-pixel label."
+  ],
+  "pre_fix": {
+    "cspEvalEventsPerBrowser": 3,
+    "allBrowserJourneysReachedFinalAssertion": true,
+    "cause": "Zod JIT capability probes during imported schema construction attempt eval; CSP blocks them and Zod falls back to its interpreter."
+  },
+  "finalRuntime": {
+    "zod": "4.6.7",
+    "node": "24.21.0",
+    "productionServiceOrigin": "https://localhost:3443"
+  },
+  "sourceSha256": {
+    "apps/web/src/main.tsx": "c07a17f703ce46a0c93381a037ab93e7575c81f8fed874e867e62758c9560781",
+    "apps/web/src/validation.ts": "1a9ca32d3f60886fc3e8de05a33de7321c659758759736ec17ad4bdbcf5d84be",
+    "apps/web/vite.config.ts": "d34a732f2739a6ea7b59a413e4eeb5c3555ac5b52fbc8adde29d0b51cc020e6c",
+    "apps/web/src/styles.css": "f51716306b1af20888dc0893d2ff5c6a625ad3a5d5725ea23eb43ef9c5df1ef9",
+    "apps/web/e2e/production.spec.ts": "21ae0019363d6adb808bae517ff7ce4fb4b892f7df01b1adbf24337062363cdc",
+    "apps/server/src/app.ts": "424d62c28184c20e25373088559cac1557ba8cd34ad0e97c264411e32804ac02",
+    "apps/web/dist/index.html": "9cc57ba69b8581e63d82d926ad73b92b206369a6ac5be17ace0f2a523e0e1c3d",
+    "package-lock.json": "91d00b1fcacb134d9052b76805502153b13c50d44344dc5bb51c5c57ccb58398"
+  },
+  "finalResults": {
+    "productionCriticalFlows": {
+      "passed": 3,
+      "total": 3,
+      "browsers": [
+        "Chromium",
+        "Firefox",
+        "WebKit"
+      ],
+      "cspViolations": 0
+    },
+    "chromiumExistingAuthCompatibility": {
+      "passed": 5,
+      "total": 5
+    },
+    "scopedEslint": "passed",
+    "fixtureShutdown": "Owned production service and TLS proxy stopped; localhost:3443 no longer responds",
+    "screenshotsVisuallyInspected": [
+      "Chromium today-phone.png",
+      "Chromium food-phone.png",
+      "Chromium settings-dark-tablet.png",
+      "Chromium settings-dark-phone-text-scale.png"
+    ]
+  }
+}

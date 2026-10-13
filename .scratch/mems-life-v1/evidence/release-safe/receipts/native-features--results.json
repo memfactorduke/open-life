@@ -1,0 +1,28 @@
+{
+  "bundleSha256": "272579f32b83031f225ad96f961d563f5653e0c90403ac8e9d5519957c1a9ec1",
+  "buildLog": ".runtime/native/features-release-final-build.log",
+  "sourceSnapshot": ".scratch/mems-life-v1/evidence/native-features/source-snapshot.json",
+  "simulators": {
+    "iphone": "09981CDA-7E87-406A-A204-97962B96E080",
+    "ipad": "2886B922-06FD-4FA2-A321-0B0B1F38D067"
+  },
+  "verified": [
+    "iPhone task create/edit Planned Next Active restart",
+    "iPad same task complete reopen archive unarchive delete restore retained history restart",
+    "iPad four exercise modes creation and restart",
+    "iPhone catalog exercise rename and restart",
+    "iPhone mixed routine create and restart",
+    "iPad routine numeric targets ordering duplicate archive recovery restart",
+    "iPhone kg/km lb/mi display conversion with canonical content unchanged",
+    "entire preference value restored revision33 to35",
+    "exact fixture cleanup via application commands"
+  ],
+  "limitations": [
+    "iOS26.5 simulator only; no physical device or distribution",
+    "Native stale revision/denied owner/retry error paths and task reorder not exercised in these journeys",
+    "Modal scroll content overlaps status bar; reported to parent for repair",
+    "Intermediate failed automation retained; use per-command evidence across continuation flows, not a claim every YAML file passed"
+  ],
+  "preferencesRestored": true,
+  "canonicalRoutineUnchangedByConversion": true
+}
