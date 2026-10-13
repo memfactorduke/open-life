@@ -7,6 +7,7 @@ dist/
 build/
 coverage/
 .expo/
+.vite/
 .runtime/
 playwright-report/
 test-results/
