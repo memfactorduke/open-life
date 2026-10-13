@@ -7,6 +7,8 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import Fastify from 'fastify';
 import { Pool } from 'pg';
+import { TaskHistorySchema } from '@mems-life/domain';
+import { ZodError } from 'zod';
 import { migrate, bootstrapOwner } from '../src/database.js';
 import { readConfig } from '../src/config.js';
 import { requireOwner } from '../src/operations.js';
@@ -21,6 +23,7 @@ import {
   detachTaskFile,
 } from '../src/task-files.js';
 import { registerTaskFileRoutes } from '../src/task-file-routes.js';
+import { registerFeatureRoutes } from '../src/feature-routes.js';
 import { issueAgentGrant, authenticateAgent, revokeAgentGrant } from '../src/agent-grants.js';
 import { taskFileMcpTools } from '../src/task-file-tools.js';
 import { ApplicationError } from '../src/errors.js';
@@ -41,6 +44,11 @@ test('private streaming immutable task files: PostgreSQL receipts, interrupted t
     directory = await mkdtemp(join(tmpdir(), 'task-files-fixture-')),
     authorize = async () => {};
   const app = Fastify();
+  const uploadErrors: { error: Error; detachedSocket: boolean }[] = [];
+  app.addHook('onError', async (request, _reply, error) => {
+    if (request.method === 'PUT')
+      uploadErrors.push({ error, detachedSocket: request.raw.socket === null });
+  });
   try {
     await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public');
     await migrate(pool, config);
@@ -55,6 +63,45 @@ test('private streaming immutable task files: PostgreSQL receipts, interrupted t
       pool,
       (await pool.query('SELECT owner_id FROM installation')).rows[0].owner_id,
     );
+    app.setErrorHandler((error, _request, reply) =>
+      reply
+        .status(
+          error instanceof ApplicationError ? error.status : error instanceof ZodError ? 400 : 500,
+        )
+        .send({ error: error.message }),
+    );
+    registerTaskFileRoutes(
+      app,
+      pool,
+      {
+        ownerSession: async (request) => {
+          if (request.headers.cookie !== 'fixture=owner')
+            throw new ApplicationError(401, 'UNAUTHENTICATED', 'Sign in.');
+          if (request.method !== 'GET' && request.headers.origin !== 'http://localhost:5173')
+            throw new ApplicationError(403, 'ORIGIN', 'Origin required.');
+          return { principal: actor };
+        },
+        authorizeAgain: authorize,
+      },
+      { mediaDirectory: directory },
+    );
+    registerFeatureRoutes(app, pool, {
+      ownerSession: async (request) => {
+        if (request.headers.cookie !== 'fixture=owner')
+          throw new ApplicationError(401, 'UNAUTHENTICATED', 'Sign in.');
+        return { principal: actor };
+      },
+      authorizeAgain: authorize,
+    });
+    const history = async (taskId: string) => {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/api/tasks/${taskId}/history`,
+        headers: { cookie: 'fixture=owner' },
+      });
+      assert.equal(response.statusCode, 200, response.body);
+      return TaskHistorySchema.parse(response.json());
+    };
     const taskId = randomUUID();
     await executeTaskCommand(
       pool,
@@ -180,6 +227,27 @@ test('private streaming immutable task files: PostgreSQL receipts, interrupted t
       await finalizeTaskFile(pool, actor, input.fileId, finalCommand, directory, authorize),
       finalized,
     );
+    const finalizedHistory = await history(taskId);
+    assert.equal(finalizedHistory.events.length, 2);
+    assert.equal(finalizedHistory.nextCursor, null);
+    assert.deepEqual(
+      finalizedHistory.events.map(({ type, revision, operationId, actorId, actorType, task }) => ({
+        type,
+        revision,
+        operationId,
+        actorId,
+        actorType,
+        task,
+      }))[0],
+      {
+        type: 'task.file.finalize',
+        revision: 2,
+        operationId: finalCommand.operationId,
+        actorId: actor.userId,
+        actorType: 'human',
+        task: finalized.task,
+      },
+    );
     const file = await readTaskFile(pool, actor, input.fileId, directory);
     const chunks = [];
     for await (const chunk of file.stream) chunks.push(chunk);
@@ -249,6 +317,14 @@ test('private streaming immutable task files: PostgreSQL receipts, interrupted t
     const detach = { operationId: randomUUID(), expectedRevision: 2 };
     await detachTaskFile(pool, actor, input.fileId, detach, authorize);
     await detachTaskFile(pool, actor, input.fileId, detach, authorize);
+    const detachedHistory = await history(taskId);
+    assert.equal(detachedHistory.events.length, 3);
+    assert.equal(detachedHistory.events[0].type, 'task.file.detach');
+    assert.equal(detachedHistory.events[0].revision, 3);
+    assert.equal(detachedHistory.events[0].task.revision, 3);
+    assert.equal(detachedHistory.events[0].operationId, detach.operationId);
+    assert.equal(detachedHistory.events[0].actorId, actor.userId);
+    assert.equal(detachedHistory.events[0].actorType, 'human');
     await assert.rejects(readTaskFile(pool, actor, input.fileId, directory), /not found/);
     assert.equal(
       (await pool.query('SELECT status FROM task_files WHERE id=$1', [input.fileId])).rows[0]
@@ -262,25 +338,26 @@ test('private streaming immutable task files: PostgreSQL receipts, interrupted t
       expectedRevision: 3,
     };
     await allocateTaskFile(pool, actor, taskId, second, authorize);
-    app.setErrorHandler((error, _request, reply) =>
-      reply
-        .status(error instanceof ApplicationError ? error.status : 500)
-        .send({ error: error.message }),
-    );
-    registerTaskFileRoutes(
-      app,
-      pool,
-      {
-        ownerSession: async (request) => {
-          if (request.headers.cookie !== 'fixture=owner')
-            throw new ApplicationError(401, 'UNAUTHENTICATED', 'Sign in.');
-          if (request.method !== 'GET' && request.headers.origin !== 'http://localhost:5173')
-            throw new ApplicationError(403, 'ORIGIN', 'Origin required.');
-          return { principal: actor };
-        },
-        authorizeAgain: authorize,
+    const address = await app.listen({ host: '127.0.0.1', port: 0 });
+    const failedUpload = await fetch(`${address}/api/task-files/${second.fileId}/content`, {
+      method: 'PUT',
+      headers: {
+        cookie: 'fixture=owner',
+        origin: 'http://localhost:5173',
+        'content-type': 'application/octet-stream',
       },
-      { mediaDirectory: directory },
+      body: Buffer.alloc(bytes.length + 1, 65),
+    });
+    assert.equal(failedUpload.status, 413, await failedUpload.text());
+    const failedTransfer = uploadErrors.at(-1)!;
+    assert.equal(failedTransfer.detachedSocket, true);
+    assert.ok(failedTransfer.error instanceof ApplicationError);
+    assert.equal(failedTransfer.error.code, 'FILE_LIMIT');
+    assert.deepEqual(await readdir(join(directory, 'task-files', 'staging')), []);
+    assert.equal(
+      (await pool.query('SELECT status FROM task_files WHERE id=$1', [second.fileId])).rows[0]
+        .status,
+      'pending',
     );
     assert.equal(
       (await app.inject({ method: 'GET', url: `/api/task-files/${second.fileId}` })).statusCode,
@@ -373,6 +450,13 @@ test('private streaming immutable task files: PostgreSQL receipts, interrupted t
       ).rows[0].actor_type,
       'agent',
     );
+    const agentHistory = await history(taskId);
+    assert.equal(agentHistory.events.length, 5);
+    assert.equal(agentHistory.events[0].type, 'task.file.finalize');
+    assert.equal(agentHistory.events[0].revision, 5);
+    assert.equal(agentHistory.events[0].task.revision, 5);
+    assert.equal(agentHistory.events[0].actorId, agent.actorId);
+    assert.equal(agentHistory.events[0].actorType, 'agent');
     assert.equal(
       (
         await app.inject({

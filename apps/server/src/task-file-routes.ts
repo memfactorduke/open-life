@@ -98,7 +98,9 @@ export function registerTaskFileRoutes(
           'Transfer raw bytes with application/octet-stream.',
         );
       const expired = () => request.raw.destroy(new Error('File transfer timed out.'));
-      if (typeof request.raw.setTimeout === 'function') request.raw.setTimeout(60_000, expired);
+      const socket = request.raw.socket;
+      if (socket && typeof request.raw.setTimeout === 'function')
+        request.raw.setTimeout(60_000, expired);
       const deadline = setTimeout(expired, 300_000);
       deadline.unref();
       try {
@@ -112,7 +114,8 @@ export function registerTaskFileRoutes(
         );
       } finally {
         clearTimeout(deadline);
-        if (typeof request.raw.setTimeout === 'function') request.raw.setTimeout(0);
+        // Consuming or aborting the body can detach IncomingMessage.socket.
+        if (typeof socket?.setTimeout === 'function') socket.setTimeout(0);
         request.raw.removeListener('timeout', expired);
       }
     });

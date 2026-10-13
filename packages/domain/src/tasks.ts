@@ -122,6 +122,8 @@ export const TaskHistoryEventSchema = z.strictObject({
     'task.unarchive',
     'task.delete',
     'task.restore',
+    'task.file.finalize',
+    'task.file.detach',
   ]),
   revision,
   task: TaskSchema,
