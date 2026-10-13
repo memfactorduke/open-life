@@ -1,0 +1,10 @@
+node_modules
+.runtime
+dist
+package-lock.json
+apps/mobile/ios
+apps/mobile/android
+# Imported license, source, and provenance bytes are immutable.
+scripts/licenses/
+# Generated verification artifacts.
+apps/*/evidence/

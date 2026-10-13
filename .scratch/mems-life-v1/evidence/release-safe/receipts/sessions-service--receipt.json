@@ -1,0 +1,37 @@
+{
+  "verifiedAt": "2026-10-13T03:12:31.378292+00:00",
+  "database": "mems_life_sessions_test at 127.0.0.1:55432",
+  "commands": [
+    "PATH=/opt/homebrew/opt/node@24/bin:$PATH npx tsx --test apps/server/test/sessions.test.ts",
+    "PATH=/opt/homebrew/opt/node@24/bin:$PATH npm run test --workspace=@mems-life/domain -- --runInBand sessions.test.ts",
+    "PATH=/opt/homebrew/opt/node@24/bin:$PATH npm run typecheck --workspace=@mems-life/server"
+  ],
+  "sha256": {
+    "packages/domain/src/sessions.ts": "cd1c028b39f5bdc2e7d1c660b700b9927fdcfc080423024440ed352e0ff955d0",
+    "packages/domain/tests/sessions.test.ts": "cff2b6929f951db364de13d31cf171c3baefd19db4ddea339180f7d3aa87cff2",
+    "apps/server/src/sessions.ts": "e06745651108c88240634c3e8913919ee518ba6bee4d972bb206b67f6aa420e1",
+    "apps/server/src/session-migrations.ts": "6fef37137251ff207b615e86942436abdfbb07e88f5ea87040a6d75003b89125",
+    "apps/server/src/session-routes.ts": "8fd9d188a3b03e43b9f6d04a22daabd5c42ffc48b9c707a312833da93fb5a552",
+    "apps/server/test/sessions.test.ts": "f8ab6f60442a2adb6b83d8ca9aa1840fa359c45a60727419671a2f0ac8cf3eae"
+  },
+  "coverage": [
+    "snapshots independent of plan edits",
+    "actual results four measurement modes",
+    "warmup vs working and missing data volume exclusion",
+    "owner authorization repeated with held transaction client even for replay",
+    "exact replay, changed reuse, concurrency conflict, transaction rollback",
+    "explicit finish and partial abandonment",
+    "retained substitution results and corrected result history with reason",
+    "superset exercise and round associations",
+    "persisted server deadlines pause and resume without alert-owner change",
+    "selected future-plan update transaction and routine revision conflict",
+    "session/history/performance pagination",
+    "previous comparable mode filtering and current-session exclusion"
+  ],
+  "remainingGates": [
+    "native timer notification background restart actual device tests",
+    "offline atomic acknowledgement belongs ticket17",
+    "HTTP and MCP adapter integration pending root"
+  ],
+  "typecheck": "passed exit 0"
+}

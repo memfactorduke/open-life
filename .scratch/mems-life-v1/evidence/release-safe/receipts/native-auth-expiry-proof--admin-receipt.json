@@ -1,0 +1,12 @@
+{
+  "startedAt": "2026-10-13T05:42:49.125Z",
+  "finishedAt": "2026-10-13T05:42:49.609Z",
+  "scope": "Supported administrator recovery against guarded fictional local installation only; password kept at existing fictional value",
+  "command": "node --env-file=.runtime/development.env apps/server/dist/cli.js recover (stdin)",
+  "sessionsBefore": 337,
+  "sessionsAfter": 0,
+  "installationIdentityEpochUnchanged": true,
+  "cliExitCode": 0,
+  "result": "passed",
+  "nativeRecoveryGate": "Actual phone revoked-session rejection and retained-work reauthentication are separate device proof"
+}

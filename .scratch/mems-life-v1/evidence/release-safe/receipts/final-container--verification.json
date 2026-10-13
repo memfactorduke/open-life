@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-13T04:34:12.156333+00:00",
+  "status": "passed",
+  "source": {
+    "stableBeforeAfter": true,
+    "sha256": "2bb44d833b243147fd5120c738e7537f5989a0de6cd037f9a1dc8d1637e55616",
+    "lockSha256": "e16a4ba9056bf8d16a8d739b3581e398902729142a1662563648048ccfc522ce",
+    "fileCount": 1288,
+    "scope": "Dockerfile, Compose, Docker ignore, root/toolchain/license/manifests; domain/server/web and scripts including native license assets. Excludes generated distributions, node_modules, test/tests trees; captures mobile manifest only."
+  },
+  "platform": "linux/arm64",
+  "toolchain": {
+    "node": "24.21.0",
+    "npm": "11.19.0",
+    "postgres": "16.14"
+  },
+  "lockedVersions": {
+    "zod": "4.6.7",
+    "@js-temporal/polyfill": "0.5.1",
+    "sharp": "0.35.5",
+    "better-auth": "1.7.7"
+  },
+  "images": {
+    "app": {
+      "tag": "mems-life:final-20261013",
+      "id": "sha256:8dfedaf2f267fb9a5a3039352634032692d03bbfc66ab442bfac6ed4441c26f7",
+      "bytes": 103377450
+    },
+    "operator": {
+      "tag": "mems-life:final-operator-20261013",
+      "id": "sha256:39c0aa93cb93dd1a5923bd9ead1b2c2a81d492034f48af20861669fc8a8d10eb",
+      "bytes": 220948223
+    }
+  },
+  "appChecks": [
+    "actual migration versions 1 through 14",
+    "compiled CLI bootstrap and password recovery",
+    "database-backed service health and built web HTML/JavaScript",
+    "unauthenticated access rejected",
+    "signed-in private photo and task-file upload/download with no-store",
+    "preferences, media, database and owner bootstrap persist across app+database restarts",
+    "runtime imports, native sharp encoding/decoding, UID 1000 and writable media",
+    "runtime excludes handwritten source, tests and native/development dependencies"
+  ],
+  "operatorChecks": [
+    "actual isolated Compose export",
+    "protected coherent backup after write drain",
+    "archive 0700 / dump 0600 / configuration and dump checksum",
+    "independent database and media restore",
+    "matching migrations, preserved installation identity and rotated epoch",
+    "restored maintenance remains closed",
+    "original installation identity/epoch unchanged and original maintenance resumed",
+    "finalized and pending private bytes restored",
+    "restored UID 1000 media access",
+    "second restore rejected",
+    "explicit restored maintenance resume"
+  ],
+  "nativeLicenses": {
+    "appValidator": "passed",
+    "operatorValidator": "passed",
+    "libvipsVersion": "8.18.7",
+    "hashedFiles": 1143,
+    "sourceReferences": 390,
+    "separateSourceArchiveSha256": "12b4e9b34153efe27b3f6da3df800b6aa279b1bdbdf8831eecf1faa8d454a8ec",
+    "externalDistributionGate": "Actual upstream post-edit Cargo.lock/toolchain not proven; source provenance/coverage remains a separate gate. Validator is inventory/hash evidence, not legal compliance certification."
+  },
+  "npmRegistryAudit": {
+    "method": "POST exact final-image name/version inventory to official https://registry.npmjs.org/-/npm/v1/security/advisories/bulk",
+    "appPackageCount": 212,
+    "operatorPackageCount": 212,
+    "appMatchingAdvisoryPackages": 0,
+    "operatorMatchingAdvisoryPackages": 0,
+    "limitations": "Npm package advisory check excludes OS and bundled native-library vulnerability review."
+  },
+  "cleanup": {
+    "verifiersUseFinally": true,
+    "ownedFixtureContainersNetworksVolumesRemoved": true,
+    "imagesAndCacheRetainedForInspection": true,
+    "isolatedProfileRetainedForParentDecision": true
+  },
+  "verificationLimits": [
+    "No public DNS/Caddy HTTPS deployment",
+    "No personal configuration or WHOOP effect verification",
+    "No mobile connectivity/signing or other CPU-architecture claims",
+    "No external artifact distribution authorization/compliance claim"
+  ]
+}

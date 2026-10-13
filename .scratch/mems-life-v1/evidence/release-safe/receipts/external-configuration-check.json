@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-10-13T07:57:01.260Z",
+  "scope": "Configured local installation only; values never printed",
+  "whoopClientIdConfigured": false,
+  "whoopClientSecretConfigured": false,
+  "whoopRedirectConfigured": false,
+  "whoopTokenKeyConfigured": false,
+  "remotePushEnabled": false,
+  "remaining": "Real WHOOP requires a registered owner developer application, private configuration, reachable registered HTTPS callback and interactive consent."
+}

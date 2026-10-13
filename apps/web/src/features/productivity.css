@@ -1,0 +1,174 @@
+.productivity-filters {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  padding: 18px;
+  background: var(--surface);
+  border-radius: 10px;
+  margin-bottom: 24px;
+}
+.productivity-filters > label {
+  flex: 1;
+  min-width: 150px;
+}
+.productivity-filters > details {
+  flex-basis: 100%;
+}
+.productivity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.configuration-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 22px;
+  margin-bottom: 24px;
+}
+.configuration-panel fieldset,
+.task-productivity fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.configuration-panel label,
+.task-productivity label,
+.productivity-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.configuration-panel input,
+.task-productivity input,
+.task-productivity textarea,
+.task-productivity select,
+.configuration-panel select,
+.productivity-filters input,
+.productivity-filters select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.column-config-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+.task-productivity details {
+  border-top: 1px solid var(--line);
+  padding: 18px 0;
+}
+.task-productivity summary,
+.productivity-filters summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.task-productivity form + form {
+  margin-top: 24px;
+}
+.task-productivity form button,
+.configuration-panel form button {
+  margin-right: 10px;
+  margin-bottom: 12px;
+}
+.task-productivity .inline-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.inline-check input[type='checkbox'] {
+  width: auto;
+}
+.weekday-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.task-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.task-badge {
+  background: color-mix(in srgb, var(--tint) 65%, var(--surface));
+  border: 1px solid var(--line);
+  padding: 4px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+}
+.task-overdue {
+  color: #b54d36;
+}
+.step-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 12px 0;
+}
+.step-readiness,
+.column-phase {
+  font-size: 12px;
+  color: var(--muted);
+}
+.revision-review pre {
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 260px;
+  overflow: auto;
+}
+.task-board {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+.task-productivity {
+  margin-top: 22px;
+}
+.steps-panel h4 {
+  margin-top: 24px;
+}
+@media (max-width: 600px) {
+  .productivity-grid,
+  .column-config-row {
+    grid-template-columns: 1fr;
+  }
+  .productivity-filters {
+    padding: 12px;
+    gap: 8px;
+  }
+  .productivity-filters > label {
+    flex-basis: 100%;
+  }
+  .configuration-panel {
+    padding: 14px;
+  }
+  .task-productivity .detail-heading {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .task-productivity button {
+    max-width: 100%;
+    white-space: normal;
+  }
+  .task-productivity .card-actions select {
+    width: 100%;
+  }
+  .task-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .quick-capture {
+    flex-wrap: wrap;
+  }
+  .quick-capture button {
+    width: 100%;
+  }
+}

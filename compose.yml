@@ -1,0 +1,123 @@
+services:
+  database:
+    image: postgres:16.14-bookworm
+    environment:
+      POSTGRES_DB: mems_life
+      POSTGRES_USER: mems_life
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a protected PostgreSQL password}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U mems_life -d mems_life']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  app:
+    build: .
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://mems_life:${POSTGRES_PASSWORD:?Set password}@database:5432/mems_life
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set a persistent random authentication secret}
+      BETTER_AUTH_URL: https://${APP_HOST:?Set installation hostname}
+      WEB_ORIGIN: https://${APP_HOST:?Set installation hostname}
+      MEDIA_DIRECTORY: /var/lib/mems-life/media
+    volumes:
+      - media:/var/lib/mems-life/media
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+  proxy:
+    image: caddy:2.10.2-alpine
+    environment:
+      APP_HOST: ${APP_HOST:?Set installation hostname}
+    ports:
+      - '443:443'
+      - '80:80'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+  operator:
+    profiles: [operator]
+    build:
+      context: .
+      target: operator
+    environment:
+      DATABASE_URL: postgresql://mems_life:${POSTGRES_PASSWORD:?Set password}@database:5432/mems_life
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set persistent authentication secret}
+      BETTER_AUTH_URL: https://${APP_HOST:?Set installation hostname}
+      WEB_ORIGIN: https://${APP_HOST:?Set installation hostname}
+      MEDIA_DIRECTORY: /var/lib/mems-life/media
+    volumes:
+      - media:/var/lib/mems-life/media
+      - ${OPERATOR_ARCHIVE_DIRECTORY:-./.runtime/operator-archives}:/archives
+      - ${OPERATOR_CONFIGURATION_DIRECTORY:-./.runtime/operator-configuration}:/configuration:ro
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: 'no'
+  restore-database:
+    profiles: [restore]
+    image: postgres:16.14-bookworm@sha256:64154d0babcb1741988719e703419af0382b19953706149f9872fbd0f438efa8
+    environment:
+      POSTGRES_DB: mems_life
+      POSTGRES_USER: mems_life
+      POSTGRES_PASSWORD: ${RESTORE_POSTGRES_PASSWORD:-}
+    volumes:
+      - restore_database:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U mems_life -d mems_life']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: 'no'
+  restore-app:
+    profiles: [restore-app]
+    build: .
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://mems_life:${RESTORE_POSTGRES_PASSWORD:-}@restore-database:5432/mems_life
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set a persistent random authentication secret}
+      BETTER_AUTH_URL: https://${APP_HOST:?Set installation hostname}
+      WEB_ORIGIN: https://${APP_HOST:?Set installation hostname}
+      MEDIA_DIRECTORY: /var/lib/mems-life/media/restored
+    volumes:
+      - restore_media:/var/lib/mems-life/media
+    depends_on:
+      restore-database:
+        condition: service_healthy
+    restart: 'no'
+  restore-operator:
+    profiles: [restore]
+    build:
+      context: .
+      target: operator
+    environment:
+      DATABASE_URL: postgresql://mems_life:${RESTORE_POSTGRES_PASSWORD:-}@restore-database:5432/mems_life
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set persistent authentication secret}
+      BETTER_AUTH_URL: https://${APP_HOST:?Set installation hostname}
+      WEB_ORIGIN: https://${APP_HOST:?Set installation hostname}
+      MEDIA_DIRECTORY: /var/lib/mems-life/media/restored
+    volumes:
+      - restore_media:/var/lib/mems-life/media
+      - ${OPERATOR_ARCHIVE_DIRECTORY:-./.runtime/operator-archives}:/archives:ro
+    depends_on:
+      restore-database:
+        condition: service_healthy
+    restart: 'no'
+volumes:
+  database:
+  media:
+  caddy_data:
+  caddy_config:
+  restore_database:
+  restore_media:

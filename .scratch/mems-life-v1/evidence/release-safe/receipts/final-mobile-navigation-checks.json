@@ -1,0 +1,34 @@
+{
+  "verifiedAt": "2026-10-13T06:45:08.595536+00:00",
+  "commit": "a5c8d4c818b204747620fbedb5b6a0f66dde7569",
+  "scope": "Mobile-only accessible navigation delta; prior shared domain/server/container production source unchanged",
+  "mobileTests": {
+    "passed": 134,
+    "suites": 25,
+    "failed": 0,
+    "skipped": 0,
+    "command": "npm run test --workspace @mems-life/mobile"
+  },
+  "checks": {
+    "mobileTypecheck": "passed by assigned worker",
+    "mobileEslint": "passed by assigned worker",
+    "mobilePrettier": "passed by assigned worker",
+    "rootEslint": "passed independently by root",
+    "rootPrettier": "passed independently by root"
+  },
+  "regression": "Actual compact iPad at largest Dynamic Type exposed fragmented five-column labels. At fontScale>=1.5, a full-width area button opens scrollable area options without font caps. Focused tests establish selection, selected-state, close/accessibility-escape without selection, and dismissal when standard text returns. Actual native pixels are separate proof.",
+  "sourceSha256": {
+    "apps/mobile/src/App.tsx": "34ebc4813ccabcd10a89890cbd55cb77b97620ada20da31a054ec45832a7fd4f",
+    "apps/mobile/tests/area-navigation.test.tsx": "8499a978f31ff22f18e3203edb689ec7c6ee75a608f1afe98019961c99137d71",
+    "package-lock.json": "e16a4ba9056bf8d16a8d739b3581e398902729142a1662563648048ccfc522ce"
+  },
+  "rawLogLocalOnly": ".runtime/final-mobile-navigation-tests.log",
+  "countsBoundary": "134 overlaps prior131/119/94 mobile runs; do not sum historical counts. Shared domain39/server23 tests executed at cdf1f84 have unchanged source.",
+  "nativeArtifact": {
+    "sourceManifest": "8918f989b70102677e37a8d8c180bcd35a497bf4da2c8c2616bcae23ee68d515",
+    "nativeAssetManifest": "4bd67958767f8fd5e3fe77dec67ed370233e343a6fb6716121c66e32bed7f8fc",
+    "mainJsBundle": "5fde698342f1486409cb1e0af7e3dcf5f23ac55cbe9a0cc08f704a4302f95465",
+    "nativeBinary": "57a5f7891e6765d9f8cf218b7df8e04df0e3047141d9a802c2c998539bb60892",
+    "scope": "Fresh immutable native build; actual largest-text smoke recorded separately"
+  }
+}

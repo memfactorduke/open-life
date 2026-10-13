@@ -1,0 +1,29 @@
+{
+  "completedAt": "2026-10-13T06:09:12.050Z",
+  "original": {
+    "id": "642e052c-f96b-44af-96be-e47ac38be314",
+    "epoch": "970f9982-281f-4ab8-9e55-b34da42c998d",
+    "owner_id": "JkJ7mD38fizHfoxj4nLExjEHn2ftTVn5"
+  },
+  "restored": {
+    "id": "642e052c-f96b-44af-96be-e47ac38be314",
+    "epoch": "a6104f87-5b51-4230-9640-aaaf41dcafba",
+    "owner_id": "JkJ7mD38fizHfoxj4nLExjEHn2ftTVn5"
+  },
+  "originalDataUnchanged": true,
+  "originalMediaUnchanged": true,
+  "restoredDomainTablesMatch": true,
+  "restoredMediaMatch": true,
+  "originalMaintenance": false,
+  "targetMaintenance": false,
+  "backupManifest": ".runtime/native-restore-proof/backup/manifest.json",
+  "restoredConfig": ".runtime/native-restore-proof/restored.env",
+  "intentionalChangedTables": [
+    "installation",
+    "sync_snapshots",
+    "sync_snapshot_records",
+    "notification_devices",
+    "notification_deliveries"
+  ],
+  "verificationRecovery": "Verified cascade cleanup from sync_snapshots to sync_snapshot_records; no rerestore performed."
+}

@@ -1,0 +1,43 @@
+.whoop {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
+.whoop header p:first-child {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.whoop-status {
+  font-weight: 700;
+}
+.whoop-actions {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+.whoop-observations {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 1rem;
+}
+.whoop-observations article {
+  border: 1px solid #b9c7c3;
+  border-radius: 1rem;
+  padding: 1rem;
+}
+.whoop-observations h2 {
+  text-transform: capitalize;
+}
+.whoop-observations p {
+  overflow-wrap: anywhere;
+}
+.whoop dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.whoop dd {
+  font-variant-numeric: tabular-nums;
+}

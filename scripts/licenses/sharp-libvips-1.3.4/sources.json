@@ -1,0 +1,397 @@
+{
+  "schemaVersion": 1,
+  "packageVersion": "1.3.4",
+  "buildCommit": "ebb95f8add54eee8bed840e3fb587e4cbec857d7",
+  "components": [
+    {
+      "name": "proxy-libintl",
+      "url": "https://github.com/frida/proxy-libintl/archive/0.5.tar.gz",
+      "file": "proxy-libintl-0.5.tar.gz",
+      "sha256": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "size": 13056,
+      "licenseFiles": [
+        "components/proxy-libintl/COPYING"
+      ]
+    },
+    {
+      "name": "zlib-ng",
+      "url": "https://github.com/zlib-ng/zlib-ng/archive/2.3.3.tar.gz",
+      "file": "zlib-ng-2.3.3.tar.gz",
+      "sha256": "f9c65aa9c852eb8255b636fd9f07ce1c406f061ec19a2e7d508b318ca0c907d1",
+      "size": 2447397,
+      "licenseFiles": [
+        "components/zlib-ng/LICENSE.md"
+      ]
+    },
+    {
+      "name": "ffi",
+      "url": "https://github.com/libffi/libffi/releases/download/v3.8.0/libffi-3.8.0.tar.gz",
+      "file": "ffi-libffi-3.8.0.tar.gz",
+      "sha256": "7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4",
+      "size": 1581626,
+      "licenseFiles": [
+        "components/ffi/LICENSE-BUILDTOOLS",
+        "components/ffi/LICENSE"
+      ]
+    },
+    {
+      "name": "glib",
+      "url": "https://download.gnome.org/sources/glib/2.90/glib-2.90.0.tar.xz",
+      "file": "glib-glib-2.90.0.tar.xz",
+      "sha256": "17d15cac2af80a33271127408e0abc2748eb297c595c2a26409e81e14e7d1b8f",
+      "size": 5830480,
+      "licenseFiles": [
+        "components/glib/docs/reference/COPYING",
+        "components/glib/subprojects/gvdb/COPYING"
+      ]
+    },
+    {
+      "name": "patch-4",
+      "url": "https://gist.github.com/kleisauke/284d685efa00908da99ea6afbaaf39ae/raw/bdad5489a61c217850631571caf57f5db6ea8b2c/glib-without-gregex.patch",
+      "file": "patch-4-glib-without-gregex.patch",
+      "sha256": "b1f2930a11292e529de137c7eb723850e0cc0969b1a2b0358196389312acd272",
+      "size": 7759
+    },
+    {
+      "name": "xml2",
+      "url": "https://download.gnome.org/sources/libxml2/2.15/libxml2-2.15.4.tar.xz",
+      "file": "xml2-libxml2-2.15.4.tar.xz",
+      "sha256": "98087fd181d9070724f3fbc65c7377db03038eb92bd882374daff44940138821",
+      "size": 3177444,
+      "licenseFiles": [
+        "components/xml2/Copyright",
+        "components/xml2/test/html-tokenizer/NOTICE",
+        "components/xml2/result/html-tokenizer/NOTICE"
+      ]
+    },
+    {
+      "name": "exif",
+      "url": "https://github.com/libexif/libexif/releases/download/v0.6.26/libexif-0.6.26.tar.xz",
+      "file": "exif-libexif-0.6.26.tar.xz",
+      "sha256": "4a055ed6575e61ca46c3172be3c753cc16c9becd0f99ec71d58dd0e471476c0c",
+      "size": 1335488,
+      "licenseFiles": [
+        "components/exif/COPYING"
+      ]
+    },
+    {
+      "name": "lcms",
+      "url": "https://github.com/mm2/Little-CMS/releases/download/lcms2.19.1/lcms2-2.19.1.tar.gz",
+      "file": "lcms-lcms2-2.19.1.tar.gz",
+      "sha256": "bfc54f7bab59fbc921012014a8032e4cba4abd46db47d46b76416a8c0b2815c8",
+      "size": 5728743,
+      "licenseFiles": [
+        "components/lcms/LICENSE",
+        "components/lcms/plugins/fast_float/COPYING.GPL3",
+        "components/lcms/plugins/threaded/COPYING.GPL3"
+      ]
+    },
+    {
+      "name": "aom",
+      "url": "https://storage.googleapis.com/aom-releases/libaom-3.15.1.tar.gz",
+      "file": "aom-libaom-3.15.1.tar.gz",
+      "sha256": "8ca0c52746174603500f0adb6f2a215d69c9ca2aab2acb3caa06fb791d8d01bf",
+      "size": 6623477,
+      "licenseFiles": [
+        "components/aom/LICENSE",
+        "components/aom/third_party/fastfeat/LICENSE",
+        "components/aom/third_party/googletest/src/LICENSE",
+        "components/aom/third_party/highway/LICENSE-BSD3",
+        "components/aom/third_party/libwebm/LICENSE.TXT",
+        "components/aom/third_party/libyuv/LICENSE",
+        "components/aom/third_party/vector/LICENSE",
+        "components/aom/third_party/x86inc/LICENSE",
+        "components/aom/AUTHORS",
+        "components/aom/PATENTS"
+      ]
+    },
+    {
+      "name": "heif",
+      "url": "https://github.com/strukturag/libheif/releases/download/v1.23.5/libheif-1.23.5.tar.gz",
+      "file": "heif-libheif-1.23.5.tar.gz",
+      "sha256": "fd9036064c4432f0550d15072ddf34956a248279ee9aeaff0fba3fa0f77d8f1a",
+      "size": 2276803,
+      "licenseFiles": [
+        "components/heif/COPYING",
+        "components/heif/examples/COPYING"
+      ]
+    },
+    {
+      "name": "jpeg",
+      "url": "https://github.com/mozilla/mozjpeg/archive/0826579.tar.gz",
+      "file": "jpeg-0826579.tar.gz",
+      "sha256": "b680167bd5d9afebdd576a12f8c49d2c9066a3b92ef96a2b2c5f7829b8600fe5",
+      "size": 2443542,
+      "licenseFiles": [
+        "components/jpeg/LICENSE.md",
+        "components/jpeg/java/doc/legal/LICENSE",
+        "components/jpeg/release/License.rtf"
+      ]
+    },
+    {
+      "name": "patch-11",
+      "url": "https://github.com/mozilla/mozjpeg/commit/f90668e0e4fb79c81e1f24a0ccc0e2090af761bf.patch",
+      "file": "patch-11-f90668e0e4fb79c81e1f24a0ccc0e2090af761bf.patch",
+      "sha256": "a65f87cadf3a6052e44d6314c906f6e2891352f82646b8a6f0b8fcf2c1891e7c",
+      "size": 8103
+    },
+    {
+      "name": "png",
+      "url": "https://github.com/pnggroup/libpng/archive/v1.6.58.tar.gz",
+      "file": "png-v1.6.58.tar.gz",
+      "sha256": "a9d4df463d36a6e5f9c29bd6f4967312d17e996c1854f3511f833924eb1993cf",
+      "size": 1592190,
+      "licenseFiles": [
+        "components/png/LICENSE",
+        "components/png/contrib/gregbook/COPYING",
+        "components/png/contrib/gregbook/LICENSE",
+        "components/png/contrib/pngminus/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "imagequant",
+      "url": "https://github.com/lovell/libimagequant/archive/v2.4.1.tar.gz",
+      "file": "imagequant-v2.4.1.tar.gz",
+      "sha256": "47d2a84b7b1052975c9d50a3d4e3cacbf57b43d84a4c3131210848ead9964dfb",
+      "size": 45792,
+      "licenseFiles": [
+        "components/imagequant/COPYRIGHT"
+      ]
+    },
+    {
+      "name": "webp",
+      "url": "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz",
+      "file": "webp-libwebp-1.6.0.tar.gz",
+      "sha256": "e4ab7009bf0629fd11982d4c2aa83964cf244cffba7347ecd39019a9e38c4564",
+      "size": 4296070,
+      "licenseFiles": [
+        "components/webp/COPYING"
+      ]
+    },
+    {
+      "name": "tiff",
+      "url": "https://gitlab.com/libtiff/libtiff/-/archive/v4.7.2/libtiff-v4.7.2.tar.gz",
+      "file": "tiff-libtiff-v4.7.2.tar.gz",
+      "sha256": "62b15f44c10106065211efa22a2dc77937bd97ee1f6e3afd2c9659010de112eb",
+      "size": 2616788,
+      "licenseFiles": [
+        "components/tiff/LICENSE.md",
+        "components/tiff/doc/project/license.rst"
+      ]
+    },
+    {
+      "name": "highway",
+      "url": "https://github.com/google/highway/archive/1.4.0.tar.gz",
+      "file": "highway-1.4.0.tar.gz",
+      "sha256": "e72241ac9524bb653ae52ced768b508045d4438726a303f10181a38f764a453c",
+      "size": 3691240,
+      "licenseFiles": [
+        "components/highway/LICENSE",
+        "components/highway/debian/copyright"
+      ]
+    },
+    {
+      "name": "freetype",
+      "url": "https://github.com/freetype/freetype/archive/VER-2-14-3.tar.gz",
+      "file": "freetype-VER-2-14-3.tar.gz",
+      "sha256": "dc49de6b01a266eef4876a4dd34d9842c475d3e28ff2eff63bd2fb760ab56261",
+      "size": 2515533,
+      "licenseFiles": [
+        "components/freetype/LICENSE.TXT",
+        "components/freetype/docs/FTL.TXT"
+      ]
+    },
+    {
+      "name": "expat",
+      "url": "https://github.com/libexpat/libexpat/releases/download/R_2_8_5/expat-2.8.5.tar.xz",
+      "file": "expat-expat-2.8.5.tar.xz",
+      "sha256": "1e727b8933ec51a77a9a9d9afcf8e688bce45d907c13e36ab7393fe36e703182",
+      "size": 528380,
+      "licenseFiles": [
+        "components/expat/COPYING"
+      ]
+    },
+    {
+      "name": "archive",
+      "url": "https://github.com/libarchive/libarchive/releases/download/v3.8.9/libarchive-3.8.9.tar.xz",
+      "file": "archive-libarchive-3.8.9.tar.xz",
+      "sha256": "888c934f9d95648ecb9163dc8e23ab80a476ecb81a8f1154704a227b5b676dde",
+      "size": 6617696,
+      "licenseFiles": [
+        "components/archive/COPYING"
+      ]
+    },
+    {
+      "name": "fontconfig",
+      "url": "https://gitlab.freedesktop.org/fontconfig/fontconfig/-/archive/2.18.3/fontconfig-2.18.3.tar.gz",
+      "file": "fontconfig-fontconfig-2.18.3.tar.gz",
+      "sha256": "9ae01e1d53acdef56010c5451cd34aa41d325b2faccd8606448d8fa01b2496b3",
+      "size": 666753,
+      "licenseFiles": [
+        "components/fontconfig/COPYING"
+      ]
+    },
+    {
+      "name": "harfbuzz",
+      "url": "https://github.com/harfbuzz/harfbuzz/archive/14.5.0.tar.gz",
+      "file": "harfbuzz-14.5.0.tar.gz",
+      "sha256": "97ec7488a46b974e18e08ee774af93173e7e1dbf738424796eb315ebcb735ec5",
+      "size": 38777964,
+      "licenseFiles": [
+        "components/harfbuzz/COPYING",
+        "components/harfbuzz/perf/texts/COPYING",
+        "components/harfbuzz/src/ms-use/COPYING",
+        "components/harfbuzz/test/COPYING",
+        "components/harfbuzz/test/shape/data/aots/COPYING",
+        "components/harfbuzz/test/shape/data/text-rendering-tests/COPYING"
+      ]
+    },
+    {
+      "name": "pixman",
+      "url": "https://cairographics.org/releases/pixman-0.46.4.tar.gz",
+      "file": "pixman-pixman-0.46.4.tar.gz",
+      "sha256": "d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c",
+      "size": 827198,
+      "licenseFiles": [
+        "components/pixman/COPYING"
+      ]
+    },
+    {
+      "name": "cairo",
+      "url": "https://cairographics.org/releases/cairo-1.18.6.tar.xz",
+      "file": "cairo-cairo-1.18.6.tar.xz",
+      "sha256": "1c767308174337a74694da0f3ec069c271452163a1ef4540964c50c301f157d4",
+      "size": 32725456,
+      "licenseFiles": [
+        "components/cairo/COPYING",
+        "components/cairo/COPYING-LGPL-2.1",
+        "components/cairo/COPYING-MPL-1.1",
+        "components/cairo/perf/COPYING",
+        "components/cairo/test/COPYING",
+        "components/cairo/util/COPYING",
+        "components/cairo/util/cairo-script/COPYING",
+        "components/cairo/util/cairo-trace/COPYING",
+        "components/cairo/util/cairo-trace/COPYING-GPL-3"
+      ]
+    },
+    {
+      "name": "fribidi",
+      "url": "https://github.com/fribidi/fribidi/releases/download/v1.0.17/fribidi-1.0.17.tar.xz",
+      "file": "fribidi-fribidi-1.0.17.tar.xz",
+      "sha256": "6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caabbada2",
+      "size": 1203284,
+      "licenseFiles": [
+        "components/fribidi/COPYING"
+      ]
+    },
+    {
+      "name": "pango",
+      "url": "https://download.gnome.org/sources/pango/1.58/pango-1.58.2.tar.xz",
+      "file": "pango-pango-1.58.2.tar.xz",
+      "sha256": "342385b6ca3b7c73455d7c80a13b7dbe4489e00bc3bd4c5bd6ed4dce421e374a",
+      "size": 1918112,
+      "licenseFiles": [
+        "components/pango/COPYING"
+      ]
+    },
+    {
+      "name": "rsvg",
+      "url": "https://download.gnome.org/sources/librsvg/2.63/librsvg-2.63.2.tar.xz",
+      "file": "rsvg-librsvg-2.63.2.tar.xz",
+      "sha256": "852b18e1a00b8605528825a27dc7748bff2a5dd254028f59dc22a34ea57e81b6",
+      "size": 6768408,
+      "licenseFiles": [
+        "components/rsvg/COPYING.LIB",
+        "components/rsvg/librsvg-rebind/LICENSE"
+      ]
+    },
+    {
+      "name": "patch-27",
+      "url": "https://github.com/GNOME/librsvg/commit/9106011db93d701728ac2c9da50c9ab2c1bb5dc6.patch",
+      "file": "patch-27-9106011db93d701728ac2c9da50c9ab2c1bb5dc6.patch",
+      "sha256": "8b841d2ec8feb964fa76859075e0e0c41b69136ba143cf0d26469d9bebc19231",
+      "size": 5111
+    },
+    {
+      "name": "cgif",
+      "url": "https://github.com/dloebl/cgif/archive/v0.5.4.tar.gz",
+      "file": "cgif-v0.5.4.tar.gz",
+      "sha256": "83a70a15bc2da41f081a44ebc58ee48e2e1d524a6d3fdb4a24064afa08d5ad4d",
+      "size": 40028,
+      "licenseFiles": [
+        "components/cgif/LICENSE"
+      ]
+    },
+    {
+      "name": "uhdr",
+      "url": "https://github.com/google/libultrahdr/archive/v2.0.2.tar.gz",
+      "file": "uhdr-v2.0.2.tar.gz",
+      "sha256": "aa8d193bb887c348c419780511dd03b374f4e07af8812b6d3f80c8537cf1ef2c",
+      "size": 1518872,
+      "licenseFiles": [
+        "components/uhdr/LICENSE",
+        "components/uhdr/LICENSE-APACHE",
+        "components/uhdr/LICENSE-MIT",
+        "components/uhdr/adobe-hdr-gain-map-license/NOTICE",
+        "components/uhdr/tests/data/LICENSE",
+        "components/uhdr/third_party/image_io/LICENSE",
+        "components/uhdr/third_party/image_io/src/modp_b64/LICENSE"
+      ]
+    },
+    {
+      "name": "patch-30",
+      "url": "https://patch-diff.githubusercontent.com/raw/google/libultrahdr/pull/383.patch",
+      "file": "patch-30-383.patch",
+      "sha256": "57658db2a11ae964755e513b01db21bcfa408c350b11b3a6ef9bc8576fb749ba",
+      "size": 7567
+    },
+    {
+      "name": "vips",
+      "url": "https://github.com/libvips/libvips/releases/download/v8.18.7/vips-8.18.7.tar.xz",
+      "file": "vips-vips-8.18.7.tar.xz",
+      "sha256": "5baaead3b0bb20ffdb9e9ff09aa9fda08620923df77b63b436654cb5e0b3bf94",
+      "size": 25425084,
+      "licenseFiles": [
+        "components/vips/LICENSE",
+        "components/vips/libvips/foreign/libnsgif/COPYING"
+      ]
+    },
+    {
+      "name": "patch-32",
+      "url": "https://gist.githubusercontent.com/lovell/313a6901e9db1bf285f2a1f1180499e4/raw/3988223c7dfa4d22745d9392034b0117abef1446/libvips-cpp-soversion.patch",
+      "file": "patch-32-libvips-cpp-soversion.patch",
+      "sha256": "256b7d6f8c973bb53b20cff5171c7117d6b35d3aa4e72d22cb906f4fe1e2c890",
+      "size": 514
+    }
+  ],
+  "versions": {
+    "aom": "3.15.1",
+    "archive": "3.8.9",
+    "cairo": "1.18.6",
+    "cgif": "0.5.4",
+    "exif": "0.6.26",
+    "expat": "2.8.5",
+    "ffi": "3.8.0",
+    "fontconfig": "2.18.3",
+    "freetype": "2.14.3",
+    "fribidi": "1.0.17",
+    "glib": "2.90.0",
+    "harfbuzz": "14.5.0",
+    "heif": "1.23.5",
+    "highway": "1.4.0",
+    "imagequant": "2.4.1",
+    "lcms": "2.19.1",
+    "mozjpeg": "0826579",
+    "pango": "1.58.2",
+    "pixman": "0.46.4",
+    "png": "1.6.58",
+    "proxy-libintl": "0.5",
+    "rsvg": "2.63.2",
+    "tiff": "4.7.2",
+    "uhdr": "2.0.2",
+    "vips": "8.18.7",
+    "webp": "1.6.0",
+    "xml2": "2.15.4",
+    "zlib-ng": "2.3.3"
+  }
+}

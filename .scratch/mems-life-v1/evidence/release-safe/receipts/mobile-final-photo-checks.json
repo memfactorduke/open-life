@@ -1,0 +1,40 @@
+{
+  "verifiedAt": "2026-10-13T05:23:27.408773+00:00",
+  "commit": "b5cdf944c2b1c9283d9e2952c877ad11bbcd8798",
+  "scope": "Mobile source checks after confirmed-private-photo cache fix; actual simulator proof recorded separately",
+  "environment": {
+    "node": "24.21.0",
+    "npm": "11.19.0"
+  },
+  "checks": [
+    {
+      "command": "npm run test --workspace @mems-life/mobile",
+      "result": "passed",
+      "tests": 119,
+      "suites": 23,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "npm run typecheck --workspace @mems-life/mobile",
+      "result": "passed"
+    },
+    {
+      "command": "npm run lint",
+      "result": "passed"
+    },
+    {
+      "command": "npm run format:check",
+      "result": "passed"
+    }
+  ],
+  "sourceSha256": {
+    "apps/mobile/src/features/Food.tsx": "526588003adc0d8bdccff18c53d3eb7d7f8dfdd45798e51845ff368ed6241bf1",
+    "apps/mobile/src/retained-food-photo.ts": "5b740f8582a6feea54252a21814c0ccb7b3890278e5b49fb180049c500ea8947",
+    "apps/mobile/src/__tests__/retained-food-photo.test.ts": "864acd54897852e924e82ae075882971b4fda6869886abc074baed70eb3b4e76"
+  },
+  "limitations": [
+    "No production service changes since prior clean-checkout and container checks. These 119 mobile tests are a later run and overlap the prior 94; counts are not additive.",
+    "Actual offline cold-launch/private-photo checks have separate immutable native bundle receipts."
+  ]
+}

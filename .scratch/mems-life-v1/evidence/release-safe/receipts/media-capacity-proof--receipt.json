@@ -1,0 +1,47 @@
+{
+  "startedAt": "2026-10-13T05:28:37.293Z",
+  "node": "v24.21.0",
+  "method": "owned 32 MiB HFS+ disk image, actual OS ENOSPC through source service HTTP and PostgreSQL",
+  "filesystem": {
+    "diskIdentity": "/dev/disk10s1",
+    "capacityBytes": 33513472,
+    "image": ".runtime/media-capacity-proof/media-capacity.dmg"
+  },
+  "isolatedDatabase": "mems_life_media_capacity_proof_test",
+  "claims": {
+    "linuxQuota": false,
+    "physicalDiskFull": false
+  },
+  "result": "passed",
+  "fixture": {
+    "entryId": "b7a5aaa6-8cff-4e29-91f1-6cf148dd0d96",
+    "uploadId": "8dd5f93c-7809-4042-8070-4e1a8297b6b7",
+    "size": 2405135,
+    "sha256": "53e1634a65ed9628f86842e77abd28e64fb094742e33b535700da458b75361ac"
+  },
+  "failure": {
+    "fillerBytes": 32702464,
+    "fillOSCode": "ENOSPC",
+    "uploadOSCode": "ENOSPC",
+    "httpStatus": 500,
+    "errorCode": "INTERNAL_ERROR",
+    "partialStagedBytes": 0,
+    "finalizeStatus": 422,
+    "entryUnchanged": true,
+    "uploadPending": true
+  },
+  "recovery": {
+    "sameUploadId": true,
+    "firstRetryStatus": 409,
+    "secondRetryStatus": 200,
+    "finalizeStatus": 200,
+    "exactlyOneAttachment": true,
+    "idempotentFinalize": true,
+    "privateReadMatchesOriginal": true,
+    "originalInputPreserved": true
+  },
+  "serviceStopped": true,
+  "isolatedDatabaseRemoved": true,
+  "finishedAt": "2026-10-13T05:28:38.045Z",
+  "ownedImageDetached": true
+}

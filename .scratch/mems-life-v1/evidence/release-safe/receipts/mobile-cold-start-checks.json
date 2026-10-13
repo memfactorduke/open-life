@@ -1,0 +1,25 @@
+{
+  "verifiedAt": "2026-10-13T05:09:10.161801+00:00",
+  "commit": "182397aa0283902fb1ff1abf36929f6b097439d4",
+  "scope": "Mobile lifecycle only, after clean checkout proof; actual cold native relaunch remains pending",
+  "checks": {
+    "mobileTests": {
+      "passed": 113,
+      "suites": 22,
+      "failed": 0
+    },
+    "rootEslint": "passed",
+    "rootPrettier": "passed",
+    "targetedBootstrapTests": 24,
+    "identityGuard": "Real helper reproduced changed verified owner/installation fallback; explicit ID comparison rejects mismatch while preserving local work."
+  },
+  "sourceSha256": {
+    "apps/mobile/src/App.tsx": "389d7934463d74d972c1670b376609b34003e2eed6b72696c5f1112298db5e5c",
+    "apps/mobile/src/client.ts": "94db6c91c773589aa4cf7c8311f9eb1fe0a5107a46b59f064659a1e1e12f67ab",
+    "apps/mobile/src/session-bootstrap.ts": "897c1b0c80d887e9c2780b8cf049984390c78fdd5b0325228442d47a770f8dd2",
+    "apps/mobile/tests/client.test.ts": "0f8a8e4fca51ff9e9ef002c5afa92570a2d59dc6e97ee1c5f5e12cb26a711d08",
+    "apps/mobile/tests/session-bootstrap.test.ts": "6d2afa484ba8ba81d929aa97610e563c31bd309a59514eb3c8279e264fbde70a"
+  },
+  "rawLogLocalOnly": ".runtime/final-mobile-identity-guard.log",
+  "nativeGate": "Fresh Release must prove usable offline cold launch; retained records/photos already proven on prior immutable bundle."
+}

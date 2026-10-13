@@ -1,0 +1,83 @@
+{
+  "transport": "official SDK 1.32.1 StreamableHTTP",
+  "startedAt": "2026-10-13T05:29:53.073Z",
+  "scenarios": [
+    {
+      "mode": "rejected-edit",
+      "taskId": "6e9f4d92-fd44-47a6-a69f-85a93672ce51",
+      "stepIds": {
+        "Write script": "b8cc9ff0-a745-4471-903c-230dc47f2922",
+        "Record script": "8a3cf5d8-73eb-4170-8398-ed44c4af937e",
+        "Edit recorded video": "d919d2f4-4324-4862-abf0-99f0c8870f98",
+        "Watch and review accepted edit": "71647450-581f-40ee-ad19-41de1188fa25",
+        "Verify private upload": "d4e688e1-e184-4557-8f34-1f7a2be398b2",
+        "Draft thumbnail": "e396938f-e064-4776-b06e-0463d7ee12f1",
+        "Approve and attach thumbnail": "ae390c18-6404-471e-8697-38842fef323a",
+        "Verify human publication": "eff50582-9856-44e9-be16-19097e2bccaf"
+      },
+      "allEightStepsCompleted": true,
+      "thumbnailParallelClaim": true,
+      "ownerHumanGates": true,
+      "rejectedEditRework": true,
+      "lostUploadUnknownReconciled": false,
+      "fictionalExternalCalls": 1,
+      "uploadAttempts": 1,
+      "results": 5,
+      "finishRetryExactlyOneResult": true,
+      "freshSdkConnectionDurableComplete": true,
+      "rejectionCodes": [
+        "RESULT_REJECTED",
+        "RESULT_VERSION_CONFLICT"
+      ]
+    },
+    {
+      "mode": "lost-upload",
+      "taskId": "f2130ce0-2c77-41b4-b86c-d5a81fe0c8f6",
+      "stepIds": {
+        "Write script": "def7676d-226f-4308-959a-36e908dbec4b",
+        "Record script": "227477e1-0d4f-4747-ab7a-4c456eb87802",
+        "Edit recorded video": "f4f01b3a-96a8-42f6-8c92-9d3560bb0343",
+        "Watch and review accepted edit": "9c29bd9f-6704-4a75-bf1a-458021475f9f",
+        "Verify private upload": "bc8f23bc-a458-4ac9-83b7-1951ceb59a49",
+        "Draft thumbnail": "f0836aea-7996-40ed-9d07-bfd2fff57c1d",
+        "Approve and attach thumbnail": "7df50adb-525b-4d5b-b8a5-2e1af26630f9",
+        "Verify human publication": "100cb4ec-8108-4781-ae30-3e46f68752b0"
+      },
+      "allEightStepsCompleted": true,
+      "thumbnailParallelClaim": true,
+      "ownerHumanGates": true,
+      "rejectedEditRework": false,
+      "lostUploadUnknownReconciled": true,
+      "fictionalExternalCalls": 1,
+      "uploadAttempts": 1,
+      "results": 4,
+      "finishRetryExactlyOneResult": true,
+      "freshSdkConnectionDurableComplete": true,
+      "rejectionCodes": []
+    }
+  ],
+  "limitations": [
+    "All artifacts/destinations/publication evidence are explicitly fictional. No external service, video upload or publication occurred.",
+    "Owner/human actions use real signed-in HTTP API. External agent actions use actual SDK transport.",
+    "Cleanup soft-deletes only owned tasks; retained audit/results/skill snapshots remain historical. No task-file uploads were allocated."
+  ],
+  "cleanup": {
+    "ownedTasksSoftDeleted": [
+      "6e9f4d92-fd44-47a6-a69f-85a93672ce51",
+      "f2130ce0-2c77-41b4-b86c-d5a81fe0c8f6"
+    ],
+    "grantIdsRevoked": [
+      "78864b41-ef8d-465c-bc68-79cba085ae41"
+    ],
+    "taskFileUploadsAllocated": 0
+  },
+  "finishedAt": "2026-10-13T05:29:54.004Z",
+  "scriptSha256": "c80a8213c9f8f3fc0c8dfc9699fbb0262b4ef7ab41cebda0c330a3a619205250",
+  "privacy": {
+    "receiptContainsCredentials": false,
+    "receiptContainsOwnershipTokens": false,
+    "credentialLifetime": "in process memory only",
+    "fictionalOwner": "example.test",
+    "checkedAt": "2026-10-13T05:30:21.735Z"
+  }
+}

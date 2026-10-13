@@ -1,0 +1,41 @@
+{
+  "verifiedAt": "2026-10-13T03:08:04.879113+00:00",
+  "sourceHashes": {
+    "apps/web/src/features/Workouts.tsx": "8db81ada94bc369faaa52da6f82460dd85953e7794e56546095394ee04916e5a",
+    "apps/mobile/src/features/Workouts.tsx": "6a41882bb7974f7ec70364a75da1f0a03861b4e46661c19e585bd303f7c157da",
+    "apps/web/e2e/workout-archive.spec.ts": "314d54d5a63980ae2fd53fabb0d05528c3fae45a7e9c8bec713841f2bdf2178e",
+    "apps/mobile/tests/workout-archive.test.tsx": "ccd1544c910fd5d5ca1ceaa7d51d3935b06bd5913696c5dacb2465e203002be4",
+    "apps/mobile/tests/features.test.tsx": "cc41179134473902b88aa9d9910706f8870a9749bb5515e784cf4ba4a8a331fa"
+  },
+  "changes": [
+    "Both libraries concurrently fetch open and archived exercises and routines; lists update only after all four schema-valid responses succeed.",
+    "Sequence guards discard old client/refresh responses.",
+    "Existing archive actions, revision conflict review, exact retry, and current-only exercise selection remain intact.",
+    "Web repetition inputs accept 0, matching domain/mobile contracts."
+  ],
+  "commands": [
+    {
+      "command": "PATH=/opt/homebrew/opt/node@24/bin:$PATH WEB_TEST_EMAIL=owner@example.test WEB_TEST_PASSWORD=[fictional fixture] WEB_TEST_URL=http://127.0.0.1:5173 npm run test:e2e --workspace @mems-life/web -- workout-archive.spec.ts features.spec.ts -g 'recover archived|routine conflict preserves' --output=../../.scratch/mems-life-v1/evidence/archive-recovery/browser-output",
+      "result": "6 tests passed across Chromium, Firefox, WebKit; actual API/PostgreSQL server; no preferences changes",
+      "log": "browser.log"
+    },
+    {
+      "command": "PATH=/opt/homebrew/opt/node@24/bin:$PATH npm test --workspace @mems-life/mobile -- --runTestsByPath tests/workout-archive.test.tsx tests/features.test.tsx",
+      "result": "6 tests passed; mocked native client/component behavioral regression tests",
+      "log": "mobile-tests.log"
+    },
+    {
+      "command": "npm run typecheck --workspace @mems-life/web; npm run typecheck --workspace @mems-life/mobile (Node 24 PATH)",
+      "result": "Both passed exit 0"
+    },
+    {
+      "command": "Scoped ESLint on all five source/test files",
+      "result": "Passed exit 0"
+    }
+  ],
+  "limitations": [
+    "Native component tests use fixtures; actual Release simulator proof belongs to native_feature_proof agent.",
+    "Browser fixtures are archived after test; recovered-record JSON captures saved state before cleanup."
+  ],
+  "visualCheck": "Chromium recovered-library screenshot inspected: readable current recovered routine card."
+}

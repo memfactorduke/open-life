@@ -1,0 +1,80 @@
+{
+  "verifiedAt": "2026-10-13T21:02:21.884636+00:00",
+  "baseCommit": "5516089a31de5bb41165e44b3490c893bf442424",
+  "reviewedInitialHead": "4073980e06f260544535a5ad9e66b996bf26046e",
+  "scope": "PR2 pre-merge fixes; source tests and live PostgreSQL/HTTP/file-backed SQLite replay. Historical native/container artifacts retain their named source identities.",
+  "tests": {
+    "domain": 41,
+    "mobile": 144,
+    "mobileSuites": 26,
+    "serverPostgreSQL": 23,
+    "total": 208,
+    "failures": 0,
+    "skipped": 0
+  },
+  "checks": {
+    "rootTypecheck": "passed",
+    "rootEslint": "passed",
+    "rootPrettier": "passed",
+    "liveOfflineIntegrationChecks": 6
+  },
+  "testConfiguration": "Initial all-workspace run passed domain/mobile and21 server tests;2 server tests correctly refused absent isolated TEST_DATABASE_URL. All23 server tests passed after rerun with documented mems_life_test configuration.",
+  "review": {
+    "standards": {
+      "initialFindings": 1,
+      "worst": "P3 duplicate performance schema",
+      "resolution": "Web imports canonical domain performance response schema/type. Independent reviewer confirms no remaining finding."
+    },
+    "spec": {
+      "initialFindings": 1,
+      "worst": "P1 offline workout event time overwritten by synchronization",
+      "resolution": "New native commands persist immutable occurredAt. Shared chronology validation; actual start/set/finish/correction/removal preserved, audit/update/timer/authorization keep server time. Independent reviewer confirms no remaining blocker."
+    },
+    "github": [
+      {
+        "commentId": 4255769765,
+        "severity": "P2",
+        "resolution": "Photo-only pending/uncertain/review states show explicit logout choices; synced/discarded photos do not block."
+      },
+      {
+        "commentId": 4255769769,
+        "severity": "P2",
+        "resolution": "Portable recovery JSON contains checksum-verified actual image bytes and metadata, awaits native async copy. Cancellation/export/share failure stays signed in."
+      }
+    ]
+  },
+  "workoutReplay": {
+    "startedAt": "2026-10-09T20:00:00.000Z",
+    "recordedAt": "2026-10-09T20:10:00.000Z",
+    "finishedAt": "2026-10-09T21:00:00.000Z",
+    "durationMs": 3600000,
+    "receiptReplay": "unchanged",
+    "unstampedDuplicateSave": "reuses original durable timestamp"
+  },
+  "limits": [
+    "Older already-queued commands without occurredAt keep receipt-time compatibility; attempted payloads are not rewritten and historical lost times cannot be reconstructed.",
+    "No refreshed native or container artifact is claimed after these source changes. Shared heavy-work gate held simulator startup at memory pressure2; queued own startup canceled before admission, neither simulator booted.",
+    "Physical camera/airplane checks, real WHOOP configuration/consent and broader distribution acceptance remain open."
+  ],
+  "rawLogsLocalOnly": [
+    ".runtime/pr-merge-tests.log",
+    ".runtime/pr-merge-server-tests.log",
+    ".runtime/pr-merge-typecheck.log"
+  ],
+  "sourceSha256": {
+    "AGENTS.md": "60d2ab15e94cb4bb1e2256190b18401e06159a703dec5d981a26087704596404",
+    "apps/mobile/src/App.tsx": "68415dec0e6f25938f966668f37e508f5df0a2c9156cd9bab32aa60c500259a1",
+    "apps/mobile/src/offline/photo-export.ts": "0387ea0bb5c68ce30f8993ba4f3971ed59e0dadda2e144f1396ea650ac21764a",
+    "apps/mobile/src/offline/reducers.ts": "f4c5f8ba9daa42fdb174d497463f7a0bf4bb5ca99e83df6153392fb2e7c9238e",
+    "apps/mobile/src/offline/store.ts": "226b8a17608c191cda0726ad3ef3ba6812bb56e956f3dd163cd88db1f3866b22",
+    "apps/mobile/tests/photo-export.test.ts": "4e8bdd9b4aa2bcd3eea5f8e6ac693baa7fdfe090023f0041a4e17102c51d1ee5",
+    "apps/mobile/tests/settings.test.tsx": "7208da7ead4b1c7fcb9b403336250b662329c8fad8c7533644ec1f665e991a96",
+    "apps/server/src/sessions.ts": "8e43d41bf380341f775af3a0f7e3abcba3acd6bbaea6670023e665fc7d05f388",
+    "apps/server/test/sessions.test.ts": "1544f1ae259fc04bea4156c235add7419f2d59a5228eb4a9cc9714950e2d2dba",
+    "apps/web/src/features/Sessions.tsx": "a51d72f1e7114f08c57fc7fcbe7a02fd71627e47c1886c00bb67eb3478208e0b",
+    "packages/domain/src/sessions.ts": "e000a5b1dd7401dddac4fa731323736e7405d660dd2607a73d2eda013cd76161",
+    "packages/domain/tests/sessions.test.ts": "e7eaf8fab8cd3daba9b1edda16d8c7a16451ec039360c152e4e2bb042d7e40bc",
+    "scripts/verify-offline-live.mjs": "90b9dc8178306efe686c707146b4a19a22942f098bcb6cc7ee827f13a830b515"
+  },
+  "fixCommit": "b57b764"
+}

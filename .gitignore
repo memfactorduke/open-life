@@ -1,3 +1,38 @@
 .DS_Store
 .env
+.env.*
+!.env.example
 node_modules/
+dist/
+build/
+coverage/
+.expo/
+.runtime/
+playwright-report/
+test-results/
+*.tsbuildinfo
+apps/mobile/ios/
+apps/mobile/android/
+
+# Test evidence: retain raw output locally; publish reviewed copies through
+# scripts/release-evidence.mjs. The release-safe directory is an exact allowlist.
+.scratch/mems-life-v1/evidence/*
+!.scratch/mems-life-v1/evidence/release-safe/
+/evidence/**
+!/evidence/production-web/
+!/evidence/production-web/auth-compatibility.mjs
+!/evidence/production-web/playwright.config.ts
+!/evidence/production-web/fixture.mjs
+# Defense in depth for generated artifacts outside the current evidence roots.
+**/.maestro/
+**/.playwright-artifacts*/
+**/screen-hierarchy/
+**/device-simulator.log
+**/maestro.log
+**/trace.zip
+**/*.trace
+**/*.network
+
+# Generated proof roots; application e2e source remains reproducible and tracked.
+/.scratch/timezone-proof/
+/apps/*/evidence/

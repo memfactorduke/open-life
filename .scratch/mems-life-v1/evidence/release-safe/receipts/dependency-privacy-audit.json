@@ -1,0 +1,1606 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-13T04:21:15.677381+00:00",
+  "scope": "Read-only dependency, license and candidate-commit privacy audit; no installs, source/manifest edits, force fixes, or app control.",
+  "sources": {
+    "currentLockSha256": "e16a4ba9056bf8d16a8d739b3581e398902729142a1662563648048ccfc522ce",
+    "runtimeImage": "mems-life:verify",
+    "runtimeImageId": "99faf7227085",
+    "runtimeImageLockSha256": "2c1560742b2ff71e5a479e248683c22e6949a14bc7873fedb77716a10e924870",
+    "npmRegistry": "https://registry.npmjs.org",
+    "registryChecks": [
+      "npm audit --json",
+      "npm audit --workspace @mems-life/server --omit=dev --json",
+      "POST /-/npm/v1/security/advisories/bulk with exact 210-package image inventory"
+    ],
+    "inventoryMethod": "Authorized disposable docker run --rm --network none; entrypoint node reads package metadata only."
+  },
+  "dependencies": {
+    "fullWorkspaceAudit": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 15,
+        "high": 46,
+        "critical": 0,
+        "total": 61
+      },
+      "dependencies": {
+        "prod": 776,
+        "dev": 544,
+        "optional": 134,
+        "peer": 112,
+        "peerOptional": 0,
+        "total": 1389
+      }
+    },
+    "misleadingWorkspaceProductionAudit": {
+      "counts": {
+        "info": 0,
+        "low": 0,
+        "moderate": 12,
+        "high": 23,
+        "critical": 0,
+        "total": 35
+      },
+      "reason": "npm workspace audit with omit=dev still includes BetterAuth optional Expo/React Native peers from full lock; Dockerfile intentionally excludes optional peers and copies only locked Sharp platform libraries."
+    },
+    "actualImage": {
+      "packageCount": 210,
+      "matchingRegistryAdvisories": {},
+      "inventory": [
+        {
+          "path": "node_modules/@better-auth/core",
+          "name": "@better-auth/core",
+          "version": "1.7.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@better-auth/core/node_modules/zod",
+          "name": "zod",
+          "version": "4.6.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@better-auth/drizzle-adapter",
+          "name": "@better-auth/drizzle-adapter",
+          "version": "1.7.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@better-auth/expo",
+          "name": "@better-auth/expo",
+          "version": "1.7.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@better-auth/expo/node_modules/zod",
+          "name": "zod",
+          "version": "4.6.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@better-auth/kysely-adapter",
+          "name": "@better-auth/kysely-adapter",
+          "version": "1.7.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@better-auth/memory-adapter",
+          "name": "@better-auth/memory-adapter",
+          "version": "1.7.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@better-auth/mongo-adapter",
+          "name": "@better-auth/mongo-adapter",
+          "version": "1.7.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@better-auth/prisma-adapter",
+          "name": "@better-auth/prisma-adapter",
+          "version": "1.7.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@better-auth/telemetry",
+          "name": "@better-auth/telemetry",
+          "version": "1.7.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@better-auth/utils",
+          "name": "@better-auth/utils",
+          "version": "0.4.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@better-fetch/fetch",
+          "name": "@better-fetch/fetch",
+          "version": "1.3.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/accept-negotiator",
+          "name": "@fastify/accept-negotiator",
+          "version": "2.1.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/ajv-compiler",
+          "name": "@fastify/ajv-compiler",
+          "version": "4.0.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/ajv-compiler/node_modules/ajv",
+          "name": "ajv",
+          "version": "8.20.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/ajv-compiler/node_modules/ajv/node_modules/fast-uri",
+          "name": "fast-uri",
+          "version": "3.1.8",
+          "license": "BSD-3-Clause"
+        },
+        {
+          "path": "node_modules/@fastify/ajv-compiler/node_modules/json-schema-traverse",
+          "name": "json-schema-traverse",
+          "version": "1.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/cors",
+          "name": "@fastify/cors",
+          "version": "11.2.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/deepmerge",
+          "name": "@fastify/deepmerge",
+          "version": "3.2.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/error",
+          "name": "@fastify/error",
+          "version": "4.2.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/fast-json-stringify-compiler",
+          "name": "@fastify/fast-json-stringify-compiler",
+          "version": "5.1.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/forwarded",
+          "name": "@fastify/forwarded",
+          "version": "3.1.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/merge-json-schemas",
+          "name": "@fastify/merge-json-schemas",
+          "version": "0.2.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/proxy-addr",
+          "name": "@fastify/proxy-addr",
+          "version": "5.1.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/send",
+          "name": "@fastify/send",
+          "version": "4.1.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/static",
+          "name": "@fastify/static",
+          "version": "10.1.6",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@fastify/static/node_modules/fastify-plugin",
+          "name": "fastify-plugin",
+          "version": "6.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@hono/node-server",
+          "name": "@hono/node-server",
+          "version": "2.1.4",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@img/colour",
+          "name": "@img/colour",
+          "version": "1.1.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@img/sharp-libvips-linux-arm64",
+          "name": "@img/sharp-libvips-linux-arm64",
+          "version": "1.3.4",
+          "license": "LGPL-3.0-or-later"
+        },
+        {
+          "path": "node_modules/@img/sharp-linux-arm64",
+          "name": "@img/sharp-linux-arm64",
+          "version": "0.35.5",
+          "license": "Apache-2.0"
+        },
+        {
+          "path": "node_modules/@js-temporal/polyfill",
+          "name": "@js-temporal/polyfill",
+          "version": "0.5.1",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/@lukeed/ms",
+          "name": "@lukeed/ms",
+          "version": "2.0.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@mems-life/domain",
+          "name": "@mems-life/domain",
+          "version": "0.1.0"
+        },
+        {
+          "path": "node_modules/@mems-life/server",
+          "name": "@mems-life/server",
+          "version": "0.1.0"
+        },
+        {
+          "path": "node_modules/@mems-life/server/node_modules/kysely",
+          "name": "kysely",
+          "version": "0.28.17",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@modelcontextprotocol/sdk",
+          "name": "@modelcontextprotocol/sdk",
+          "version": "1.32.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@modelcontextprotocol/sdk/node_modules/ajv",
+          "name": "ajv",
+          "version": "8.20.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@modelcontextprotocol/sdk/node_modules/content-type",
+          "name": "content-type",
+          "version": "1.0.5",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@modelcontextprotocol/sdk/node_modules/fast-uri",
+          "name": "fast-uri",
+          "version": "3.1.8",
+          "license": "BSD-3-Clause"
+        },
+        {
+          "path": "node_modules/@modelcontextprotocol/sdk/node_modules/json-schema-traverse",
+          "name": "json-schema-traverse",
+          "version": "1.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@noble/ciphers",
+          "name": "@noble/ciphers",
+          "version": "2.4.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@noble/hashes",
+          "name": "@noble/hashes",
+          "version": "2.4.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@opentelemetry/semantic-conventions",
+          "name": "@opentelemetry/semantic-conventions",
+          "version": "1.43.0",
+          "license": "Apache-2.0"
+        },
+        {
+          "path": "node_modules/@pinojs/redact",
+          "name": "@pinojs/redact",
+          "version": "0.4.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/@standard-schema/spec",
+          "name": "@standard-schema/spec",
+          "version": "1.1.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/abstract-logging",
+          "name": "abstract-logging",
+          "version": "2.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/ajv-formats",
+          "name": "ajv-formats",
+          "version": "3.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/ajv-formats/node_modules/ajv",
+          "name": "ajv",
+          "version": "8.20.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/ajv-formats/node_modules/fast-uri",
+          "name": "fast-uri",
+          "version": "3.1.8",
+          "license": "BSD-3-Clause"
+        },
+        {
+          "path": "node_modules/ajv-formats/node_modules/json-schema-traverse",
+          "name": "json-schema-traverse",
+          "version": "1.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/atomic-sleep",
+          "name": "atomic-sleep",
+          "version": "1.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/avvio",
+          "name": "avvio",
+          "version": "9.3.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/better-auth",
+          "name": "better-auth",
+          "version": "1.7.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/better-auth/node_modules/zod",
+          "name": "zod",
+          "version": "4.6.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/better-call",
+          "name": "better-call",
+          "version": "1.4.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/better-call/node_modules/@better-auth/utils",
+          "name": "@better-auth/utils",
+          "version": "0.5.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/body-parser",
+          "name": "body-parser",
+          "version": "2.3.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/body-parser/node_modules/iconv-lite",
+          "name": "iconv-lite",
+          "version": "0.7.3",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/body-parser/node_modules/on-finished",
+          "name": "on-finished",
+          "version": "2.4.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/bytes",
+          "name": "bytes",
+          "version": "3.1.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/call-bind-apply-helpers",
+          "name": "call-bind-apply-helpers",
+          "version": "1.0.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/call-bound",
+          "name": "call-bound",
+          "version": "1.0.4",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/content-disposition",
+          "name": "content-disposition",
+          "version": "3.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/content-type",
+          "name": "content-type",
+          "version": "2.1.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/cookie",
+          "name": "cookie",
+          "version": "2.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/cookie-signature",
+          "name": "cookie-signature",
+          "version": "1.2.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/cors",
+          "name": "cors",
+          "version": "2.8.6",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/cross-spawn",
+          "name": "cross-spawn",
+          "version": "7.0.6",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/debug",
+          "name": "debug",
+          "version": "4.4.3",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/defu",
+          "name": "defu",
+          "version": "6.1.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/depd",
+          "name": "depd",
+          "version": "2.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/dequal",
+          "name": "dequal",
+          "version": "2.0.3",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/detect-libc",
+          "name": "detect-libc",
+          "version": "2.1.2",
+          "license": "Apache-2.0"
+        },
+        {
+          "path": "node_modules/dunder-proto",
+          "name": "dunder-proto",
+          "version": "1.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/ee-first",
+          "name": "ee-first",
+          "version": "1.1.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/es-define-property",
+          "name": "es-define-property",
+          "version": "1.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/es-errors",
+          "name": "es-errors",
+          "version": "1.3.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/es-object-atoms",
+          "name": "es-object-atoms",
+          "version": "1.1.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/escape-html",
+          "name": "escape-html",
+          "version": "1.0.3",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/etag",
+          "name": "etag",
+          "version": "1.8.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/eventsource",
+          "name": "eventsource",
+          "version": "3.0.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/eventsource-parser",
+          "name": "eventsource-parser",
+          "version": "3.1.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express",
+          "name": "express",
+          "version": "5.3.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/accepts",
+          "name": "accepts",
+          "version": "2.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/content-disposition",
+          "name": "content-disposition",
+          "version": "2.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/cookie",
+          "name": "cookie",
+          "version": "0.7.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/encodeurl",
+          "name": "encodeurl",
+          "version": "2.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/finalhandler",
+          "name": "finalhandler",
+          "version": "2.1.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/fresh",
+          "name": "fresh",
+          "version": "2.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/mime-types",
+          "name": "mime-types",
+          "version": "3.0.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/negotiator",
+          "name": "negotiator",
+          "version": "1.1.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/on-finished",
+          "name": "on-finished",
+          "version": "2.4.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/send",
+          "name": "send",
+          "version": "1.2.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/serve-static",
+          "name": "serve-static",
+          "version": "2.2.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express/node_modules/statuses",
+          "name": "statuses",
+          "version": "2.0.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/express-rate-limit",
+          "name": "express-rate-limit",
+          "version": "8.7.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/fast-decode-uri-component",
+          "name": "fast-decode-uri-component",
+          "version": "1.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/fast-deep-equal",
+          "name": "fast-deep-equal",
+          "version": "3.1.3",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/fast-json-stringify",
+          "name": "fast-json-stringify",
+          "version": "7.1.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/fast-json-stringify/node_modules/ajv",
+          "name": "ajv",
+          "version": "8.20.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/fast-json-stringify/node_modules/ajv/node_modules/fast-uri",
+          "name": "fast-uri",
+          "version": "3.1.8",
+          "license": "BSD-3-Clause"
+        },
+        {
+          "path": "node_modules/fast-json-stringify/node_modules/json-schema-traverse",
+          "name": "json-schema-traverse",
+          "version": "1.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/fast-querystring",
+          "name": "fast-querystring",
+          "version": "1.1.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/fast-uri",
+          "name": "fast-uri",
+          "version": "4.2.2",
+          "license": "BSD-3-Clause"
+        },
+        {
+          "path": "node_modules/fastify",
+          "name": "fastify",
+          "version": "5.12.5",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/fastify/node_modules/semver",
+          "name": "semver",
+          "version": "7.8.5",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/fastify-plugin",
+          "name": "fastify-plugin",
+          "version": "5.1.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/fastq",
+          "name": "fastq",
+          "version": "1.20.3",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/find-my-way",
+          "name": "find-my-way",
+          "version": "9.10.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/forwarded",
+          "name": "forwarded",
+          "version": "0.2.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/function-bind",
+          "name": "function-bind",
+          "version": "1.1.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/get-intrinsic",
+          "name": "get-intrinsic",
+          "version": "1.3.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/get-proto",
+          "name": "get-proto",
+          "version": "1.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/glob",
+          "name": "glob",
+          "version": "13.0.6",
+          "license": "BlueOak-1.0.0"
+        },
+        {
+          "path": "node_modules/glob/node_modules/balanced-match",
+          "name": "balanced-match",
+          "version": "4.0.4",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/glob/node_modules/brace-expansion",
+          "name": "brace-expansion",
+          "version": "5.0.12",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/glob/node_modules/minimatch",
+          "name": "minimatch",
+          "version": "10.2.6",
+          "license": "BlueOak-1.0.0"
+        },
+        {
+          "path": "node_modules/gopd",
+          "name": "gopd",
+          "version": "1.2.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/has-symbols",
+          "name": "has-symbols",
+          "version": "1.1.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/hasown",
+          "name": "hasown",
+          "version": "2.0.4",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/hono",
+          "name": "hono",
+          "version": "4.13.13",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/http-errors",
+          "name": "http-errors",
+          "version": "2.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/http-errors/node_modules/statuses",
+          "name": "statuses",
+          "version": "2.0.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/inherits",
+          "name": "inherits",
+          "version": "2.0.4",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/ip-address",
+          "name": "ip-address",
+          "version": "10.7.4",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/ipaddr.js",
+          "name": "ipaddr.js",
+          "version": "2.5.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/is-promise",
+          "name": "is-promise",
+          "version": "4.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/isexe",
+          "name": "isexe",
+          "version": "2.0.0",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/jose",
+          "name": "jose",
+          "version": "6.2.12",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/jsbi",
+          "name": "jsbi",
+          "version": "4.3.2",
+          "license": "Apache-2.0"
+        },
+        {
+          "path": "node_modules/json-schema-ref-resolver",
+          "name": "json-schema-ref-resolver",
+          "version": "3.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/json-schema-typed",
+          "name": "json-schema-typed",
+          "version": "8.0.2",
+          "license": "BSD-2-Clause"
+        },
+        {
+          "path": "node_modules/kysely",
+          "name": "kysely",
+          "version": "0.29.6",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/light-my-request",
+          "name": "light-my-request",
+          "version": "6.8.0",
+          "license": "BSD-3-Clause"
+        },
+        {
+          "path": "node_modules/math-intrinsics",
+          "name": "math-intrinsics",
+          "version": "1.1.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/media-typer",
+          "name": "media-typer",
+          "version": "1.1.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/merge-descriptors",
+          "name": "merge-descriptors",
+          "version": "2.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/mime",
+          "name": "mime",
+          "version": "3.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/mime-db",
+          "name": "mime-db",
+          "version": "1.54.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/minipass",
+          "name": "minipass",
+          "version": "7.1.3",
+          "license": "BlueOak-1.0.0"
+        },
+        {
+          "path": "node_modules/ms",
+          "name": "ms",
+          "version": "2.1.3",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/nanostores",
+          "name": "nanostores",
+          "version": "1.5.5",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/object-assign",
+          "name": "object-assign",
+          "version": "4.1.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/object-inspect",
+          "name": "object-inspect",
+          "version": "1.13.4",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/on-exit-leak-free",
+          "name": "on-exit-leak-free",
+          "version": "2.1.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/once",
+          "name": "once",
+          "version": "1.4.0",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/parseurl",
+          "name": "parseurl",
+          "version": "1.3.3",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/path-key",
+          "name": "path-key",
+          "version": "3.1.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/path-scurry",
+          "name": "path-scurry",
+          "version": "2.0.2",
+          "license": "BlueOak-1.0.0"
+        },
+        {
+          "path": "node_modules/path-scurry/node_modules/lru-cache",
+          "name": "lru-cache",
+          "version": "11.5.3",
+          "license": "BlueOak-1.0.0"
+        },
+        {
+          "path": "node_modules/path-to-regexp",
+          "name": "path-to-regexp",
+          "version": "8.4.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/pg",
+          "name": "pg",
+          "version": "8.20.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/pg-connection-string",
+          "name": "pg-connection-string",
+          "version": "2.14.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/pg-int8",
+          "name": "pg-int8",
+          "version": "1.0.1",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/pg-pool",
+          "name": "pg-pool",
+          "version": "3.14.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/pg-protocol",
+          "name": "pg-protocol",
+          "version": "1.16.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/pg-types",
+          "name": "pg-types",
+          "version": "2.2.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/pgpass",
+          "name": "pgpass",
+          "version": "1.0.5",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/pino",
+          "name": "pino",
+          "version": "10.4.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/pino-abstract-transport",
+          "name": "pino-abstract-transport",
+          "version": "3.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/pino-std-serializers",
+          "name": "pino-std-serializers",
+          "version": "7.1.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/pkce-challenge",
+          "name": "pkce-challenge",
+          "version": "5.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/postgres-array",
+          "name": "postgres-array",
+          "version": "2.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/postgres-bytea",
+          "name": "postgres-bytea",
+          "version": "1.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/postgres-date",
+          "name": "postgres-date",
+          "version": "1.0.7",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/postgres-interval",
+          "name": "postgres-interval",
+          "version": "1.2.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/process-warning",
+          "name": "process-warning",
+          "version": "5.1.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/proxy-addr",
+          "name": "proxy-addr",
+          "version": "2.0.8",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/proxy-addr/node_modules/ipaddr.js",
+          "name": "ipaddr.js",
+          "version": "1.9.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/qs",
+          "name": "qs",
+          "version": "6.16.0",
+          "license": "BSD-3-Clause"
+        },
+        {
+          "path": "node_modules/quick-format-unescaped",
+          "name": "quick-format-unescaped",
+          "version": "4.0.4",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/range-parser",
+          "name": "range-parser",
+          "version": "1.2.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/raw-body",
+          "name": "raw-body",
+          "version": "3.0.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/raw-body/node_modules/iconv-lite",
+          "name": "iconv-lite",
+          "version": "0.7.3",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/real-require",
+          "name": "real-require",
+          "version": "1.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/require-from-string",
+          "name": "require-from-string",
+          "version": "2.0.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/ret",
+          "name": "ret",
+          "version": "0.5.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/reusify",
+          "name": "reusify",
+          "version": "1.1.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/rfdc",
+          "name": "rfdc",
+          "version": "1.4.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/rou3",
+          "name": "rou3",
+          "version": "0.9.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/router",
+          "name": "router",
+          "version": "2.2.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/safe-regex2",
+          "name": "safe-regex2",
+          "version": "5.1.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/safe-stable-stringify",
+          "name": "safe-stable-stringify",
+          "version": "2.5.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/safer-buffer",
+          "name": "safer-buffer",
+          "version": "2.1.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/secure-json-parse",
+          "name": "secure-json-parse",
+          "version": "4.1.1",
+          "license": "BSD-3-Clause"
+        },
+        {
+          "path": "node_modules/set-cookie-parser",
+          "name": "set-cookie-parser",
+          "version": "3.1.3",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/setprototypeof",
+          "name": "setprototypeof",
+          "version": "1.2.0",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/sharp",
+          "name": "sharp",
+          "version": "0.35.5",
+          "license": "Apache-2.0"
+        },
+        {
+          "path": "node_modules/sharp/node_modules/semver",
+          "name": "semver",
+          "version": "7.8.5",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/shebang-command",
+          "name": "shebang-command",
+          "version": "2.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/shebang-regex",
+          "name": "shebang-regex",
+          "version": "3.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/side-channel",
+          "name": "side-channel",
+          "version": "1.1.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/side-channel-list",
+          "name": "side-channel-list",
+          "version": "1.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/side-channel-map",
+          "name": "side-channel-map",
+          "version": "1.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/side-channel-weakmap",
+          "name": "side-channel-weakmap",
+          "version": "1.0.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/sonic-boom",
+          "name": "sonic-boom",
+          "version": "4.2.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/split2",
+          "name": "split2",
+          "version": "4.2.0",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/thread-stream",
+          "name": "thread-stream",
+          "version": "4.2.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/toad-cache",
+          "name": "toad-cache",
+          "version": "3.7.4",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/toidentifier",
+          "name": "toidentifier",
+          "version": "1.0.1",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/type-is",
+          "name": "type-is",
+          "version": "2.1.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/type-is/node_modules/mime-types",
+          "name": "mime-types",
+          "version": "3.0.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/unpipe",
+          "name": "unpipe",
+          "version": "1.0.0",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/vary",
+          "name": "vary",
+          "version": "1.1.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/which",
+          "name": "which",
+          "version": "2.0.2",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/wrappy",
+          "name": "wrappy",
+          "version": "1.0.2",
+          "license": "ISC"
+        },
+        {
+          "path": "node_modules/xtend",
+          "name": "xtend",
+          "version": "4.0.2",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/zod",
+          "name": "zod",
+          "version": "4.3.6",
+          "license": "MIT"
+        },
+        {
+          "path": "node_modules/zod-to-json-schema",
+          "name": "zod-to-json-schema",
+          "version": "3.25.2",
+          "license": "ISC"
+        }
+      ],
+      "limitations": [
+        "Existing image predates final release lock/source. Rebuild and repeat exact inventory bulk audit before a shipped-image claim.",
+        "npm advisories do not cover operating-system packages or native libraries compiled into libvips/Hermes; separate native/OS vulnerability review remains."
+      ]
+    },
+    "directAdvisories": [
+      {
+        "package": "braces",
+        "installedVersions": [
+          "3.0.3"
+        ],
+        "severity": "high",
+        "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+        "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+        "affected": "<=3.0.3",
+        "registrySource": 1240992,
+        "installedPaths": [
+          "node_modules/braces"
+        ]
+      },
+      {
+        "package": "node-forge",
+        "installedVersions": [
+          "1.4.0"
+        ],
+        "severity": "high",
+        "title": "node-forge RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements",
+        "url": "https://github.com/advisories/GHSA-86w9-cpqp-85rv",
+        "affected": "<=1.4.0",
+        "registrySource": 1240912,
+        "installedPaths": [
+          "node_modules/node-forge"
+        ]
+      },
+      {
+        "package": "sprintf-js",
+        "installedVersions": [
+          "1.0.3"
+        ],
+        "severity": "moderate",
+        "title": "sprintf-js vulnerable to denial of service through unbounded precision specifiers",
+        "url": "https://github.com/advisories/GHSA-hp3w-g68c-fv3c",
+        "affected": "<=1.1.3",
+        "registrySource": 1241202,
+        "installedPaths": [
+          "node_modules/sprintf-js"
+        ]
+      },
+      {
+        "package": "uuid",
+        "installedVersions": [
+          "7.0.3"
+        ],
+        "severity": "moderate",
+        "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+        "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+        "affected": "<11.1.1",
+        "registrySource": 1119441,
+        "installedPaths": [
+          "node_modules/uuid"
+        ]
+      }
+    ],
+    "classification": [
+      {
+        "packages": [
+          "braces@3.0.3",
+          "node-forge@1.4.0",
+          "sprintf-js@1.0.3"
+        ],
+        "boundary": "Expo code signing, Metro pattern matching, Jest/NYC formatting; build/test toolchain, absent from inspected service image. Expo/RN higher-level findings are inherited advisories, not distinct native app vulnerabilities.",
+        "remediation": "Official current npm latest braces 3.0.3, node-forge 1.4.0, sprintf-js 1.1.3 are still in affected ranges. No compatible patched release was found; avoid untrusted build patterns/certificates, record risk acceptance and monitor upstream. Do not downgrade Expo/Jest automatically."
+      },
+      {
+        "packages": [
+          "uuid@7.0.3"
+        ],
+        "boundary": "Expo CLI/Xcode tooling references; buffer argument v3/v5/v6 bounds issue. App native graph label alone does not prove inclusion/reachability in immutable Hermes bundle.",
+        "remediation": "Advisory fixed >=11.1.1; current npm latest 14.0.3. Prefer upstream compatible toolchain patch; a cross-major override needs API compatibility checks."
+      }
+    ],
+    "nativeBundleConclusion": "No current evidence establishes exploitability in the shipped native application. Expo/Jest/Metro packages are installed for native builds; audit severity propagated through dependencies does not establish runtime inclusion. Recheck final embedded bundle and native-component SBOM if distributing."
+  },
+  "licenses": {
+    "originalSource": "LICENSE: MIT",
+    "generator": "scripts/third-party-notices.mjs",
+    "installedPackageLicenseNoticeWarnings": 82,
+    "imageNoticeWarningCount": 82,
+    "imageNoticesContainsLibvipsComponentMatrix": false,
+    "imageNoticesContainsFullLgplLicense": false,
+    "findings": [
+      {
+        "priority": "distribution-blocker",
+        "package": "@img/sharp-libvips-linux-arm64@1.3.4",
+        "license": "LGPL-3.0-or-later",
+        "finding": "Actual image ships libvips shared object with 29 bundled-library license entries in README.md. Generator ignores README and package has no LICENSE/COPYING/NOTICE, so shipped notices omit component matrix, LGPL license and corresponding-source/relinking obligations.",
+        "remediation": "Collect actual pinned sharp-libvips build provenance, component license texts and corresponding sources or valid compliant source offer; preserve README matrix; review LGPL dynamic-link/replacement obligations before artifact distribution. Follow GNU LGPL v3 https://www.gnu.org/licenses/lgpl-3.0.html and pinned upstream https://github.com/lovell/sharp-libvips . Do not describe inventory alone as compliance."
+      },
+      {
+        "priority": "distribution-followup",
+        "finding": "82 full-tree packages lack top-level notices. Actual runtime includes @better-auth/utils 0.4.2 and nested 0.5.0, abstract-logging 2.0.1, pg-types 2.2.0 and pgpass 1.0.5 without top-level notices. Local workspace package false positives covered by root MIT license.",
+        "remediation": "Review pinned upstream source copyright/license notices for redistributed packages; choose BSD-3-Clause branch for node-forge dual license if ever redistributing toolchain."
+      }
+    ]
+  },
+  "privacy": {
+    "candidateFileCount": 1659,
+    "candidateBytes": 1614614426,
+    "largestCandidates": [
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-gym-food/phone-start-retry/.maestro/tests/2026-10-12_233139/maestro.log",
+        "bytes": 590567939
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-features/ipad/routine-continue2-run/2026-10-12_231243/routine-tablet-continue2/logs/device-simulator.log",
+        "bytes": 33960949
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-foundation/ipad/preferences-run/2026-10-12_224812/preferences/logs/device-simulator.log",
+        "bytes": 32150563
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-features/iphone/routine-run/2026-10-12_230802/routine-create/logs/device-simulator.log",
+        "bytes": 29407339
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-gym-food/ipad-working-timer/2026-10-12_234017/ipad-working-timer/logs/device-simulator.log",
+        "bytes": 28030265
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-features/ipad/task-run/2026-10-12_230820/task-tablet/logs/device-simulator.log",
+        "bytes": 22291407
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-gym-food/phone-photo-save/2026-10-12_234323/phone-photo-save/logs/device-simulator.log",
+        "bytes": 20547453
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-gym-food/phone-modals/2026-10-13_001933/phone-modals/logs/device-simulator.log",
+        "bytes": 20134375
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-gym-food/ipad-landscape-final/2026-10-13_000650/ipad-landscape/logs/device-simulator.log",
+        "bytes": 20078086
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-gym-food/phone-food-date-debug/2026-10-13_000747/food-shared-restart/logs/device-simulator.log",
+        "bytes": 19724674
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-gym-food/ipad-landscape/2026-10-13_000116/ipad-landscape/logs/device-simulator.log",
+        "bytes": 19513392
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-foundation/ipad/release-preferences-run/2026-10-12_225236/preferences/logs/device-simulator.log",
+        "bytes": 19195311
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-gym-food/ipad-landscape-point/2026-10-13_000756/ipad-landscape/logs/device-simulator.log",
+        "bytes": 19017367
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-features/ipad/exercises-run/2026-10-12_230658/exercises/logs/device-simulator.log",
+        "bytes": 18948864
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/native-gym-food/ipad-adapt/2026-10-12_235348/ipad-adapt/logs/device-simulator.log",
+        "bytes": 18948340
+      }
+    ],
+    "secretValueDisclosure": "No values printed, stored or copied in this audit. Counts and paths only.",
+    "sessionArtifacts": [
+      {
+        "path": ".scratch/mems-life-v1/evidence/daily-focus-live/browser-output/today-live-PostgreSQL-day--c1607-sk-workout-and-food-records-chromium/trace.zip",
+        "redactedMatchCounts": {
+          "session_cookie_value": 113
+        },
+        "classification": "Generated test session credentials still capable of authenticating local fixture installation while valid; exclude raw artifacts from publication."
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/daily-focus-live/confirmed-browser/today-live-PostgreSQL-day--c1607-sk-workout-and-food-records-chromium/trace.zip",
+        "redactedMatchCounts": {
+          "session_cookie_value": 143
+        },
+        "classification": "Generated test session credentials still capable of authenticating local fixture installation while valid; exclude raw artifacts from publication."
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/sessions-web/browser-output/.playwright-artifacts-2/traces/316fd374235e8aec2ba4-fb33869d9302da505e1d-pwnetcopy-1.network",
+        "redactedMatchCounts": {
+          "session_cookie_value": 424
+        },
+        "classification": "Generated test session credentials still capable of authenticating local fixture installation while valid; exclude raw artifacts from publication."
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/sessions-web/browser-output/.playwright-artifacts-2/traces/316fd374235e8aec2ba4-fb33869d9302da505e1d-recording1-pwnetcopy-1.network",
+        "redactedMatchCounts": {
+          "session_cookie_value": 18
+        },
+        "classification": "Generated test session credentials still capable of authenticating local fixture installation while valid; exclude raw artifacts from publication."
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/sessions-web/browser-output/.playwright-artifacts-2/traces/316fd374235e8aec2ba4-fb33869d9302da505e1d-recording1.network",
+        "redactedMatchCounts": {
+          "session_cookie_value": 18
+        },
+        "classification": "Generated test session credentials still capable of authenticating local fixture installation while valid; exclude raw artifacts from publication."
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/sessions-web/browser-output/.playwright-artifacts-2/traces/316fd374235e8aec2ba4-fb33869d9302da505e1d-recording1.trace",
+        "redactedMatchCounts": {
+          "session_cookie_value": 9
+        },
+        "classification": "Generated test session credentials still capable of authenticating local fixture installation while valid; exclude raw artifacts from publication."
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/sessions-web/browser-output/.playwright-artifacts-2/traces/316fd374235e8aec2ba4-fb33869d9302da505e1d.network",
+        "redactedMatchCounts": {
+          "session_cookie_value": 424
+        },
+        "classification": "Generated test session credentials still capable of authenticating local fixture installation while valid; exclude raw artifacts from publication."
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/sessions-web/browser-output/sessions-actual-sets-exact-3254b-storical-correction-persist-chromium/trace.zip",
+        "redactedMatchCounts": {
+          "session_cookie_value": 197
+        },
+        "classification": "Generated test session credentials still capable of authenticating local fixture installation while valid; exclude raw artifacts from publication."
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/sessions-web/browser-output/sessions-actual-sets-exact-3254b-storical-correction-persist-firefox/trace.zip",
+        "redactedMatchCounts": {
+          "session_cookie_value": 451
+        },
+        "classification": "Generated test session credentials still capable of authenticating local fixture installation while valid; exclude raw artifacts from publication."
+      },
+      {
+        "path": ".scratch/mems-life-v1/evidence/sessions-web/browser-output/sessions-revision-conflict-58ebc-e-preserving-editable-draft-chromium/trace.zip",
+        "redactedMatchCounts": {
+          "session_cookie_value": 201
+        },
+        "classification": "Generated test session credentials still capable of authenticating local fixture installation while valid; exclude raw artifacts from publication."
+      }
+    ],
+    "sessionCredentialMatchCount": 1998,
+    "falsePositives": [
+      {
+        "path": ".scratch/mems-life-v1/evidence/daily-focus-live/confirmed-run.log",
+        "reason": "Playwright path slug beginning sk- or explicitly fictional test authentication secret; not vendor credential.",
+        "redactedMatchCounts": {
+          "vendor_secret": 7
+        }
+      },
+      {
+        "path": "apps/server/test/task-files.test.ts",
+        "reason": "Playwright path slug beginning sk- or explicitly fictional test authentication secret; not vendor credential.",
+        "redactedMatchCounts": {
+          "vendor_secret": 1
+        }
+      }
+    ],
+    "sourceSecretScan": "No private-key blocks, recognizable live vendor keys or literal bearer values found by this targeted scan. Does not certify all screenshot pixels or unusual secret formats. Fixture passwords/tokens are allowed when explicitly fictional; generated live-shaped session cookies are excluded even for test owner.",
+    "ignoredRuntimeCheck": "git ls-files --cached .runtime .env returned empty; .runtime/ and .env* ignored. Docker context excludes scratch, evidence and environment files."
+  },
+  "commitRecommendation": {
+    "blocking": "Do not git add .: candidate raw artifacts include ~1.57 GB and session cookies. Preserve local evidence without deleting it.",
+    "deterministicAllowlist": [
+      "Source/config/license manifests: explicit root filenames + apps/, packages/, scripts/, docs/ after source secret scan; existing ignores exclude generated dist/native/runtime.",
+      "Planning: .scratch/**/map.md, spec.md, tickets.md, implementation.md, decisions.tsv, issues/*.md and research/*.md.",
+      "Evidence: explicit reviewed file paths only; retain this sanitized JSON, compact final verification receipts, source/image/lock hashes and selected screenshots with fictional records."
+    ],
+    "denylist": [
+      "**/device-simulator.log",
+      "**/maestro.log",
+      "**/.maestro/**",
+      "**/.playwright-artifacts*/**",
+      "**/trace.zip",
+      "**/*.trace",
+      "**/*.network",
+      "**/test-results/**",
+      "**/playwright-report/**",
+      "all logs/archives by default unless explicitly scrubbed and reviewed"
+    ],
+    "recommendedIgnoreStrategy": "Ignore entire evidence output trees and selectively force-add reviewed exact receipt/screenshot paths, or explicit extension/subdirectory raw-artifact ignores. Keep verifier/fixture source scripts separately allowlisted so reproducibility survives. Review git diff --cached --stat and staged secret scan before commit."
+  },
+  "blockers": [
+    "Raw browser traces/networks with generated session credentials must be excluded or scrubbed before publication/commit.",
+    "Raw simulator/Maestro logs must be excluded from broad commit: largest individual file ~590 MB.",
+    "Complete libvips/native dependency license/corresponding-source obligations before redistributing artifact.",
+    "Final rebuilt image graph must receive exact-inventory registry audit; current inspected image is stale."
+  ],
+  "followups": [
+    "Update documentation stale audit count 59 to current 61 with tooling/runtime distinction.",
+    "Track upstream build-tool advisories; reject unsupported force-fix downgrade suggestions.",
+    "Separately assess pinned base-image OS packages and bundled native-library advisories."
+  ]
+}

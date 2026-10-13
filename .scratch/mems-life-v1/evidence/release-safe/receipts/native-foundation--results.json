@@ -1,0 +1,46 @@
+{
+  "runtime": "iOS 26.5 (23F77)",
+  "xcode": "27.0 (27A266a)",
+  "simulators": {
+    "iphone": "09981CDA-7E87-406A-A204-97962B96E080",
+    "ipad": "2886B922-06FD-4FA2-A321-0B0B1F38D067"
+  },
+  "bundleSha256": "c7a9e7d4f97a3505f642af54acc07b47a5f0383ca818d6ac0b0d289d232e4223",
+  "artifact": ".runtime/native/foundation-release.app",
+  "results": [
+    {
+      "device": "iphone",
+      "flow": "sign-in-run",
+      "commands": "iphone/sign-in-run/2026-10-12_224756/sign-in/commands.json",
+      "status": "passed",
+      "commandCount": 18
+    },
+    {
+      "device": "iphone",
+      "flow": "release-preferences-run",
+      "commands": "iphone/release-preferences-run/2026-10-12_225515/preferences/commands.json",
+      "status": "passed",
+      "commandCount": 25
+    },
+    {
+      "device": "ipad",
+      "flow": "release-sign-in-run",
+      "commands": "ipad/release-sign-in-run/2026-10-12_225500/sign-in/commands.json",
+      "status": "passed",
+      "commandCount": 18
+    },
+    {
+      "device": "ipad",
+      "flow": "release-preferences-run",
+      "commands": "ipad/release-preferences-run/2026-10-12_225600/preferences/commands.json",
+      "status": "passed",
+      "commandCount": 25
+    }
+  ],
+  "unverified": [
+    "iOS 27 runtime launch",
+    "physical devices",
+    "distribution signing",
+    "App Store/TestFlight distribution"
+  ]
+}

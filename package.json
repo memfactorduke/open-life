@@ -1,0 +1,60 @@
+{
+  "name": "mems-life",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.21.0 <25",
+    "npm": ">=11.19.0 <12"
+  },
+  "packageManager": "npm@11.19.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run build --workspace @mems-life/domain && npm run typecheck --workspaces --if-present",
+    "test": "npm run build --workspace @mems-life/domain && npm run test --workspaces --if-present",
+    "build": "npm run build --workspace @mems-life/domain && npm run build --workspace @mems-life/server && npm run build --workspace @mems-life/web && npm run build --workspace @mems-life/mobile --if-present",
+    "lint": "eslint apps packages scripts",
+    "format:check": "prettier --check apps packages scripts package.json tsconfig.base.json compose.yml docs/development.md",
+    "dev": "npm run build --workspace @mems-life/domain && node --env-file-if-exists=.runtime/development.env scripts/dev.mjs",
+    "db": "bash scripts/db.sh",
+    "db:start": "bash scripts/db.sh start",
+    "db:stop": "bash scripts/db.sh stop",
+    "db:status": "bash scripts/db.sh status",
+    "db:migrate": "node --env-file-if-exists=.runtime/development.env scripts/workspace-command.mjs migrate",
+    "bootstrap": "node --env-file-if-exists=.runtime/development.env scripts/workspace-command.mjs bootstrap",
+    "recover": "node --env-file-if-exists=.runtime/development.env scripts/workspace-command.mjs recover",
+    "verify:toolchain": "node scripts/check-toolchain.mjs",
+    "test:e2e": "playwright test",
+    "notices": "node scripts/third-party-notices.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/jest": "30.0.0",
+    "@types/node": "24.19.2",
+    "eslint": "10.12.0",
+    "jest": "30.5.2",
+    "prettier": "3.9.10",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "test-renderer": "1.2.0",
+    "ts-jest": "29.4.14",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "@parcel/watcher@2.6.0": true,
+    "unrs-resolver@1.12.2": true,
+    "fsevents@2.3.3": true
+  },
+  "overrides": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "test-renderer": "1.2.0"
+  }
+}

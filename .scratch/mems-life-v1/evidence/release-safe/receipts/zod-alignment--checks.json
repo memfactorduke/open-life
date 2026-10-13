@@ -1,0 +1,225 @@
+{
+  "date": "2026-10-13T04:14:52.071Z",
+  "decision": "Pin all application Zod 4 dependencies to exact 4.6.7, already selected by Better Auth 1.7.7. Do not coerce Expo CLI Zod 3 dependency. No root override needed.",
+  "alternatives": [
+    {
+      "option": "Dedupe application to 4.3.6",
+      "rejected": "Violates Better Auth 1.7.7 Zod ^4.5.4 requirement."
+    },
+    {
+      "option": "Global Zod override",
+      "rejected": "Would unnecessarily interfere with Expo CLI Zod 3."
+    },
+    {
+      "option": "Single exact application Zod 4.6.7",
+      "selected": "Satisfies SDK ^3.25 || ^4.0 and Better Auth ^4.5.4 and uses existing installed auth version."
+    }
+  ],
+  "commands": [
+    {
+      "command": "npm install",
+      "exitCode": 0
+    },
+    {
+      "command": "npm ls zod --all",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run typecheck",
+      "exitCode": 0
+    },
+    {
+      "command": "npm run test --workspace @mems-life/domain -- --runInBand",
+      "exitCode": 0,
+      "tests": 39,
+      "suites": 9
+    },
+    {
+      "command": "node --env-file=.runtime/development.env --import tsx --test --test-concurrency=1 apps/server/test/integration.test.ts",
+      "exitCode": 0,
+      "tests": 1,
+      "skipped": 0
+    }
+  ],
+  "boundaries": "Actual production CSP browser behavior verified independently by production_web_review after aligned rebuild. No personal or public deployment performed.",
+  "hashes": {
+    "packages/domain/package.json": "9d3336916100094933f74f43faf7a9a4c9153b7fac76db168dfe59566c4a767e",
+    "apps/server/package.json": "66fc051f77e4c49cc70ccc4af7509783294887cb49d962a0f4157f33f6fc0b5d",
+    "apps/web/package.json": "45061d60de1c3cbf92d3ebd87501149ad9fa6aea289e4719367fab54105f58a0",
+    "package-lock.json": "91d00b1fcacb134d9052b76805502153b13c50d44344dc5bb51c5c57ccb58398"
+  },
+  "lockChanges": [
+    {
+      "path": "apps/server",
+      "before": {
+        "name": "@mems-life/server",
+        "version": "0.1.0",
+        "dependencies": {
+          "@better-auth/expo": "1.7.7",
+          "@fastify/cors": "11.2.0",
+          "@fastify/static": "10.1.6",
+          "@mems-life/domain": "0.1.0",
+          "@modelcontextprotocol/sdk": "1.32.1",
+          "better-auth": "1.7.7",
+          "fastify": "5.12.5",
+          "kysely": "0.28.17",
+          "pg": "8.20.0",
+          "sharp": "0.35.5",
+          "zod": "4.3.6"
+        },
+        "devDependencies": {
+          "@types/pg": "8.18.0"
+        }
+      },
+      "after": {
+        "name": "@mems-life/server",
+        "version": "0.1.0",
+        "dependencies": {
+          "@better-auth/expo": "1.7.7",
+          "@fastify/cors": "11.2.0",
+          "@fastify/static": "10.1.6",
+          "@mems-life/domain": "0.1.0",
+          "@modelcontextprotocol/sdk": "1.32.1",
+          "better-auth": "1.7.7",
+          "fastify": "5.12.5",
+          "kysely": "0.28.17",
+          "pg": "8.20.0",
+          "sharp": "0.35.5",
+          "zod": "4.6.7"
+        },
+        "devDependencies": {
+          "@types/pg": "8.18.0"
+        }
+      }
+    },
+    {
+      "path": "apps/web",
+      "before": {
+        "name": "@mems-life/web",
+        "version": "0.1.0",
+        "dependencies": {
+          "@mems-life/domain": "*",
+          "better-auth": "^1.6.23",
+          "react": "19.2.3",
+          "react-dom": "19.2.3",
+          "zod": "^4.3.6"
+        },
+        "devDependencies": {
+          "@playwright/test": "1.64.0",
+          "@types/react": "^19.2.0",
+          "@types/react-dom": "^19.2.0",
+          "@vitejs/plugin-react": "^5.1.0",
+          "typescript": "5.9.3",
+          "vite": "^7.3.0"
+        }
+      },
+      "after": {
+        "name": "@mems-life/web",
+        "version": "0.1.0",
+        "dependencies": {
+          "@mems-life/domain": "*",
+          "better-auth": "^1.6.23",
+          "react": "19.2.3",
+          "react-dom": "19.2.3",
+          "zod": "4.6.7"
+        },
+        "devDependencies": {
+          "@playwright/test": "1.64.0",
+          "@types/react": "^19.2.0",
+          "@types/react-dom": "^19.2.0",
+          "@vitejs/plugin-react": "^5.1.0",
+          "typescript": "5.9.3",
+          "vite": "^7.3.0"
+        }
+      }
+    },
+    {
+      "path": "node_modules/@better-auth/core/node_modules/zod",
+      "before": {
+        "version": "4.6.7",
+        "resolved": "https://registry.npmjs.org/zod/-/zod-4.6.7.tgz",
+        "integrity": "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==",
+        "license": "MIT",
+        "funding": {
+          "url": "https://github.com/sponsors/colinhacks"
+        }
+      }
+    },
+    {
+      "path": "node_modules/@better-auth/expo/node_modules/zod",
+      "before": {
+        "version": "4.6.7",
+        "resolved": "https://registry.npmjs.org/zod/-/zod-4.6.7.tgz",
+        "integrity": "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==",
+        "license": "MIT",
+        "funding": {
+          "url": "https://github.com/sponsors/colinhacks"
+        }
+      }
+    },
+    {
+      "path": "node_modules/better-auth/node_modules/zod",
+      "before": {
+        "version": "4.6.7",
+        "resolved": "https://registry.npmjs.org/zod/-/zod-4.6.7.tgz",
+        "integrity": "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==",
+        "license": "MIT",
+        "funding": {
+          "url": "https://github.com/sponsors/colinhacks"
+        }
+      }
+    },
+    {
+      "path": "node_modules/zod",
+      "before": {
+        "version": "4.3.6",
+        "resolved": "https://registry.npmjs.org/zod/-/zod-4.3.6.tgz",
+        "integrity": "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==",
+        "license": "MIT",
+        "funding": {
+          "url": "https://github.com/sponsors/colinhacks"
+        }
+      },
+      "after": {
+        "version": "4.6.7",
+        "resolved": "https://registry.npmjs.org/zod/-/zod-4.6.7.tgz",
+        "integrity": "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==",
+        "license": "MIT",
+        "funding": {
+          "url": "https://github.com/sponsors/colinhacks"
+        }
+      }
+    },
+    {
+      "path": "packages/domain",
+      "before": {
+        "name": "@mems-life/domain",
+        "version": "0.1.0",
+        "dependencies": {
+          "@js-temporal/polyfill": "0.5.1",
+          "zod": "^4.1.12"
+        },
+        "devDependencies": {
+          "@types/jest": "30.0.0",
+          "jest": "30.5.2",
+          "ts-jest": "29.4.14",
+          "typescript": "5.9.3"
+        }
+      },
+      "after": {
+        "name": "@mems-life/domain",
+        "version": "0.1.0",
+        "dependencies": {
+          "@js-temporal/polyfill": "0.5.1",
+          "zod": "4.6.7"
+        },
+        "devDependencies": {
+          "@types/jest": "30.0.0",
+          "jest": "30.5.2",
+          "ts-jest": "29.4.14",
+          "typescript": "5.9.3"
+        }
+      }
+    }
+  ]
+}
