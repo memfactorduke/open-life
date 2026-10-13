@@ -1,4 +1,8 @@
-import { createInstallationClient, SessionExpiredError } from '../src/client';
+import {
+  createInstallationClient,
+  SessionExpiredError,
+  NetworkUnavailableError,
+} from '../src/client';
 
 const mockGetSession = jest.fn();
 const mockGetCookie = jest.fn();
@@ -20,6 +24,38 @@ const response = (status: number, body: unknown) => ({
   json: async () => body,
 });
 afterEach(() => jest.restoreAllMocks());
+
+test('Expo native connection rejection reaches offline recovery during cold session validation', async () => {
+  // Expo FetchError extends Error, not TypeError, and Better Fetch propagates transport rejection.
+  mockGetSession.mockRejectedValue(
+    new Error(
+      'fetch failed: UnexpectedException: Could not connect to the server. (at ExpoModulesCore/Promises.swift:56)',
+    ),
+  );
+  await expect(
+    createInstallationClient('https://life.example.com').request('/api/me'),
+  ).rejects.toBeInstanceOf(NetworkUnavailableError);
+});
+
+test.each([401, 403])(
+  'auth rejection %s never becomes an offline transport failure',
+  async (status) => {
+    mockGetSession.mockResolvedValue({ data: null, error: { status, message: 'fetch failed' } });
+    await expect(
+      createInstallationClient('https://life.example.com').request('/api/me'),
+    ).rejects.toBeInstanceOf(SessionExpiredError);
+  },
+);
+
+test('unknown statusless auth error remains closed', async () => {
+  mockGetSession.mockResolvedValue({
+    data: null,
+    error: { code: 'AuthorizationRequired', message: undefined },
+  });
+  await expect(
+    createInstallationClient('https://life.example.com').request('/api/me'),
+  ).rejects.not.toBeInstanceOf(NetworkUnavailableError);
+});
 
 test('native mutation sends its cookie and explicit trusted origin', async () => {
   const request = jest.fn().mockResolvedValue(response(200, { revision: 1 }));

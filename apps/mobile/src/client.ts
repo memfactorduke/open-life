@@ -33,13 +33,9 @@ export function createInstallationClient(baseURL: string) {
           fetchOptions: { signal: controller.signal },
         });
         if (session.error) {
-          if (session.error.status === 401) throw new SessionExpiredError();
-          if (
-            !session.error.status ||
-            /network request failed|failed to fetch|fetch failed|network error/i.test(
-              session.error.message ?? '',
-            )
-          )
+          if (session.error.status === 401 || session.error.status === 403)
+            throw new SessionExpiredError();
+          if (isTransportFailure(session.error))
             throw new NetworkUnavailableError(
               'The installation could not be reached. Saved work is available on this device.',
             );
@@ -77,11 +73,11 @@ export function createInstallationClient(baseURL: string) {
       }
       return await response.json();
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError')
+      if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError'))
         throw new NetworkUnavailableError(
           'The installation took too long to respond. Check your connection and try again.',
         );
-      if (error instanceof TypeError && /network|fetch|connection|load failed/i.test(error.message))
+      if (isTransportFailure(error))
         throw new NetworkUnavailableError(
           'The installation could not be reached. Check your connection; saved local work is retained.',
         );
@@ -92,6 +88,21 @@ export function createInstallationClient(baseURL: string) {
   }
 
   return { auth, request, baseURL, offline: undefined as NativeOfflineClient | undefined };
+}
+
+// Expo's FetchError is an Error (not TypeError). Better Fetch propagates a rejected
+// transport promise, whereas HTTP errors return { data: null, error: { status } }.
+// A missing status alone is never evidence that cached identity may be used.
+function isTransportFailure(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const value = error as { status?: unknown; code?: unknown; message?: unknown };
+  if (typeof value.status === 'number' && value.status > 0) return false;
+  if (typeof value.code === 'string' && /unauthor|forbidden|auth.*required/i.test(value.code))
+    return false;
+  if (typeof value.message !== 'string') return false;
+  return /network request failed|failed to fetch|network error|load failed|fetch failed:.*(?:could not connect|network|connection|internet|offline|timed out)|^fetch failed$/i.test(
+    value.message,
+  );
 }
 
 export class NetworkUnavailableError extends Error {

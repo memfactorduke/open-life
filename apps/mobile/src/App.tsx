@@ -33,13 +33,9 @@ import {
   type PreferencesCommand,
   type PreferencesRecord,
 } from '@mems-life/domain';
-import {
-  createInstallationClient,
-  SessionExpiredError,
-  NetworkUnavailableError,
-  type InstallationClient,
-} from './client';
-import { normalizeInstallationUrl, installationStoragePrefix } from './installation';
+import { createInstallationClient, SessionExpiredError, type InstallationClient } from './client';
+import { normalizeInstallationUrl } from './installation';
+import { loadInstallationSession, verifiedSessionKey } from './session-bootstrap';
 import { Tasks } from './features/Tasks';
 import { Workouts } from './features/Workouts';
 import { Sessions } from './features/Sessions';
@@ -75,8 +71,6 @@ type Session = {
   preferences: PreferencesRecord;
   authentication?: 'verified' | 'offline';
 };
-const verifiedSessionKey = (origin: string) =>
-  `${installationStoragePrefix(origin)}_verified_profile`;
 
 async function reconcileOwnerNotifications(
   client: InstallationClient,
@@ -135,53 +129,15 @@ function Installation() {
 
   async function refresh(current: InstallationClient) {
     try {
-      const [me, preferences] = await Promise.all([
-        current.request('/api/me'),
-        current.request('/api/preferences'),
-      ]);
-      const verifiedMe = MeSchema.parse(me);
-      const verifiedPreferences = PreferencesRecordSchema.parse(preferences);
-      await SecureStore.setItemAsync(
-        verifiedSessionKey(current.baseURL),
-        JSON.stringify({ me: verifiedMe, preferences: verifiedPreferences }),
+      const session = await loadInstallationSession(current, SecureStore);
+      const editableClient = await createOfflineClient(
+        current.offline?.base ?? current,
+        { installationId: session.me.installationId, ownerId: session.me.user.id },
+        { resumeOffline: session.authentication === 'offline' },
       );
-      const editableClient = await createOfflineClient(current.offline?.base ?? current, {
-        installationId: verifiedMe.installationId,
-        ownerId: verifiedMe.user.id,
-      });
       setClient(editableClient);
-      setAccess({
-        kind: 'signedIn',
-        session: {
-          me: verifiedMe,
-          preferences: verifiedPreferences,
-          authentication: 'verified',
-        },
-      });
+      setAccess({ kind: 'signedIn', session });
     } catch (error) {
-      if (error instanceof NetworkUnavailableError) {
-        try {
-          const saved = await SecureStore.getItemAsync(verifiedSessionKey(current.baseURL));
-          const cached: unknown = saved ? JSON.parse(saved) : null;
-          if (cached && typeof cached === 'object' && 'me' in cached && 'preferences' in cached) {
-            const me = MeSchema.parse(cached.me),
-              preferences = PreferencesRecordSchema.parse(cached.preferences);
-            const editableClient = await createOfflineClient(
-              current.offline?.base ?? current,
-              { installationId: me.installationId, ownerId: me.user.id },
-              { resumeOffline: true },
-            );
-            setClient(editableClient);
-            setAccess({
-              kind: 'signedIn',
-              session: { me, preferences, authentication: 'offline' },
-            });
-            return;
-          }
-        } catch {
-          /* Invalid cached identity cannot authorize another local partition. */
-        }
-      }
       if (error instanceof SessionExpiredError)
         await SecureStore.deleteItemAsync(verifiedSessionKey(current.baseURL));
       setAccess({
