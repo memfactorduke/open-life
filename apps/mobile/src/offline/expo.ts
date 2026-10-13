@@ -39,9 +39,25 @@ export async function openOfflineStore(partition: Partition): Promise<OfflineSto
     transaction: (work) =>
       serialize(async () => {
         let result: Awaited<ReturnType<typeof work>> | undefined;
-        await db.withExclusiveTransactionAsync(async (tx) => {
-          result = await work(executor(tx));
-        });
+        let callbackFailed = false;
+        let callbackError: unknown;
+        try {
+          await db.withExclusiveTransactionAsync(async (tx) => {
+            try {
+              result = await work(executor(tx));
+            } catch (error) {
+              callbackFailed = true;
+              callbackError = error;
+              throw error;
+            }
+          });
+        } catch (error) {
+          // SQLite can automatically roll back a full-disk transaction. Expo's
+          // subsequent ROLLBACK then rejects, hiding the callback's original
+          // failure. Preserve that exact error, including its native code/cause.
+          // BEGIN/COMMIT failures still come from Expo unchanged.
+          throw callbackFailed ? callbackError : error;
+        }
         return result as Awaited<ReturnType<typeof work>>;
       }),
     close: () => serialize(() => db.closeAsync()),

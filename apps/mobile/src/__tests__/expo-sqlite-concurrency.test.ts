@@ -9,8 +9,12 @@ jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
 
 // This is an adapter regression, not a native Expo test. Use real independent
 // SQLite connections, matching installed Expo's exclusive transaction boundary.
-function connection(path: string): SQLite.SQLiteDatabase {
+function connection(path: string, limitPages = false): SQLite.SQLiteDatabase {
   const native = new DatabaseSync(path);
+  if (limitPages) {
+    const pages = native.prepare('PRAGMA page_count').get() as { page_count: number };
+    native.exec(`PRAGMA max_page_count = ${pages.page_count}`);
+  }
   const db = {
     execAsync: async (sql: string) => native.exec(sql),
     runAsync: async (sql: string, ...params: (string | number | null)[]) =>
@@ -19,7 +23,7 @@ function connection(path: string): SQLite.SQLiteDatabase {
       native.prepare(sql).all(...params),
     closeAsync: async () => native.close(),
     withExclusiveTransactionAsync: async (work: (tx: SQLite.SQLiteDatabase) => Promise<void>) => {
-      const tx = connection(path);
+      const tx = connection(path, limitPages);
       try {
         await tx.execAsync('BEGIN');
         await work(tx);
@@ -146,5 +150,60 @@ test('rollback rejects the caller and releases the queue for subsequent durable 
   expect(await store.db.all('SELECT value FROM adapter_probe')).toEqual([
     { value: 'durable-next' },
   ]);
+  await store.db.close();
+});
+
+test('a real SQLite full error survives Expo rollback masking and releases the queue', async () => {
+  const path = join(folder, 'capacity.sqlite');
+  const db = connection(path);
+  jest.mocked(SQLite.openDatabaseAsync).mockResolvedValue(db);
+  const store = await openOfflineStore(partition);
+  await store.db.exec('CREATE TABLE capacity_probe(value BLOB)');
+  const limited = connection(path, true);
+  db.withExclusiveTransactionAsync = limited.withExclusiveTransactionAsync;
+  // Installed Expo tries ROLLBACK after the failed callback. SQLite FULL has
+  // already rolled back, so this control reproduces its masking failure.
+  await expect(
+    limited.withExclusiveTransactionAsync(async (tx) => {
+      await tx.runAsync('INSERT INTO capacity_probe VALUES(randomblob(1000000))');
+    }),
+  ).rejects.toThrow('cannot rollback - no transaction is active');
+  let original: unknown;
+  const failed = store.db.transaction(async (tx) => {
+    await tx.run("INSERT INTO capacity_probe VALUES('must-roll-back')");
+    try {
+      await tx.run('INSERT INTO capacity_probe VALUES(randomblob(1000000))');
+    } catch (error) {
+      original = error;
+      throw error;
+    }
+  });
+  const next = store.db.transaction(async (tx) => {
+    await tx.run("INSERT INTO capacity_probe VALUES('durable-next')");
+    return 'committed';
+  });
+  await expect(failed).rejects.toMatchObject({
+    errcode: 13,
+    message: 'database or disk is full',
+  });
+  await expect(failed).rejects.toBe(original);
+  await expect(next).resolves.toBe('committed');
+  expect(await store.db.all('SELECT value FROM capacity_probe')).toEqual([
+    { value: 'durable-next' },
+  ]);
+  await limited.closeAsync();
+  await store.db.close();
+});
+
+test('an error after a successful callback is returned unchanged', async () => {
+  const db = connection(join(folder, 'commit.sqlite'));
+  jest.mocked(SQLite.openDatabaseAsync).mockResolvedValue(db);
+  const store = await openOfflineStore(partition);
+  const commitFailure = Object.assign(new Error('commit failed'), { code: 'COMMIT_FAILURE' });
+  db.withExclusiveTransactionAsync = async (work) => {
+    await work(db);
+    throw commitFailure;
+  };
+  await expect(store.db.transaction(async () => 'callback completed')).rejects.toBe(commitFailure);
   await store.db.close();
 });

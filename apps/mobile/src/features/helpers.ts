@@ -3,6 +3,19 @@ import * as Crypto from 'expo-crypto';
 import { RequestRejectedError, type InstallationClient } from '../client';
 
 export function messageOf(error: unknown): string {
+  if (error instanceof Error && !(error instanceof RequestRejectedError)) {
+    const code = 'code' in error ? error.code : undefined;
+    if (
+      code === 'SQLITE_FULL' ||
+      /\bSQLITE_FULL\b|\bdatabase or disk is full\b/i.test(error.message)
+    )
+      return 'This device could not save the change. Keep this screen open, check free space, and retry.';
+    if (
+      code === 'ERR_INTERNAL_SQLITE_ERROR' ||
+      /\bcannot rollback - no transaction is active\b/i.test(error.message)
+    )
+      return 'This device could not save the change. Keep this screen open and retry.';
+  }
   return error instanceof Error
     ? error.message
     : 'The request could not be completed. Your edits are still here.';
