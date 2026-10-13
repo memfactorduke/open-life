@@ -4,6 +4,7 @@ import {
   Alert,
   AppState,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -460,40 +461,11 @@ function Shell({
         : undefined,
     [focusTarget],
   );
-  const { width } = useWindowDimensions();
-  const wide = width >= 760;
-  const palette = usePalette();
+  const { width, fontScale } = useWindowDimensions();
+  const largeText = fontScale >= 1.5;
+  const wide = width >= 760 && !largeText;
   const navigation = (
-    <View
-      accessibilityRole="tablist"
-      style={wide ? layout.sidebar : [layout.bottomNav, { borderTopColor: palette.line }]}
-    >
-      {wide && <Text style={[layout.sidebarBrand, { color: palette.accent }]}>Mem’s Life</Text>}
-      {areas.map((name) => (
-        <Pressable
-          key={name}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: area === name }}
-          onPress={() => setArea(name)}
-          style={[
-            wide ? layout.sideItem : layout.tab,
-            { backgroundColor: area === name ? palette.surface : 'transparent' },
-          ]}
-        >
-          <Text
-            style={[
-              layout.navText,
-              {
-                color: area === name ? palette.accent : palette.muted,
-                fontWeight: area === name ? '700' : '500',
-              },
-            ]}
-          >
-            {name}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
+    <AreaNavigation area={area} onSelect={setArea} wide={wide} largeText={largeText} />
   );
   return (
     <View style={[layout.flex, wide && layout.row]}>
@@ -587,6 +559,114 @@ function Shell({
         </ScrollView>
       </KeyboardAvoidingView>
       {!wide && navigation}
+    </View>
+  );
+}
+
+export function AreaNavigation({
+  area,
+  onSelect,
+  wide,
+  largeText,
+}: {
+  area: Area;
+  onSelect: (area: Area) => void;
+  wide: boolean;
+  largeText: boolean;
+}) {
+  const palette = usePalette();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  useEffect(() => {
+    if (!largeText) setPickerOpen(false);
+  }, [largeText]);
+  if (largeText) {
+    return (
+      <View style={[layout.areaBar, { borderTopColor: palette.line }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${area}. Change area`}
+          accessibilityState={{ expanded: pickerOpen }}
+          onPress={() => setPickerOpen(true)}
+          style={[layout.areaOption, { backgroundColor: palette.surface }]}
+        >
+          <Text style={[layout.areaName, { color: palette.accent }]}>{area}</Text>
+          <Text style={[layout.navText, { color: palette.muted }]}>Change area</Text>
+        </Pressable>
+        <Modal visible={pickerOpen} onRequestClose={() => setPickerOpen(false)}>
+          <SafeAreaView
+            testID="area-picker"
+            accessibilityViewIsModal
+            onAccessibilityEscape={() => setPickerOpen(false)}
+            style={[layout.safe, { backgroundColor: palette.background }]}
+          >
+            <View style={layout.pickerClose}>
+              <Action title="Close" secondary onPress={() => setPickerOpen(false)} />
+            </View>
+            <ScrollView contentContainerStyle={layout.areaOptions}>
+              <Text accessibilityRole="header" style={[layout.areaName, { color: palette.text }]}>
+                Choose area
+              </Text>
+              {areas.map((name) => (
+                <Pressable
+                  key={name}
+                  accessibilityRole="button"
+                  accessibilityLabel={name}
+                  accessibilityState={{ selected: area === name }}
+                  onPress={() => {
+                    setPickerOpen(false);
+                    onSelect(name);
+                  }}
+                  style={[
+                    layout.areaOption,
+                    { backgroundColor: area === name ? palette.surface : 'transparent' },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      layout.areaName,
+                      { color: area === name ? palette.accent : palette.text },
+                    ]}
+                  >
+                    {name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+      </View>
+    );
+  }
+  return (
+    <View
+      accessibilityRole="tablist"
+      style={wide ? layout.sidebar : [layout.bottomNav, { borderTopColor: palette.line }]}
+    >
+      {wide && <Text style={[layout.sidebarBrand, { color: palette.accent }]}>Mem’s Life</Text>}
+      {areas.map((name) => (
+        <Pressable
+          key={name}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: area === name }}
+          onPress={() => onSelect(name)}
+          style={[
+            wide ? layout.sideItem : layout.tab,
+            { backgroundColor: area === name ? palette.surface : 'transparent' },
+          ]}
+        >
+          <Text
+            style={[
+              layout.navText,
+              {
+                color: area === name ? palette.accent : palette.muted,
+                fontWeight: area === name ? '700' : '500',
+              },
+            ]}
+          >
+            {name}
+          </Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -897,6 +977,11 @@ const layout = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  areaBar: { borderTopWidth: 1, padding: 8 },
+  areaOption: { minHeight: 54, borderRadius: 13, padding: 12, gap: 4 },
+  areaName: { fontSize: 18, fontWeight: '700' },
+  areaOptions: { padding: 16, gap: 8 },
+  pickerClose: { paddingHorizontal: 16, paddingTop: 8 },
   navText: { fontSize: 13 },
   cardTitle: { fontSize: 21, fontWeight: '600' },
   status: { borderTopWidth: 1, paddingTop: 18 },
