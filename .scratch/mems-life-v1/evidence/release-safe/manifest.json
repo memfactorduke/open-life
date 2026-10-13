@@ -157,20 +157,119 @@
     },
     {
       "file": "receipts/mobile-cold-start-checks.json",
-      "bytes": 1185,
-      "sha256": "d9a41bde88525368e1bba3d4be9ca62205ee6076e8052395f91b0d5bd7e4344d",
+      "bytes": 1345,
+      "sha256": "f4e4b4a4524d5433ce8a8a7bea5dfe670206962cfa0eda65374230697efe2ddb",
       "rawLocalOnly": ".scratch/mems-life-v1/evidence/mobile-cold-start-checks.json",
-      "rawBytes": 1185,
-      "rawSha256": "d9a41bde88525368e1bba3d4be9ca62205ee6076e8052395f91b0d5bd7e4344d",
+      "rawBytes": 1345,
+      "rawSha256": "f4e4b4a4524d5433ce8a8a7bea5dfe670206962cfa0eda65374230697efe2ddb",
       "review": "Explicit reviewed receipt; original evidence links are local-only"
     },
     {
       "file": "receipts/native-mcp-roundtrip--receipt.json",
-      "bytes": 2716,
-      "sha256": "b0ae725db383fb22bc9d939a5ad164cd37d307f76df6337e9f9632cfb55f1aed",
+      "bytes": 3811,
+      "sha256": "67d7fe0d5f8651f93c64eb7c3f64cf80fb8ea5b1978ac1446b9246a55aad43f6",
       "rawLocalOnly": ".scratch/mems-life-v1/evidence/native-mcp-roundtrip/receipt.json",
-      "rawBytes": 2716,
-      "rawSha256": "b0ae725db383fb22bc9d939a5ad164cd37d307f76df6337e9f9632cfb55f1aed",
+      "rawBytes": 3811,
+      "rawSha256": "67d7fe0d5f8651f93c64eb7c3f64cf80fb8ea5b1978ac1446b9246a55aad43f6",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/mobile-final-photo-checks.json",
+      "bytes": 1430,
+      "sha256": "6f041011b046e8472b1cf03be0ebc37fc600817ec60b7c157a5eaac640dc81de",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/mobile-final-photo-checks.json",
+      "rawBytes": 1430,
+      "rawSha256": "6f041011b046e8472b1cf03be0ebc37fc600817ec60b7c157a5eaac640dc81de",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/final-history-workspace-checks.json",
+      "bytes": 1913,
+      "sha256": "6492a5118359f4697b9249d9a30ae6c3d96302582b04bdb0ed025b03b4d189e6",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/final-history-workspace-checks.json",
+      "rawBytes": 1913,
+      "rawSha256": "6492a5118359f4697b9249d9a30ae6c3d96302582b04bdb0ed025b03b4d189e6",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/final-history-container--verification.json",
+      "bytes": 4628,
+      "sha256": "575c9f995e851d2cc510bf8c55adc798ab8c6b3f158210dcea0f5852c790b4dc",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/final-history-container/verification.json",
+      "rawBytes": 4628,
+      "rawSha256": "575c9f995e851d2cc510bf8c55adc798ab8c6b3f158210dcea0f5852c790b4dc",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/youtube-sdk-proof--receipt.json",
+      "bytes": 3407,
+      "sha256": "f3b52d19f21f61b3550e9dfc60e33bb77e2babdb012f57654adbc1d5a7cd315c",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/youtube-sdk-proof/receipt.json",
+      "rawBytes": 3407,
+      "rawSha256": "f3b52d19f21f61b3550e9dfc60e33bb77e2babdb012f57654adbc1d5a7cd315c",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/media-capacity-proof--receipt.json",
+      "bytes": 1402,
+      "sha256": "fb00769777cd5ef95b631e09295c9e4e7a8a9e2eee4fbbf5ea0c81a9125a78b0",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/media-capacity-proof/receipt.json",
+      "rawBytes": 1402,
+      "rawSha256": "fb00769777cd5ef95b631e09295c9e4e7a8a9e2eee4fbbf5ea0c81a9125a78b0",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/media-capacity-proof--task-file-receipt.json",
+      "bytes": 12946,
+      "sha256": "442028860e035d021a0243cfb3b9ea3b212e80d37221cc633791871d41c842e6",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/media-capacity-proof/task-file-receipt.json",
+      "rawBytes": 12946,
+      "rawSha256": "442028860e035d021a0243cfb3b9ea3b212e80d37221cc633791871d41c842e6",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/artifact-approval-reconciliation--receipt.json",
+      "bytes": 6919,
+      "sha256": "9f287b5e0b105e82512e85738d4c23bb3748f7501dd209c99fdd7d8b4cd63dbf",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/artifact-approval-reconciliation/receipt.json",
+      "rawBytes": 6919,
+      "rawSha256": "9f287b5e0b105e82512e85738d4c23bb3748f7501dd209c99fdd7d8b4cd63dbf",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/native-auth-expiry-proof--admin-receipt.json",
+      "bytes": 589,
+      "sha256": "7415bf08dea040ed9c7b70549775f0fd4e0e89575c761b571e8c383eae7be21e",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/native-auth-expiry-proof/admin-receipt.json",
+      "rawBytes": 589,
+      "rawSha256": "7415bf08dea040ed9c7b70549775f0fd4e0e89575c761b571e8c383eae7be21e",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/final-mobile-storage-checks.json",
+      "bytes": 1874,
+      "sha256": "e8120e43d075394a18a013a7e85b25d14cf780c23051693612036bff8e99e9f2",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/final-mobile-storage-checks.json",
+      "rawBytes": 1874,
+      "rawSha256": "e8120e43d075394a18a013a7e85b25d14cf780c23051693612036bff8e99e9f2",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/final-mobile-navigation-checks.json",
+      "bytes": 1604,
+      "sha256": "c21a3e1a8cdee98cde5e4b128fcbd2dc0f1d2407e744338e9fef13c729a2fb42",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/final-mobile-navigation-checks.json",
+      "rawBytes": 1604,
+      "rawSha256": "c21a3e1a8cdee98cde5e4b128fcbd2dc0f1d2407e744338e9fef13c729a2fb42",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/native-restore-proof--complete.json",
+      "bytes": 1024,
+      "sha256": "8fa389865f6d0f8047077d49cb6400738f3215c3a92d89f94999ce2cab4e9535",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/native-restore-proof/complete.json",
+      "rawBytes": 1116,
+      "rawSha256": "b4fdc1a802ba06a623427a14db308e1bc23aa88989c15251ac77d5415e3db8d5",
       "review": "Explicit reviewed receipt; original evidence links are local-only"
     },
     {

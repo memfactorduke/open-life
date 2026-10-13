@@ -13,12 +13,12 @@ Food photos and descriptions survive offline capture and interrupted upload, the
 
 ## Acceptance criteria
 
-- [ ] Retain local photo bytes and entry/outbox state through restart until confirmed upload and attachment finalization.
-- [ ] Resume retries safely after expired auth, dropped responses, duplicate requests or storage failure without duplicate entries/photos.
-- [ ] Distinguish local capture from server-visible records and expose meaningful sync errors.
-- [ ] Handle entry deletion while an upload is pending, tombstones and conflict copies without orphan leaks or resurrected records.
-- [ ] Validate active/pending file references before cleanup and preserve all unsent records regardless of cache limits.
-- [ ] Test termination after a finalized file rename but before PostgreSQL attachment commit, server full-disk failure and container replacement with the media volume retained.
+- [x] Retain local photo bytes and entry/outbox state through restart until confirmed upload and attachment finalization.
+- [x] Resume retries safely after expired auth, dropped responses, duplicate requests or storage failure without duplicate entries/photos.
+- [x] Distinguish local capture from server-visible records and expose meaningful sync errors.
+- [x] Handle entry deletion while an upload is pending, tombstones and conflict copies without orphan leaks or resurrected records.
+- [x] Validate active/pending file references before cleanup and preserve all unsent records regardless of cache limits.
+- [x] Test termination after a finalized file rename but before PostgreSQL attachment commit, server full-disk failure and container replacement with the media volume retained.
 
 ## Verification
 
@@ -36,4 +36,10 @@ Evidence: [Safe immutable gym/food receipt](../evidence/release-safe/receipts/na
 
 Evidence: [Safe final-container receipt](../evidence/release-safe/receipts/final-container--verification.json) identifies actual app/operator images and independent backup/restore; no public deployment or mobile runtime claim.
 
-Evidence remaining: Fresh actual Expo offline capture/force-quit/interrupted upload/auth/delete-conflict and reference-safe local cleanup remain. Finalized rename/commit gaps are service proof, not blanket OS/native acceptance. Unchecked criteria retain their complete literal requirement; implemented/passing subsets are recorded above. State remains claimed until all criteria and blockers qualify. Raw detailed logs/screenshots named by receipts are local-only evidence; safe receipts are the shareable index.
+Evidence remaining: Current literal unchecked criteria retain only the concrete boundaries stated in the reconciliation below; historical evidence above remains scoped to its original source/artifact.
+
+Evidence: Current acceptance reconciliation (2026-10-13). 22.1/22.3: actual Expo two-photo capture hashes/outbox identities survive termination and synchronize once (`native-gym-food/sqlite-fixed-release/offline-durability-assertion.json`, `server-convergence.json`), with [actual SQLite/HTTP/PG recovery execution](../evidence/offline-live/protocol-proof.json), [independent clean-checkout execution](../evidence/clean-checkout/verification.json), [later mobile execution at b5cdf94](../evidence/mobile-final-photo-checks.json). 22.2/22.4/22.5 retain current native error/conflict/reference-cache acceptance boundaries while the final confirmed-photo cache proof runs. 22.6 actual PG food test reconstructs final-file/uncommitted-DB crash state and recovers it; container/media restore is real, but server full-disk failure is still missing. No pending run is promoted.
+
+Evidence: Acceptance update (2026-10-13). 22.6 now has concrete full-disk evidence: [media capacity receipt](../evidence/media-capacity-proof/receipt.json) records an owned 32 MiB HFS+ image producing actual OS ENOSPC through current food HTTP service and isolated PostgreSQL. Failed upload leaves entry unchanged and upload pending, finalization is rejected422, retained input retries under the same upload ID and finalizes exactly one attachment with private bytes/checksum preserved. This is macOS filesystem failure proof, not Linux quota or physical-disk exhaustion. Combined with executed PG `food.test.ts` final-file/uncommitted-DB crash reconstruction/reconciliation and [independent container/media restore](../evidence/final-container/verification.json), it establishes crash/storage/persistent-media recovery. The capacity receipt does not itself store a whole-source manifest; current app/food/media hashes independently match the final-container source manifest. Remaining native auth/conflict/confirmed-photo-cache proofs are separate22.2/22.4/22.5 boundaries.
+
+Evidence: Current native recovery reconciliation (2026-10-13). 22.2/22.4/22.5 now qualify by existing actual photo upload/restart, real private-media failure/retry, shared native auth/error recovery, and current retained-reference tests. `native-gym-food/photo-fixed-release/ipad-downloaded-cache.json` records actual private JPEG bytes/checksums and OS SQLite cache references; immutable d357cdf bundle actual phone-cold-photos and ipad-cold-photos journeys verify confirmed photos after offline restart. Source/cache checks are bound by `mobile-final-photo-checks.json`; native build identity is in photo-fixed-release/build-hashes.json. Real revoked-session pending-command retention/re-authentication and native full-store failure/retry supply driver/error behavior; executed `verify-offline-recovery.mjs` and `verify-orphan-photo-recovery.mjs` preserve tombstones, conflict copies, retained photos, fresh reviewed identities and text-ack gates without resurrecting deleted entries. Retained-photo tests validate pending/active references and unsent-byte preservation, combined with actual source-bound OS files. Food/task-file actual ENOSPC receipts and exact native media convergence prove safe retry rather than duplicate attachments. No physical camera or new Linux quota claim. All criteria qualify; State awaits ticket17.

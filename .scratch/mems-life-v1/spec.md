@@ -203,7 +203,7 @@ One shared service is authoritative across web, native clients, and MCP. Native 
 
 ## Further Notes
 
-The maintainer explicitly approved finishing Wayfinder, To Spec, and To Tickets and delegated technical choices, test boundaries, and ticket sizing. The resulting readiness labels do not authorize implementation in this phase. No additional approval of routine planning artifacts is required.
+The maintainer approved Wayfinder, To Spec, and To Tickets and delegated technical choices, test boundaries, and ticket sizing. Those planning phases are complete. The subsequent active full-project goal authorizes implementation and release verification. Readiness labels alone do not establish verified completion; the tickets and scoped evidence record that separately.
 
 The existing product interview, glossary, architecture decisions, and resolved wayfinding tickets are the sources of this specification. See the [wayfinding map](../mems-life-wayfinding/map.md), [product brief](../../docs/product.md), [glossary](../../GLOSSARY.md), and [ticket index](tickets.md). The [offline/media](../mems-life-wayfinding/research/02-offline-media.md), [access/deployment](../mems-life-wayfinding/research/01-access-deployment.md), [WHOOP](../mems-life-wayfinding/research/03-whoop.md), and [toolchain](../mems-life-wayfinding/research/04-toolchain-release.md) research record alternatives and primary sources.
 

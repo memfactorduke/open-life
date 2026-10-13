@@ -1,11 +1,11 @@
 # 06: Adapt a live workout without rewriting its plan
 
 Status: ready-for-agent
-State: claimed
+State: resolved
 Blocked by: 04
 Spec: [Mem's Life first release](../spec.md)
 Coverage: US-37–38, US-43, US-46
-Phase: authorized implementation in progress; acceptance remains unverified
+Phase: verified implementation by scoped composite execution; external gates remain in ticket 29
 
 ## What to build
 
@@ -13,8 +13,8 @@ Change the workout as it happens while preserving actual results and the reusabl
 
 ## Acceptance criteria
 
-- [ ] Add, substitute, reorder, skip and remove session exercises and add/edit/remove actual sets with notes.
-- [ ] Clearly distinguish skipping a planned activity from erasing a recorded result; retain correction history.
+- [x] Add, substitute, reorder, skip and remove session exercises and add/edit/remove actual sets with notes.
+- [x] Clearly distinguish skipping a planned activity from erasing a recorded result; retain correction history.
 - [x] Session edits affect that session only unless the owner explicitly chooses an update-routine action.
 - [x] Updating a routine from a session applies selected future-plan changes without rewriting completed activity.
 - [x] Test revision conflicts and a routine change while an older session is in progress.
@@ -33,4 +33,6 @@ Evidence: The independent clean checkout receipt identifies commit `9a8a584fa708
 
 Evidence: [Safe immutable gym/food receipt](../evidence/release-safe/receipts/native-gym-food--results.json) records exact successes, failed exploratory/visual gates and source limitations; it predates the current offline/Today source.
 
-Evidence remaining: Final native editing flow and phone modal layout need current-bundle review; recorded service evidence does not resolve ticket 04. Unchecked criteria retain their complete literal requirement; implemented/passing subsets are recorded above. State remains claimed until all criteria and blockers qualify. Raw detailed logs/screenshots named by receipts are local-only evidence; safe receipts are the shareable index.
+Evidence remaining: Current literal unchecked criteria retain only the concrete boundaries stated in the reconciliation below; historical evidence above remains scoped to its original source/artifact.
+
+Evidence: Current acceptance reconciliation (2026-10-13). 06.1–06.5: [session service execution](../evidence/sessions-service/receipt.json), [immutable native mixed-workout/diary execution](../evidence/native-gym-food/results.json), [independent clean-checkout execution](../evidence/clean-checkout/verification.json), [later mobile execution at b5cdf94](../evidence/mobile-final-photo-checks.json); session test assertions cover adding/removing/substituting/reordering/skipping, retained actuals and correction history, explicit future routine update and stale revisions. Actual iPad adaptation retained routine revision 1 and recorded results (`session-adapted.json`, `routine-after-session-adaptation.json`); later safe-area repair is already recorded by ticket 03. No unchanged session operation needs a repeat solely because the food cache changed.

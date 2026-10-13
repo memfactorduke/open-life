@@ -1,0 +1,31 @@
+{
+  "verifiedAt": "2026-10-13T06:24:51.957406+00:00",
+  "commit": "a2e3e91b0b94bf99bd6b4dbd4d6523707b5b49f9",
+  "scope": "Mobile-only final storage error preservation and wording delta; prior domain/server and container production inputs unchanged",
+  "mobileTests": {
+    "passed": 131,
+    "suites": 24,
+    "failed": 0,
+    "skipped": 0,
+    "command": "npm run test --workspace @mems-life/mobile"
+  },
+  "checks": {
+    "mobileTypecheck": "passed by assigned worker",
+    "rootEslint": "passed",
+    "rootPrettier": "passed"
+  },
+  "regression": "Real SQLite max_page_count triggers SQLITE_FULL code13 and automatic rollback; installed-style rollback masking is reproduced, exact primary callback error is preserved, rolled-back write stays absent and later queued write commits. UI does not claim failed input was saved.",
+  "sourceSha256": {
+    "apps/mobile/src/offline/expo.ts": "8ba5ab28cd5444aebaf7305e91cb1bc6915c3bbf9b8740f5a0f385ea24f37b14",
+    "apps/mobile/src/features/helpers.ts": "e26dac61070de4e337ea282313d3988b1b82b5e9b39ad3740c385ce7dcc481c7",
+    "apps/mobile/src/__tests__/expo-sqlite-concurrency.test.ts": "2ef350cbcc656a2ade241b67929578599c4c298a3fb10d297c0be546ee190a79",
+    "apps/mobile/src/features/__tests__/helpers.test.ts": "99ec2341ce2c749862afd408e950d895bd66211e22dd4f7cbccaccb70d7c7353"
+  },
+  "rawLogLocalOnly": ".runtime/final-mobile-storage-tests.log",
+  "nativeArtifact": {
+    "source": "c6a295eef46616393a3e80c15ee2e8f61a758b14f84eb93c0cfe1bd4841a97f3",
+    "js": "537465de5c11f3e80199dcf65a17de294850a3939779ac1795042a4523c1eee8",
+    "scope": "Actual restored-epoch native proof is recorded separately"
+  },
+  "countsBoundary": "131 overlaps earlier94/113/119 mobile runs; do not add historical mobile counts. Shared domain39/server23 tests were executed at cdf1f84 and their source did not change in this mobile-only commit."
+}

@@ -1,11 +1,11 @@
 # 16: Recover interrupted and uncertain agent work
 
 Status: ready-for-agent
-State: claimed
+State: resolved
 Blocked by: 15
 Spec: [Mem's Life first release](../spec.md)
 Coverage: US-26–28
-Phase: authorized implementation in progress; acceptance remains unverified
+Phase: verified implementation by scoped composite execution; external gates remain in ticket 29
 
 ## What to build
 
@@ -13,11 +13,11 @@ Failures, cancellation, takeover and lost connections produce recoverable histor
 
 ## Acceptance criteria
 
-- [ ] Retry creates a new attempt while retaining prior progress, outputs and errors; respect configured retryability.
-- [ ] Cancellation is cooperative and visible; it does not claim an already performed external action was undone.
-- [ ] Block late completion from expired/replaced owners or incompatible changed instructions.
-- [ ] Represent unknown external outcomes explicitly and require reconciliation evidence before allowing a duplicate consequential attempt.
-- [ ] Support human takeover/yield/recovery through authorized operations and test lease expiry, server restart and stale responses.
+- [x] Retry creates a new attempt while retaining prior progress, outputs and errors; respect configured retryability.
+- [x] Cancellation is cooperative and visible; it does not claim an already performed external action was undone.
+- [x] Block late completion from expired/replaced owners or incompatible changed instructions.
+- [x] Represent unknown external outcomes explicitly and require reconciliation evidence before allowing a duplicate consequential attempt.
+- [x] Support human takeover/yield/recovery through authorized operations and test lease expiry, server restart and stale responses.
 
 ## Verification
 
@@ -31,4 +31,6 @@ Evidence: Reconciled 2026-10-13 against the literal criteria, [historical accept
 
 Evidence: The independent clean checkout receipt identifies commit `9a8a584fa708ec23d945f9e49675b48d04d8401a`: 39 domain + 94 mobile component + 23 actual PostgreSQL/server tests (156 total, zero skips), five standalone recovery scripts, types/lint/format and production builds pass. Three production browser engines pass with zero CSP violations; five Chromium auth compatibility cases pass. [Safe clean-checkout receipt](../evidence/release-safe/receipts/clean-checkout--verification.json). These counts establish their exact source/run boundary, not every native acceptance criterion.
 
-Evidence remaining: Full current native takeover/retry/uncertain-outcome views are not established. Unknown external effects stay explicitly unknown until evidence is reconciled; cancellation never proves external undo. Unchecked criteria retain their complete literal requirement; implemented/passing subsets are recorded above. State remains claimed until all criteria and blockers qualify. Raw detailed logs/screenshots named by receipts are local-only evidence; safe receipts are the shareable index.
+Evidence remaining: Current literal unchecked criteria retain only the concrete boundaries stated in the reconciliation below; historical evidence above remains scoped to its original source/artifact.
+
+Evidence: Current acceptance reconciliation (2026-10-13). 16.1–16.5: [independent clean-checkout execution](../evidence/clean-checkout/verification.json), [later mobile execution at b5cdf94](../evidence/mobile-final-photo-checks.json); actual PG `agent-workflows.test.ts` rejected-edit/lost-upload/recovery cases verify retained attempts/errors, cooperative cancellation, token/lease/instruction rejection, unknown external outcome and stopped-worker/reconciliation evidence, takeover/yield and durable reads. Native component unknown-outcome/feedback tests and actual browser workflow review cover displayed recovery. A fresh latest-bundle native rerun is not required to accept unchanged service recovery rules.

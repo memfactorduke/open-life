@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-13T05:41:51.894875+00:00",
+  "status": "passed",
+  "source": {
+    "stableBeforeAfter": true,
+    "sha256": "d9efa2c339d7926d099b0a166545706c7f798abece557c142be8793e00c9f9b0",
+    "lockSha256": "e16a4ba9056bf8d16a8d739b3581e398902729142a1662563648048ccfc522ce",
+    "fileCount": 1264,
+    "scope": "Dockerfile, Compose, Docker ignore, root/toolchain/license/manifests; domain/server/web production input and scripts/native license assets. Excludes generated distributions, node_modules, tests, e2e, evidence, scratch, runtime; mobile manifest only.",
+    "criticalFixCommit": "cdf1f84"
+  },
+  "platform": "linux/arm64",
+  "toolchain": {
+    "node": "24.21.0",
+    "npm": "11.19.0",
+    "postgres": "16.14"
+  },
+  "lockedVersions": {
+    "zod": "4.6.7",
+    "@js-temporal/polyfill": "0.5.1",
+    "sharp": "0.35.5",
+    "better-auth": "1.7.7"
+  },
+  "images": {
+    "app": {
+      "tag": "mems-life:final-history-20261013",
+      "id": "sha256:6f4e94b8e6ca3ee18aabaeff90ae907610b8203e8832ea7ccd108ea32abba583",
+      "bytes": 103377330
+    },
+    "operator": {
+      "tag": "mems-life:final-history-operator-20261013",
+      "id": "sha256:376afc90d07bcc55923ca98c5a90b219ead413563f90a14cdad0f923bba9c138",
+      "bytes": 220948344
+    }
+  },
+  "appChecks": [
+    "actual migration versions 1 through 14",
+    "compiled CLI bootstrap and password recovery",
+    "database-backed service health and built web HTML/JavaScript",
+    "unauthenticated access rejected",
+    "signed-in private photo and task-file upload/download with no-store",
+    "preferences, media, database and owner bootstrap persist across app+database restarts",
+    "runtime imports, native sharp encoding/decoding, UID 1000 and writable media",
+    "runtime excludes handwritten source, tests and native/development dependencies",
+    "actual signed-in task history HTTP 200 after task-file finalize and restart, then detach; both legitimate event types parsed by compiled domain schema"
+  ],
+  "operatorChecks": [
+    "actual isolated Compose export",
+    "protected coherent backup after write drain",
+    "archive 0700 / dump 0600 / configuration and dump checksum",
+    "independent database and media restore",
+    "matching migrations, preserved installation identity and rotated epoch",
+    "restored maintenance remains closed",
+    "original installation identity/epoch unchanged and original maintenance resumed",
+    "finalized and pending private bytes restored",
+    "restored UID 1000 media access",
+    "second restore rejected",
+    "explicit restored maintenance resume"
+  ],
+  "nativeLicenses": {
+    "appValidator": "passed",
+    "operatorValidator": "passed",
+    "libvipsVersion": "8.18.7",
+    "hashedFiles": 1143,
+    "sourceReferences": 390,
+    "separateSourceArchiveSha256": "12b4e9b34153efe27b3f6da3df800b6aa279b1bdbdf8831eecf1faa8d454a8ec",
+    "externalDistributionGate": "Actual upstream post-edit Cargo.lock/toolchain not proven; source provenance/coverage remains a separate gate. Validator is inventory/hash evidence, not legal compliance certification.",
+    "sourceArchiveReceipt": "Separate source archive hash retained from final-container verification; source archive bytes not regenerated in this refresh."
+  },
+  "npmRegistryAudit": {
+    "method": "POST exact final-image name/version inventory to official https://registry.npmjs.org/-/npm/v1/security/advisories/bulk",
+    "appPackageCount": 212,
+    "operatorPackageCount": 212,
+    "appMatchingAdvisoryPackages": 0,
+    "operatorMatchingAdvisoryPackages": 0,
+    "limitations": "Npm package advisory check excludes OS and bundled native-library vulnerability review."
+  },
+  "cleanup": {
+    "verifiersUseFinally": true,
+    "ownedFixtureContainersNetworksVolumesRemoved": true,
+    "imagesAndCacheRetainedForInspection": true,
+    "isolatedProfileStopped": true,
+    "defaultProfileRemainedStopped": true,
+    "globalDockerContext": "default",
+    "preexistingExitedContainerPreserved": "xenodochial_hertz"
+  },
+  "verificationLimits": [
+    "No public DNS/Caddy HTTPS deployment",
+    "No personal configuration or WHOOP effect verification",
+    "No mobile connectivity/signing or other CPU-architecture claims",
+    "No external artifact distribution authorization/compliance claim"
+  ],
+  "taskHistoryChecks": {
+    "status": "passed",
+    "httpStatus": 200,
+    "events": [
+      "task.file.finalize",
+      "task.file.detach"
+    ],
+    "finalizedAttachmentHistory": true,
+    "historyAfterAppDatabaseRestart": true,
+    "historyAfterDetach": true,
+    "builtDomainSchemaParsesActualHttpResponse": true
+  }
+}

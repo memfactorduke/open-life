@@ -13,11 +13,11 @@ Opt into reminders and human-action alerts that open the right record without ro
 
 ## Acceptance criteria
 
-- [ ] Keep an in-app attention list available without OS permission or a configured push provider.
+- [x] Keep an in-app attention list available without OS permission or a configured push provider.
 - [ ] Use native local timer/due reminders and an optional configured Expo push adapter for remote handoff/failure alerts.
 - [ ] Deduplicate delivery events, honor user preferences and logout/revocation, avoid private-content previews by default and deep-link correctly.
 - [ ] Handle denied permission, invalid tokens, provider failure and receipt errors without losing the underlying task event.
-- [ ] Document project/Apple credential setup and distinguish fixture/provider tests from real configured delivery; self-hosted core use requires no push service.
+- [x] Document project/Apple credential setup and distinguish fixture/provider tests from real configured delivery; self-hosted core use requires no push service.
 
 ## Verification
 
@@ -31,4 +31,8 @@ Evidence: Reconciled 2026-10-13 against the literal criteria, [historical accept
 
 Evidence: The independent clean checkout receipt identifies commit `9a8a584fa708ec23d945f9e49675b48d04d8401a`: 39 domain + 94 mobile component + 23 actual PostgreSQL/server tests (156 total, zero skips), five standalone recovery scripts, types/lint/format and production builds pass. Three production browser engines pass with zero CSP violations; five Chromium auth compatibility cases pass. [Safe clean-checkout receipt](../evidence/release-safe/receipts/clean-checkout--verification.json). These counts establish their exact source/run boundary, not every native acceptance criterion.
 
-Evidence remaining: Actual native permission/tap/deep-link/cancel/logout notification behavior and configured real push delivery remain unverified. Setup documentation and fixture protocol success cannot establish OS delivery; real push/signing belongs ticket 29. Unchecked criteria retain their complete literal requirement; implemented/passing subsets are recorded above. State remains claimed until all criteria and blockers qualify. Raw detailed logs/screenshots named by receipts are local-only evidence; safe receipts are the shareable index.
+Evidence remaining: Current literal unchecked criteria retain only the concrete boundaries stated in the reconciliation below; historical evidence above remains scoped to its original source/artifact.
+
+Evidence: Current acceptance reconciliation (2026-10-13). 26.1/26.5: [independent clean-checkout execution](../evidence/clean-checkout/verification.json), executed PG `attention.test.ts`, setup instructions `docs/notifications.md` and current component/native attention/settings smoke. In-app attention works without permission/provider and setup distinguishes adapter fixtures from real delivery. 26.2–26.4 still require actual native local permission/schedule/deep-link/logout behavior; Expo protocol fixture receipts establish remote adapter/error semantics, not actual push delivery. Real configured remote push remains ticket 29.
+
+Evidence: Current delta/gate boundary (2026-10-13). Optional remote Expo push is explicitly deferred for the local release candidate and disabled by default, as recorded in [release gates](../release-gates.md). Current adapter/protocol fixtures and local notification implementation remain in scope; actual configured remote delivery becomes an external gate if enabled. Native local permission/scheduling/deep-link/logout proof is still required for26.2–26.4. Apple development signing/provisioning is being investigated against an authorized physical iPad; no completed physical or signed-build result is asserted.

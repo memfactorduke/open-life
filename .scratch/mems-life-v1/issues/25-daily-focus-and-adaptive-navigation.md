@@ -13,10 +13,10 @@ Reach the next useful action across tasks, active training and food without losi
 
 ## Acceptance criteria
 
-- [ ] Provide direct Tasks/Workouts/Food navigation plus Today with due/next human actions, waiting reasons, active session and quick food capture.
-- [ ] Use a practical one-handed phone layout, adaptive iPad list/detail management and denser keyboard-friendly web planning.
-- [ ] Retain useful navigation/view state without mixing histories or hiding failed/pending work.
-- [ ] Cover empty, loading, offline, no-permission and recoverable-error states; preserve in-progress input.
+- [x] Provide direct Tasks/Workouts/Food navigation plus Today with due/next human actions, waiting reasons, active session and quick food capture.
+- [x] Use a practical one-handed phone layout, adaptive iPad list/detail management and denser keyboard-friendly web planning.
+- [x] Retain useful navigation/view state without mixing histories or hiding failed/pending work.
+- [x] Cover empty, loading, offline, no-permission and recoverable-error states; preserve in-progress input.
 - [ ] Verify compact/wide tablet sizes, rotation/resizing, non-drag alternatives and navigation to each underlying record.
 
 ## Verification
@@ -31,4 +31,8 @@ Evidence: Reconciled 2026-10-13 against the literal criteria, [historical accept
 
 Evidence: The independent clean checkout receipt identifies commit `9a8a584fa708ec23d945f9e49675b48d04d8401a`: 39 domain + 94 mobile component + 23 actual PostgreSQL/server tests (156 total, zero skips), five standalone recovery scripts, types/lint/format and production builds pass. Three production browser engines pass with zero CSP violations; five Chromium auth compatibility cases pass. [Safe clean-checkout receipt](../evidence/release-safe/receipts/clean-checkout--verification.json). These counts establish their exact source/run boundary, not every native acceptance criterion.
 
-Evidence remaining: Current native Today compact/wide/rotation, retained state and error/offline navigation remain. Browser sizes do not prove actual iPad rotation, and bounded 125% text/focus checks are not a full accessibility audit. Unchecked criteria retain their complete literal requirement; implemented/passing subsets are recorded above. State remains claimed until all criteria and blockers qualify. Raw detailed logs/screenshots named by receipts are local-only evidence; safe receipts are the shareable index.
+Evidence remaining: Current literal unchecked criteria retain only the concrete boundaries stated in the reconciliation below; historical evidence above remains scoped to its original source/artifact.
+
+Evidence: Current acceptance reconciliation (2026-10-13). 25.1–25.4: real PG Today projection and five-size browser proof (`daily-focus-web/verification.json`, `daily-focus-live/`), [independent clean-checkout execution](../evidence/clean-checkout/verification.json), [later mobile execution at b5cdf94](../evidence/mobile-final-photo-checks.json), actual phone cold offline domain navigation and iPad shared sidebar/content. Named mobile `tests/today.test.tsx` asserts exact task/workout/food routes, retained confirmed attention on failed refresh, explicit recovery and actionable empty state; productivity/session/food tests preserve drafts. 25.5 stays unchecked: genuine native compact/wide rotation/resizing has not been proven by the earlier portrait screenshots.
+
+Evidence: Current delta/gate boundary (2026-10-13). [Navigation delta receipt](../evidence/final-mobile-navigation-checks.json) identifies a5c8d4c and current App/source/test hashes: 134 mobile tests in25 suites, zero failure/skip, mobile types/lint/format pass. This repairs the actual compact-iPad largest-font fragmented tab labels with a full-width area picker, preserving unrestricted text scaling. Counts overlap prior mobile runs; shared domain/server/container source is unchanged. Rebuilt native pixel and accessibility inspection remains pending; no checkbox is promoted from these component checks.

@@ -1,11 +1,11 @@
 # 04: Record and finish a workout session
 
 Status: ready-for-agent
-State: claimed
+State: resolved
 Blocked by: 03
 Spec: [Mem's Life first release](../spec.md)
 Coverage: US-34–37, US-43, US-46
-Phase: authorized implementation in progress; acceptance remains unverified
+Phase: verified implementation by scoped composite execution; external gates remain in ticket 29
 
 ## What to build
 
@@ -14,10 +14,10 @@ Start from a routine or an empty session, record actual training and notes, and 
 ## Acceptance criteria
 
 - [x] Copy a routine into a session snapshot; separate target sets from performed sets and distinguish warm-up from working sets.
-- [ ] Record applicable repetitions, load, time and distance with exercise/session notes, inline correction and useful validation.
-- [ ] Preserve active input while moving between exercises; visibly distinguish planned, in-progress, partial/abandoned and finished activity.
+- [x] Record applicable repetitions, load, time and distance with exercise/session notes, inline correction and useful validation.
+- [x] Preserve active input while moving between exercises; visibly distinguish planned, in-progress, partial/abandoned and finished activity.
 - [x] Finishing is explicit; unfinished planned exercises are not fabricated as completed results.
-- [ ] Show a persisted completed session on another client; later routine edits do not change its actual results or notes.
+- [x] Show a persisted completed session on another client; later routine edits do not change its actual results or notes.
 
 ## Verification
 
@@ -33,4 +33,6 @@ Evidence: The independent clean checkout receipt identifies commit `9a8a584fa708
 
 Evidence: [Safe immutable gym/food receipt](../evidence/release-safe/receipts/native-gym-food--results.json) records exact successes, failed exploratory/visual gates and source limitations; it predates the current offline/Today source.
 
-Evidence remaining: Persisted cross-client results and native input retention have bounded historical proof; final native Session safe-area sign-off and current-bundle regression remain. Preserve ticket 03 blocker until its literal acceptance is qualified. Unchecked criteria retain their complete literal requirement; implemented/passing subsets are recorded above. State remains claimed until all criteria and blockers qualify. Raw detailed logs/screenshots named by receipts are local-only evidence; safe receipts are the shareable index.
+Evidence remaining: Current literal unchecked criteria retain only the concrete boundaries stated in the reconciliation below; historical evidence above remains scoped to its original source/artifact.
+
+Evidence: Current acceptance reconciliation (2026-10-13). 04.1–04.5: [session service execution](../evidence/sessions-service/receipt.json), [immutable native mixed-workout/diary execution](../evidence/native-gym-food/results.json), [independent clean-checkout execution](../evidence/clean-checkout/verification.json) and [later mobile execution at b5cdf94](../evidence/mobile-final-photo-checks.json); named assertions in `apps/server/test/sessions.test.ts` and mobile `features/__tests__/sessions.test.tsx` cover modes, draft navigation, explicit finish, correction and cross-client snapshots. Native completed iPad/abandoned phone records and later repaired phone modal screenshots (`native-gym-food/sqlite-fixed-release/phone-fixed-modals/`) jointly establish the UI. Later offline bootstrap/cache changes do not invalidate unchanged session service/history proof.

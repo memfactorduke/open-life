@@ -1,11 +1,11 @@
 # 10: Break outcomes into human and agent steps
 
 Status: ready-for-agent
-State: claimed
+State: resolved
 Blocked by: 02
 Spec: [Mem's Life first release](../spec.md)
 Coverage: US-13–16
-Phase: authorized implementation in progress; acceptance remains unverified
+Phase: verified implementation by scoped composite execution; external gates remain in ticket 29
 
 ## What to build
 
@@ -13,11 +13,11 @@ Represent one outcome with ordered subtasks, responsibility and parallel depende
 
 ## Acceptance criteria
 
-- [ ] Support one level of required/optional subtasks assigned to human, agent or either, without copying tasks into separate stores.
-- [ ] Validate an acyclic dependency graph and reject cross-owner edges or deletion that silently breaks required work.
-- [ ] Separate dependency readiness, deliberate release, assignment and active execution; Planned work remains dormant.
-- [ ] Show next actions and waiting reasons in the parent and human/agent filtered views.
-- [ ] Apply parent completion/reopening rules without treating one finished step as the entire outcome.
+- [x] Support one level of required/optional subtasks assigned to human, agent or either, without copying tasks into separate stores.
+- [x] Validate an acyclic dependency graph and reject cross-owner edges or deletion that silently breaks required work.
+- [x] Separate dependency readiness, deliberate release, assignment and active execution; Planned work remains dormant.
+- [x] Show next actions and waiting reasons in the parent and human/agent filtered views.
+- [x] Apply parent completion/reopening rules without treating one finished step as the entire outcome.
 
 ## Verification
 
@@ -31,4 +31,6 @@ Evidence: Reconciled 2026-10-13 against the literal criteria, [historical accept
 
 Evidence: The independent clean checkout receipt identifies commit `9a8a584fa708ec23d945f9e49675b48d04d8401a`: 39 domain + 94 mobile component + 23 actual PostgreSQL/server tests (156 total, zero skips), five standalone recovery scripts, types/lint/format and production builds pass. Three production browser engines pass with zero CSP violations; five Chromium auth compatibility cases pass. [Safe clean-checkout receipt](../evidence/release-safe/receipts/clean-checkout--verification.json). These counts establish their exact source/run boundary, not every native acceptance criterion.
 
-Evidence remaining: Actual current native human/agent filtered views and complete/reopen dependency journey remain unverified. Ticket02 prerequisite is retained. Unchecked criteria retain their complete literal requirement; implemented/passing subsets are recorded above. State remains claimed until all criteria and blockers qualify. Raw detailed logs/screenshots named by receipts are local-only evidence; safe receipts are the shareable index.
+Evidence remaining: Current literal unchecked criteria retain only the concrete boundaries stated in the reconciliation below; historical evidence above remains scoped to its original source/artifact.
+
+Evidence: Current acceptance reconciliation (2026-10-13). 10.1–10.5: [three-engine productivity execution](../evidence/productivity-web/verification.json), [independent clean-checkout execution](../evidence/clean-checkout/verification.json), [later mobile execution at b5cdf94](../evidence/mobile-final-photo-checks.json); actual PG productivity and agent workflow cases cover owner-scoped graph validation, required/optional human/agent/either steps, dormant Planned work and parent completion/reopening. Browser parent/filtered readiness views and current mobile productivity assertions establish display parity. Native agent panel smoke is in `native-gym-food/cold-start-release/phone-final-resync/`; its later Close task details automation failure is not promoted to a passing whole flow.

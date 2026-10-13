@@ -1,11 +1,11 @@
 # 19: Keep a private photo-and-text food diary
 
 Status: ready-for-agent
-State: claimed
+State: resolved
 Blocked by: 01
 Spec: [Mem's Life first release](../spec.md)
 Coverage: US-30, US-48–50, US-52
-Phase: implementation authorized; work in progress
+Phase: verified implementation by scoped composite execution; external gates remain in ticket 29
 
 ## What to build
 
@@ -13,11 +13,11 @@ Create, browse and correct dated food entries with multiple private photos on ph
 
 ## Acceptance criteria
 
-- [ ] Capture/select photos with permission handling and add free text, editable date/time and daily history.
-- [ ] Save camera/picker content to durable app-owned storage before acknowledging it; validate server-side photo type and bounded size.
-- [ ] Introduce the protected private filesystem media lifecycle with staging, immutable identifiers, validated finalization and startup reconciliation; edit/delete preserves identity, authorization and audit history.
-- [ ] Provide appropriate capture-first phone UI and readable iPad/web history with useful empty/error states.
-- [ ] Do not infer calories, nutrients or meal plans. Provide the validated owner-scoped food operations that the later MCP slice can expose.
+- [x] Capture/select photos with permission handling and add free text, editable date/time and daily history.
+- [x] Save camera/picker content to durable app-owned storage before acknowledging it; validate server-side photo type and bounded size.
+- [x] Introduce the protected private filesystem media lifecycle with staging, immutable identifiers, validated finalization and startup reconciliation; edit/delete preserves identity, authorization and audit history.
+- [x] Provide appropriate capture-first phone UI and readable iPad/web history with useful empty/error states.
+- [x] Do not infer calories, nutrients or meal plans. Provide the validated owner-scoped food operations that the later MCP slice can expose.
 - [x] Reject unauthenticated copied URLs and traversal paths; serve no public static media route and apply private/no-store download headers.
 
 ## Verification
@@ -36,4 +36,6 @@ Evidence: [Safe immutable gym/food receipt](../evidence/release-safe/receipts/na
 
 Evidence: [Safe final-container receipt](../evidence/release-safe/receipts/final-container--verification.json) identifies actual app/operator images and independent backup/restore; no public deployment or mobile runtime claim.
 
-Evidence remaining: Current native permission denial/capture cancel/error behavior and final layout regression remain. Simulator camera UI does not prove a hardware photograph; no calories/nutrients/meal plans are inferred. Unchecked criteria retain their complete literal requirement; implemented/passing subsets are recorded above. State remains claimed until all criteria and blockers qualify. Raw detailed logs/screenshots named by receipts are local-only evidence; safe receipts are the shareable index.
+Evidence remaining: Current literal unchecked criteria retain only the concrete boundaries stated in the reconciliation below; historical evidence above remains scoped to its original source/artifact.
+
+Evidence: Current acceptance reconciliation (2026-10-13). 19.1–19.6: [immutable native mixed-workout/diary execution](../evidence/native-gym-food/results.json), [independent clean-checkout execution](../evidence/clean-checkout/verification.json), [later mobile execution at b5cdf94](../evidence/mobile-final-photo-checks.json), real PG `apps/server/test/food.test.ts` and `native-media.test.ts`, actual production browsers and `native-gym-food/sqlite-fixed-release` durable two-photo capture. Native picker, private copies, date/time and shared phone/iPad history are real; server type/size/checksum, staging/finalization/reconciliation, edit/delete audit and owner-only downloads are real PG/HTTP checks. Physical camera remains ticket 29; final confirmed-photo OFFLINE display remains ticket 22 and does not erase the proven ordinary diary lifecycle.

@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-13T05:39:29.417Z",
+  "result": "passed",
+  "verificationPhase": "Fresh built web after history schema and task file route fix; historical failing receipt and diagnosis preserved separately",
+  "scope": "Real PostgreSQL + built web Chromium; owner HTTP actions; post-commit successful approval HTTP response aborted before browser received it. No external publication or physical OS claim.",
+  "alternativesCompared": [
+    "Same-operation retry confirms stored receipt without duplicate approval",
+    "Full page reload independently reads committed approval without reissuing write"
+  ],
+  "environment": {
+    "node": "v24.21.0",
+    "postgres": "16.14 (Homebrew)",
+    "browser": "156.0.8078.4",
+    "port": 3017,
+    "isolatedDatabase": "mems_life_approval_proof_1791869966354",
+    "gitHead": "cdf1f84c3e712b1b75eb0bbaac0d63bd4b53848c"
+  },
+  "sourceHashes": {
+    "apps/web/src/features/AgentWorkflow.tsx": "5de786522682630e32430e471396ace363dbc1a3522268b25150d1f3eceb397f",
+    "apps/mobile/src/features/AgentWorkflow.tsx": "2c567bc8c8cfecb2912e993658fda6f9deecba4f44ff98a32c8ff49b092913c4",
+    "apps/server/src/agent-workflows.ts": "58a3f8d1a11827541ec13704ed035a663968661b9094aef6a357a6dfa9385063",
+    "apps/server/src/feature-migrations.ts": "370e55918c7353f491701d55c51becdb9347f993e11a9524697ba756031fb03d",
+    "apps/server/src/task-file-routes.ts": "94df03fe5c301a5d8c4f65712985b93b0e6080ee84bbc5d8878fd29e572453c8",
+    "apps/server/src/task-files.ts": "72f0261598077f1761d2989f89188923530c3a874a8750d1df2632a23e563f81",
+    "apps/server/src/feature-routes.ts": "4082123d4e37fcf78b489355ad7b643a1aee7bbb3ed1f5579ce49299121c8417",
+    "packages/domain/src/tasks.ts": "adfb80a384397295cc8a3e42f0d886d0bec82abd4a74702a6e331c01a57cffd3",
+    "packages/domain/dist/tasks.js": "759524116335c747cc10ded67aa40f8e3ec8a95b2ea8f55d45000d68e021ea01",
+    "apps/web/dist/index.html": "fa8edf9dd8fa406da9b7a7c75c0bedede76813d8fb28176d0740dcf414b18cf0",
+    "apps/web/dist/assets/index-DI6mXUec.css": "dd35ab59532a36f9ea2d74214d8f6f7e641d305736dfd074a339c81299b063d3",
+    "apps/web/dist/assets/index-BjiVYRrP.js": "096fdde3f1f95c1fb04f3e851e80dbabfb8eea32bbc274e5be52c030cac8d718"
+  },
+  "checks": [
+    {
+      "reconciliation": "retry",
+      "historyAfterAttachmentStatus": 200,
+      "historyIncludesFinalize": true,
+      "taskDetailsInvalidValuesBanner": false,
+      "taskId": "a8ddcb1f-24dc-458d-a162-8344e3dc176a",
+      "resultId": "8a80df70-af08-477a-b0bc-c75cdbfd9d5b",
+      "operationId": "f32480a4-f805-4081-87c7-0308707ea6cf",
+      "requestCount": 2,
+      "identicalRetry": true,
+      "committedResponseStatus": 200,
+      "dropAfterCommit": true,
+      "uncertainNotice": "The service could not be reached. Check your connection and try again.",
+      "uiApprovedBeforeConfirmation": false,
+      "reviewNoteRetained": true,
+      "protectedFileAuthenticatedStatus": 200,
+      "anonymousStatus": 401,
+      "operationReceipts": 1,
+      "auditEvents": 3,
+      "exactResultApprovalAuditEvents": 1,
+      "changeFeedRecords": 3,
+      "resultVersions": 1,
+      "resultRevision": 2,
+      "confirmedApprovalTimestamp": "2026-10-13T05:39:28.051Z",
+      "responseHash": "0868f2a45a9fd452bbfebffeb1c310fdf2a3998ab467acbeb349901d5c0ec2e4"
+    },
+    {
+      "reconciliation": "reload",
+      "historyAfterAttachmentStatus": 200,
+      "historyIncludesFinalize": true,
+      "taskDetailsInvalidValuesBanner": false,
+      "taskId": "630bad3d-c349-4101-b0c0-aba2346ab4ef",
+      "resultId": "a2f2ae5e-a853-4071-96c3-78f751037ae1",
+      "operationId": "bcea8f63-9337-4f40-96a3-c43041a55001",
+      "requestCount": 1,
+      "identicalRetry": null,
+      "committedResponseStatus": 200,
+      "dropAfterCommit": true,
+      "uncertainNotice": "The service could not be reached. Check your connection and try again.",
+      "uiApprovedBeforeConfirmation": false,
+      "reviewNoteRetained": true,
+      "protectedFileAuthenticatedStatus": 200,
+      "anonymousStatus": 401,
+      "operationReceipts": 1,
+      "auditEvents": 3,
+      "exactResultApprovalAuditEvents": 1,
+      "changeFeedRecords": 3,
+      "resultVersions": 1,
+      "resultRevision": 2,
+      "confirmedApprovalTimestamp": "2026-10-13T05:39:28.971Z",
+      "responseHash": "febf71bc06c6769a34d62a4db2e7fb53980169fc834c13a2c603788dbbb6b29b"
+    }
+  ],
+  "auxiliaryFailedReads": [
+    {
+      "path": "/api/preferences",
+      "status": 401
+    },
+    {
+      "path": "/api/auth/get-session",
+      "status": 401
+    }
+  ],
+  "limitations": [
+    "Native behavior covered only by source/component tests outside this receipt",
+    "Chromium only; no raw headers, cookies, auth tokens, or traces retained"
+  ],
+  "proofScriptSha256": "e09b47306576481945558293c82a3f7796d315abcf01182c8f666ef1a683874a",
+  "reviewedPixels": [
+    {
+      "file": "reload-confirmed.png",
+      "sha256": "07a93e2104e276c3704128a1e25ed4bb11ce40f0c34a581107a70281fdbaa670",
+      "review": "Visually inspected fictional pixels. Uncertain state lacks Approved and preserves review note/file; confirmed state displays Approved."
+    },
+    {
+      "file": "reload-notice.png",
+      "sha256": "d4e28c2dc4d7ad6eac0ec224874dcb666cc05673a917df08822d72dede87384d",
+      "review": "Visually inspected fictional pixels. Uncertain state lacks Approved and preserves review note/file; confirmed state displays Approved."
+    },
+    {
+      "file": "reload-uncertain.png",
+      "sha256": "ba6ce3e894d44d4106db8df8870e49c22122537d03000d9a8568eb5c6d7e89cb",
+      "review": "Visually inspected fictional pixels. Uncertain state lacks Approved and preserves review note/file; confirmed state displays Approved."
+    },
+    {
+      "file": "retry-confirmed.png",
+      "sha256": "5a59125df2475d4c61f85f4c8060fba216599d9c183c8956bbfe0289b69674bf",
+      "review": "Visually inspected fictional pixels. Uncertain state lacks Approved and preserves review note/file; confirmed state displays Approved."
+    },
+    {
+      "file": "retry-notice.png",
+      "sha256": "d4e28c2dc4d7ad6eac0ec224874dcb666cc05673a917df08822d72dede87384d",
+      "review": "Visually inspected fictional pixels. Uncertain state lacks Approved and preserves review note/file; confirmed state displays Approved."
+    },
+    {
+      "file": "retry-uncertain.png",
+      "sha256": "daf88fafb2f289f4e3ef436d39fc5adf159c50ce5af066b78bfcf57518a4a3f3",
+      "review": "Visually inspected fictional pixels. Uncertain state lacks Approved and preserves review note/file; confirmed state displays Approved."
+    }
+  ],
+  "historicalEvidence": {
+    "receipt": "historical-pre-history-fix-receipt.json",
+    "screenshots": "historical-pre-history-fix/",
+    "schemaDiagnosis": "history-diagnosis.json",
+    "meaning": "Earlier legitimate task.file.finalize history schema failure preserved; fresh run verifies owner history200 and no invalid-values banner."
+  }
+}

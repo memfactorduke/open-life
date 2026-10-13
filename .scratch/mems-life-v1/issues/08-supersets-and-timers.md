@@ -13,11 +13,11 @@ Group exercises into supersets and use rest/exercise timers that remain understa
 
 ## Acceptance criteria
 
-- [ ] Create and execute ordered superset groups while keeping results attached to the correct exercise and round.
-- [ ] Support start, pause, resume, reset and optional auto-rest after a recorded set, without silently marking an exercise complete.
-- [ ] Persist timer state/deadlines and derive elapsed/remaining time after backgrounding; handle device-clock changes deliberately.
+- [x] Create and execute ordered superset groups while keeping results attached to the correct exercise and round.
+- [x] Support start, pause, resume, reset and optional auto-rest after a recorded set, without silently marking an exercise complete.
+- [x] Persist timer state/deadlines and derive elapsed/remaining time after backgrounding; handle device-clock changes deliberately.
 - [ ] Provide optional sound/haptic/local notification with graceful denied-permission behavior and avoid duplicate alerts across devices.
-- [ ] Verify foreground, background and process-restart behavior; do not rely on continuous JavaScript or guaranteed background execution.
+- [x] Verify foreground, background and process-restart behavior; do not rely on continuous JavaScript or guaranteed background execution.
 - [ ] Cancel or replace obsolete local notifications when timers change, finish or resume; reconcile persisted timer/notification state on app startup.
 
 ## Verification
@@ -34,4 +34,6 @@ Evidence: The independent clean checkout receipt identifies commit `9a8a584fa708
 
 Evidence: [Safe immutable gym/food receipt](../evidence/release-safe/receipts/native-gym-food--results.json) records exact successes, failed exploratory/visual gates and source limitations; it predates the current offline/Today source.
 
-Evidence remaining: Actual OS notification delivery/cancellation, permission denial, clock change and current native restart reconciliation remain; online timer recovery is not offline proof. Unchecked criteria retain their complete literal requirement; implemented/passing subsets are recorded above. State remains claimed until all criteria and blockers qualify. Raw detailed logs/screenshots named by receipts are local-only evidence; safe receipts are the shareable index.
+Evidence remaining: Current literal unchecked criteria retain only the concrete boundaries stated in the reconciliation below; historical evidence above remains scoped to its original source/artifact.
+
+Evidence: Current acceptance reconciliation (2026-10-13). 08.1–08.3 and 08.5: [session service execution](../evidence/sessions-service/receipt.json), [immutable native mixed-workout/diary execution](../evidence/native-gym-food/results.json), [independent clean-checkout execution](../evidence/clean-checkout/verification.json), [later mobile execution at b5cdf94](../evidence/mobile-final-photo-checks.json); actual native superset rounds, preserved draft, start/pause/resume/background/terminate/relaunch and unchanged deadline are recorded by the immutable native receipt. Server-derived timer intervals and clock-change handling are covered by session/component assertions. 08.4/08.6 remain unchecked: actual Expo permission/delivery and schedule replacement/cancellation/startup reconciliation still need OS evidence.

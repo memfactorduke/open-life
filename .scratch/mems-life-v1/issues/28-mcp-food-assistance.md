@@ -1,11 +1,11 @@
 # 28: Manage food diary records through MCP
 
 Status: ready-for-agent
-State: claimed
+State: resolved
 Blocked by: 11, 19
 Spec: [Mem's Life first release](../spec.md)
 Coverage: US-30
-Phase: authorized implementation in progress; acceptance remains unverified
+Phase: verified implementation by scoped composite execution; external gates remain in ticket 29
 
 ## What to build
 
@@ -13,11 +13,11 @@ An authorized external agent can read or record explicitly reported food entries
 
 ## Acceptance criteria
 
-- [ ] Expose food entry read/create/edit operations and an authorized bounded attachment workflow through the generic MCP adapter.
-- [ ] Require appropriate domain scopes and source attribution; never infer that a plan was eaten or invent nutrient measurements.
-- [ ] Reuse the private media lifecycle without exposing storage paths, credentials or another owner's photos.
-- [ ] Preserve revisions and idempotency so retries do not create duplicate food entries or attachments.
-- [ ] Demonstrate an agent-created fictional entry in web/native history and reject a read-only or revoked client's write.
+- [x] Expose food entry read/create/edit operations and an authorized bounded attachment workflow through the generic MCP adapter.
+- [x] Require appropriate domain scopes and source attribution; never infer that a plan was eaten or invent nutrient measurements.
+- [x] Reuse the private media lifecycle without exposing storage paths, credentials or another owner's photos.
+- [x] Preserve revisions and idempotency so retries do not create duplicate food entries or attachments.
+- [x] Demonstrate an agent-created fictional entry in web/native history and reject a read-only or revoked client's write.
 
 ## Verification
 
@@ -31,4 +31,6 @@ Evidence: Reconciled 2026-10-13 against the literal criteria, [historical accept
 
 Evidence: The independent clean checkout receipt identifies commit `9a8a584fa708ec23d945f9e49675b48d04d8401a`: 39 domain + 94 mobile component + 23 actual PostgreSQL/server tests (156 total, zero skips), five standalone recovery scripts, types/lint/format and production builds pass. Three production browser engines pass with zero CSP violations; five Chromium auth compatibility cases pass. [Safe clean-checkout receipt](../evidence/release-safe/receipts/clean-checkout--verification.json). These counts establish their exact source/run boundary, not every native acceptance criterion.
 
-Evidence remaining: The exact same agent-created fictional meal still needs final web/native history proof with read-only/revoked-write rejection linked to that journey. Separate native food examples do not prove MCP visibility; retain tickets 11/19 blockers. Unchecked criteria retain their complete literal requirement; implemented/passing subsets are recorded above. State remains claimed until all criteria and blockers qualify. Raw detailed logs/screenshots named by receipts are local-only evidence; safe receipts are the shareable index.
+Evidence remaining: Current literal unchecked criteria retain only the concrete boundaries stated in the reconciliation below; historical evidence above remains scoped to its original source/artifact.
+
+Evidence: Current acceptance reconciliation (2026-10-13). 28.1–28.5: [independent clean-checkout execution](../evidence/clean-checkout/verification.json), [actual SDK and exact web records](../evidence/native-mcp-roundtrip/receipt.json), [later mobile execution at b5cdf94](../evidence/mobile-final-photo-checks.json), actual native exact meal history in `native-gym-food/sqlite-fixed-release/ipad-shared/`. SDK receipt names exact meal ID, reported actor/history, one-entry retry, read-only and revoked-write denials plus exact web display. Shared PG/SDK food/media assertions cover bounded private transfer, revisions/attribution/owner authorization. This supersedes the stale claim that the same MCP meal has not reached native/web.

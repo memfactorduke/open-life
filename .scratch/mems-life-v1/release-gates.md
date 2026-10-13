@@ -1,6 +1,6 @@
 # First release external verification gates
 
-All gates below are pending. Implementation, fixtures, simulator checks, and provider adapter tests do not prove live connections or distribution. Keep credentials and personal records out of the evidence.
+Live account and distribution gates remain pending. Optional remote push is deferred for the local release candidate and stays disabled by default. Implementation, fixtures, simulator checks, and provider adapter tests do not prove live connections or distribution. Keep credentials and personal records out of the evidence.
 
 | Gate | Status | Required proof |
 | --- | --- | --- |
@@ -8,7 +8,7 @@ All gates below are pending. Implementation, fixtures, simulator checks, and pro
 | Signed Apple distribution | pending | Selected Apple distribution path, appropriate signing identity/provisioning, successful signed build, installation and launch through that path. Record artifact identity and toolchain. A simulator build is separate evidence. |
 | Physical iPhone and iPad | pending | Coordinate device ownership with other agents before use. Record device/OS, ownership agreement, installation, real camera/media capture and interruption recovery. Include compact/wide iPad behavior. Do not expose device identifiers unnecessarily. |
 | Remote HTTPS and MCP | pending | Authorized deployment with valid HTTPS reachable from an independent client, authenticated MCP discovery and an owner-scoped task/workout/food round trip. Record endpoint identity, redacted results and rejection of absent, expired and unrelated credentials. Localhost does not satisfy this gate. |
-| Optional push delivery | pending | If enabled, authorized provider configuration, device permission, real foreground/background delivery, deep link, opt-out and duplicate suppression. Record device/OS and observed delivery. If deferred, record the decision explicitly; local notification or fixture evidence does not establish remote push. |
+| Optional push delivery | deferred locally; pending if enabled | If enabled, authorized provider configuration, device permission, real foreground/background delivery, deep link, opt-out and duplicate suppression. Record device/OS and observed delivery. If deferred, record the decision explicitly; local notification or fixture evidence does not establish remote push. |
 
 ## Ticket evidence convention
 

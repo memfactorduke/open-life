@@ -1,0 +1,38 @@
+{
+  "verifiedAt": "2026-10-13T05:41:18.208736+00:00",
+  "commit": "cdf1f84c3e712b1b75eb0bbaac0d63bd4b53848c",
+  "scope": "Current root workspace source validation after task-file history and socket cleanup fixes; prior independent clean checkout is a separate source-bound receipt",
+  "checks": {
+    "npmTest": {
+      "domain": 39,
+      "mobile": 119,
+      "mobileSuites": 23,
+      "postgresServer": 23,
+      "total": 181,
+      "failed": 0,
+      "skipped": 0,
+      "result": "passed"
+    },
+    "npmRunTypecheck": "passed across all workspaces",
+    "npmRunLint": "passed",
+    "npmRunFormatCheck": "passed"
+  },
+  "regression": "Actual task-files PostgreSQL test includes owner HTTP history after finalization/detachment, actor/revision/snapshots/replay, and real detached-socket HTTP upload error preservation.",
+  "sourceSha256": {
+    "packages/domain/src/tasks.ts": "adfb80a384397295cc8a3e42f0d886d0bec82abd4a74702a6e331c01a57cffd3",
+    "apps/server/src/task-file-routes.ts": "94df03fe5c301a5d8c4f65712985b93b0e6080ee84bbc5d8878fd29e572453c8",
+    "apps/server/test/task-files.test.ts": "9359e82378213b8c4aead05520c2528723a49d154489f15cf3f0a014321de3dd",
+    "apps/mobile/src/App.tsx": "d098245015bd70d7bc268ea55e2b9836166641dd393863ed6a3a84fff12f2f21",
+    "apps/mobile/src/features/Food.tsx": "526588003adc0d8bdccff18c53d3eb7d7f8dfdd45798e51845ff368ed6241bf1",
+    "apps/mobile/src/retained-food-photo.ts": "5b740f8582a6feea54252a21814c0ccb7b3890278e5b49fb180049c500ea8947"
+  },
+  "lockSha256": "e16a4ba9056bf8d16a8d739b3581e398902729142a1662563648048ccfc522ce",
+  "rawLogsLocalOnly": [
+    ".runtime/final-history-workspace-tests.log",
+    ".runtime/final-history-types.log"
+  ],
+  "limitations": [
+    "These 181 tests overlap the historical 156 and later 119 mobile counts; do not add across runs.",
+    "No actual native OS/provider/distribution claims from operation/component tests."
+  ]
+}
