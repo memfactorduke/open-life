@@ -4,6 +4,7 @@ const config: ExpoConfig = {
   name: "Mem's Life",
   slug: 'mems-life',
   version: '0.1.0',
+  icon: './assets/icon.png',
   scheme: 'memslife',
   orientation: 'default',
   userInterfaceStyle: 'automatic',
