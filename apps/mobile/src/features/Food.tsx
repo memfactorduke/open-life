@@ -20,6 +20,7 @@ import { retainFoodPhoto, uploadFoodPhoto, type LocalFoodPhoto } from '../media'
 import { useCommand, messageOf } from './helpers';
 import { DateTimeField, formatDateTime } from '../DateTimeField';
 import { localInstant, localParts } from './Productivity';
+import { retainedFoodPhotoUri } from '../retained-food-photo';
 const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 // Drafts from earlier builds store wall-clock text. Resolve it in the configured owner zone.
 function foodInstant(value: string, timezone: string): string {
@@ -32,21 +33,50 @@ function foodInstant(value: string, timezone: string): string {
   if (!Number.isFinite(date.getTime())) throw new Error('Choose a valid food date and time.');
   return date.toISOString();
 }
-function PrivatePhoto({ id, client }: { id: string; client: InstallationClient }) {
-  const [cookie, setCookie] = useState<string | null>(null);
+function PrivatePhoto({
+  id,
+  entryId,
+  client,
+}: {
+  id: string;
+  entryId: string;
+  client: InstallationClient;
+}) {
+  const revision = useOfflineRevision(client);
+  const [source, setSource] = useState<{ uri: string; headers?: { Cookie: string } } | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   useEffect(() => {
-    void Promise.resolve(client.auth.getCookie()).then((value) => setCookie(value ?? ''));
-  }, [client]);
-  return cookie === null ? (
-    <Body>Loading photo…</Body>
-  ) : (
+    let active = true;
+    setSource(null);
+    setUnavailable(false);
+    void (async () => {
+      const uri = await retainedFoodPhotoUri(client, entryId, id);
+      if (!active) return;
+      if (uri) {
+        setSource({ uri });
+        return;
+      }
+      if (client.offline) {
+        setUnavailable(true);
+        return;
+      }
+      const cookie = await client.auth.getCookie();
+      if (active)
+        setSource({ uri: `${client.baseURL}/api/media/${id}`, headers: { Cookie: cookie ?? '' } });
+    })().catch(() => {
+      if (active) setUnavailable(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [client, entryId, id, revision]);
+  if (unavailable) return <Body>Photo unavailable on this device. Connect to view it.</Body>;
+  if (!source) return <Body>Loading photo…</Body>;
+  return (
     <Image
       accessibilityLabel="Private food photo"
-      source={{
-        uri: `${client.baseURL}/api/media/${id}`,
-        headers: { Cookie: cookie },
-        cache: 'reload',
-      }}
+      source={source}
+      onError={() => setUnavailable(true)}
       style={{ width: 150, height: 130, borderRadius: 12 }}
     />
   );
@@ -447,7 +477,7 @@ export function Food({
               ))}
             {entry.photoIds.map((id) => (
               <View key={id}>
-                <PrivatePhoto id={id} client={client} />
+                <PrivatePhoto id={id} entryId={entry.id} client={client} />
                 <Action
                   title="Remove photo"
                   secondary
