@@ -121,11 +121,11 @@
     },
     {
       "file": "receipts/offline-live--protocol-proof.json",
-      "bytes": 6651,
-      "sha256": "318386ee2e8f360d67440126e77aa3c6a35e35be157247c20285821d2ba9aeb3",
+      "bytes": 7425,
+      "sha256": "45acfcb03122da7911d3d0daac3d62af14fac8cc52111c85bbcdfdacef5781e6",
       "rawLocalOnly": ".scratch/mems-life-v1/evidence/offline-live/protocol-proof.json",
-      "rawBytes": 6651,
-      "rawSha256": "318386ee2e8f360d67440126e77aa3c6a35e35be157247c20285821d2ba9aeb3",
+      "rawBytes": 7425,
+      "rawSha256": "45acfcb03122da7911d3d0daac3d62af14fac8cc52111c85bbcdfdacef5781e6",
       "review": "Explicit reviewed receipt; original evidence links are local-only"
     },
     {
@@ -324,6 +324,15 @@
       "rawLocalOnly": ".scratch/mems-life-v1/evidence/final-scope-audit.json",
       "rawBytes": 1200,
       "rawSha256": "5bdbe5a173b4bd244316ce97bb77e04aac4c3f9a2669419cdfa6ffe9e0d5a6d8",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/pr-merge-checks.json",
+      "bytes": 4471,
+      "sha256": "2513a23e87436820fbe85134e185abcdb826b595b26c687000fccd5f3d667ac6",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/pr-merge-checks.json",
+      "rawBytes": 4471,
+      "rawSha256": "2513a23e87436820fbe85134e185abcdb826b595b26c687000fccd5f3d667ac6",
       "review": "Explicit reviewed receipt; original evidence links are local-only"
     },
     {

@@ -5,23 +5,31 @@
   "checks": [
     {
       "name": "offline task, workout chain, food text and selected photo survive SQLite reopen",
-      "outbox": 5,
+      "outbox": 6,
       "photoSha256": "e9ce086c309bc919094803352b2555a30fcba4a3afc01aabfb1c307867db9721",
       "credentialFree": true
+    },
+    {
+      "name": "delayed offline hour-long workout retains event times and immutable finish receipt",
+      "durationMs": 3600000,
+      "startedAt": "2026-10-09T20:00:00.000Z",
+      "recordedAt": "2026-10-09T20:10:00.000Z",
+      "finishedAt": "2026-10-09T21:00:00.000Z",
+      "receivedAt": "2026-10-13T20:59:21.018Z"
     },
     {
       "name": "actual HTTP commit with dropped response retries one immutable receipt/history event; session IDs converge",
       "taskReceiptCount": 1,
       "taskHistoryCount": 1,
-      "callerSessionId": "0f07ee72-7007-4cbe-a594-50b6a497b787",
-      "callerItemId": "03cf7fce-e0b2-4858-a708-ee729a583a85",
-      "callerTargetId": "d7e6970d-6d64-4ae1-a3ae-cdea401b1fcf",
-      "performedSetId": "68fcd5c7-2b7f-45a5-a07f-3fbbe8a23c74"
+      "callerSessionId": "25befeca-85f1-44d0-8cdc-b91db4620ddf",
+      "callerItemId": "24970ac5-781b-4968-9ff6-f2f4edbeb006",
+      "callerTargetId": "be5fceca-b760-41f5-afb4-cd2ec1b9c2e5",
+      "performedSetId": "84ef1345-bda6-4ed1-9aa9-15f5b91db923"
     },
     {
       "name": "production backup/restore rotates epoch, removes post-backup receipt and blocks old-epoch replay before receipt lookup",
-      "oldEpoch": "91f98d0c-631b-4f00-b142-a0867a2df9c6",
-      "newEpoch": "21467bd0-6712-46db-8da3-48e1ef50b55d",
+      "oldEpoch": "84f1ede4-eed1-452d-ad80-120ad0a5a0c3",
+      "newEpoch": "d17035c4-a655-4abc-ad85-2b43b3e6cfd1",
       "postBackupReceiptAbsent": true,
       "attemptedRetained": true,
       "neverSentRetained": true,
@@ -31,8 +39,8 @@
     },
     {
       "name": "reviewed absent outcome uses fresh food/operation IDs; never-sent task is explicitly revalidated and genuinely acknowledged",
-      "freshId": "b3906e75-ae2e-456b-bd59-19fb44adc7f6",
-      "freshOp": "d6672bcf-3260-4699-a094-fbbecc42abf3",
+      "freshId": "e83be767-e5f0-4551-8d8a-5a4dc640641f",
+      "freshOp": "249f0a25-4496-435d-b05c-c6e0a0ede0f7",
       "neverSentReceiptCount": 1
     },
     {
@@ -41,9 +49,9 @@
       "attachmentCount": 1,
       "finalizeReceiptCount": 1,
       "privateDownload": true,
-      "recoveredEntry": "3e272916-5fea-4b7a-9de2-48a856c2e07c",
-      "recoveredTextOp": "f8d32968-2205-4d2e-8793-3d8b917bdc29",
-      "recoveredPhotoId": "a61c790c-c413-4efd-b95a-fbd099c0f585",
+      "recoveredEntry": "10b53f99-0dcd-4fb5-b0cb-b30d5193f0a4",
+      "recoveredTextOp": "8facb4b2-672e-4671-83f7-1e3ada04b759",
+      "recoveredPhotoId": "dcf9d629-a7f5-428a-b60a-e136b98ac3c4",
       "oldEntryAbsent": true,
       "textAcknowledgementGate": true
     }
@@ -61,12 +69,17 @@
     },
     {
       "method": "GET",
-      "path": "/api/sync/changes?epoch=91f98d0c-631b-4f00-b142-a0867a2df9c6&cursor=0&limit=2",
+      "path": "/api/sync/changes?epoch=84f1ede4-eed1-452d-ad80-120ad0a5a0c3&cursor=0&limit=2",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/sync/changes?epoch=91f98d0c-631b-4f00-b142-a0867a2df9c6&cursor=1&limit=2",
+      "path": "/api/sync/changes?epoch=84f1ede4-eed1-452d-ad80-120ad0a5a0c3&cursor=1&limit=2",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/sessions/commands",
       "status": 200
     },
     {
@@ -91,12 +104,17 @@
     },
     {
       "method": "GET",
-      "path": "/api/sync/changes?epoch=91f98d0c-631b-4f00-b142-a0867a2df9c6&cursor=1&limit=2",
+      "path": "/api/sync/changes?epoch=84f1ede4-eed1-452d-ad80-120ad0a5a0c3&cursor=1&limit=2",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/sync/changes?epoch=91f98d0c-631b-4f00-b142-a0867a2df9c6&cursor=3&limit=2",
+      "path": "/api/sync/changes?epoch=84f1ede4-eed1-452d-ad80-120ad0a5a0c3&cursor=3&limit=2",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/sync/changes?epoch=84f1ede4-eed1-452d-ad80-120ad0a5a0c3&cursor=5&limit=2",
       "status": 200
     },
     {
@@ -111,12 +129,22 @@
     },
     {
       "method": "GET",
-      "path": "/api/tasks/09598250-96df-40ca-951d-50baa7451057/history",
+      "path": "/api/tasks/7ddb65d5-26cf-4691-a219-17f3e194086e/history",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/sessions/commands",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/sessions/commands",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/sync/changes?epoch=91f98d0c-631b-4f00-b142-a0867a2df9c6&cursor=5&limit=2",
+      "path": "/api/sync/changes?epoch=84f1ede4-eed1-452d-ad80-120ad0a5a0c3&cursor=6&limit=2",
       "status": 200
     },
     {
@@ -126,7 +154,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/sync/changes?epoch=91f98d0c-631b-4f00-b142-a0867a2df9c6&cursor=6&limit=2",
+      "path": "/api/sync/changes?epoch=84f1ede4-eed1-452d-ad80-120ad0a5a0c3&cursor=7&limit=2",
       "status": 200
     },
     {
@@ -141,7 +169,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/sync/changes?epoch=91f98d0c-631b-4f00-b142-a0867a2df9c6&cursor=7&limit=2",
+      "path": "/api/sync/changes?epoch=84f1ede4-eed1-452d-ad80-120ad0a5a0c3&cursor=8&limit=2",
       "status": 409
     },
     {
@@ -166,22 +194,22 @@
     },
     {
       "method": "POST",
-      "path": "/api/food/3e272916-5fea-4b7a-9de2-48a856c2e07c/uploads",
+      "path": "/api/food/10b53f99-0dcd-4fb5-b0cb-b30d5193f0a4/uploads",
       "status": 200
     },
     {
       "method": "PUT",
-      "path": "/api/media/bb213c56-3201-4ce7-b535-829ab21c16ce/content",
+      "path": "/api/media/95d43cf7-1dde-4ec9-b9d9-4d010f6f70ea/content",
       "status": 200
     },
     {
       "method": "POST",
-      "path": "/api/media/bb213c56-3201-4ce7-b535-829ab21c16ce/finalize",
+      "path": "/api/media/95d43cf7-1dde-4ec9-b9d9-4d010f6f70ea/finalize",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/media/bb213c56-3201-4ce7-b535-829ab21c16ce",
+      "path": "/api/media/95d43cf7-1dde-4ec9-b9d9-4d010f6f70ea",
       "status": 200
     }
   ],
@@ -190,13 +218,13 @@
     "Restore rewinds the guarded fixture database; independent-database restoration is verified by portability.test.ts",
     "NativeOfflineClient photo transport is not executed; production media HTTP endpoints and public OfflineStore review APIs are executed"
   ],
-  "verifiedAt": "2026-10-13T04:28:49.829Z",
+  "verifiedAt": "2026-10-13T20:59:22.621Z",
   "runtime": "v24.21.0",
   "postgresql": "PostgreSQL 16.14 (Homebrew) on aarch64-apple-darwin25.4.0, compiled by Apple clang version 21.0.0 (clang-2100.0.123.102), 64-bit",
   "sqlite": "3.53.4",
   "sourceSha256": {
-    "scripts/verify-offline-live.mjs": "0d7fd87a88b3807236963ea73a83bf3f673fb7c3a712c0b252c091c4d80f6970",
-    "apps/mobile/src/offline/store.ts": "b896b7028842337d81cca6dc89a8b326ac12c9a28b63c5d4f1e028c6b91ef56d",
+    "scripts/verify-offline-live.mjs": "90b9dc8178306efe686c707146b4a19a22942f098bcb6cc7ee827f13a830b515",
+    "apps/mobile/src/offline/store.ts": "226b8a17608c191cda0726ad3ef3ba6812bb56e956f3dd163cd88db1f3866b22",
     "apps/mobile/src/offline/coordinator.ts": "da78ffc14c0cc32cc9e6b4bde3f546d12b62d35d2d242775af6b8ead89f99109",
     "apps/mobile/src/offline/recovery.ts": "9581d2e3f8a62f571e53c58dba01b7d5d94cf2d0f2054884ce307ee3e3ab020c",
     "apps/mobile/src/offline-client.ts": "84251483e04397eec91d69736af32b805ea3ca38e7f371cab5c8e838e5f1d218",

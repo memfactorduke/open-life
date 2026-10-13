@@ -16,6 +16,8 @@ For the initial release, follow Wayfinder → To Spec → To Tickets. Those phas
 
 The maintainer delegates technical decisions and routine implementation choices to the agent. Compare credible alternatives, verify material facts, and record the reasoning for consequential choices. Ask for clarification about unresolved product behavior and personal priorities; do not send routine engineering decisions or every document edit back for approval.
 
+Open pull requests for coherent changes, review them, resolve material findings, and merge when the relevant checks pass. The maintainer authorizes agents to open and merge routine PRs using their judgment. Keep source merging separate from deployment and Apple distribution acceptance.
+
 Ask product interview questions directly in chat, rather than using a separate multiple-choice tool. Infer likely dictation errors from context and clarify only when they materially change the design.
 
 Build toward a broad life manager with mixed human/agent tasks, full workout tracking, and food management. The initial food experience is a photo-and-text diary; full nutrition tracking and meal planning follow later. iPhone is the primary daily interface, iPad is a first-class interface, and web supports management on Mac. Treat native Mac support as later scope. Preserve these platform priorities when selecting frameworks and sequencing work.
