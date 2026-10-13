@@ -30,10 +30,12 @@ export async function loadInstallationSession(
   storage: ProfileStorage,
 ): Promise<BootstrapSession> {
   const key = verifiedSessionKey(client.baseURL);
+  let verifiedMe: MeResponse | undefined;
   try {
     // Resolve authentication first: a concurrent preferences transport failure must
     // not outrun a definitive rejection of this owner's session.
     const me = MeSchema.parse(await client.request('/api/me'));
+    verifiedMe = me;
     const preferences = PreferencesRecordSchema.parse(await client.request('/api/preferences'));
     await storage.setItemAsync(key, JSON.stringify({ origin: client.baseURL, me, preferences }));
     return { me, preferences, authentication: 'verified' };
@@ -52,8 +54,17 @@ export async function loadInstallationSession(
       // Legacy profiles are already bound to the requested origin by their secure
       // storage key. New profiles also carry an explicit origin for validation.
       if ('origin' in cached && cached.origin !== client.baseURL) throw error;
+      const me = MeSchema.parse(cached.me);
+      // A reachable identity endpoint takes precedence over the cached profile,
+      // even if preferences subsequently lose connectivity. Retain old local work
+      // without allowing the newly verified identity to open its partition.
+      if (
+        verifiedMe &&
+        (me.user.id !== verifiedMe.user.id || me.installationId !== verifiedMe.installationId)
+      )
+        throw error;
       return {
-        me: MeSchema.parse(cached.me),
+        me,
         preferences: PreferencesRecordSchema.parse(cached.preferences),
         authentication: 'offline',
       };

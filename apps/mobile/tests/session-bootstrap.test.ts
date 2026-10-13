@@ -56,6 +56,30 @@ test('legacy profile remains bound to its secure origin key', async () => {
   const { storage, client } = fixture(legacy);
   expect((await loadInstallationSession(client, storage)).authentication).toBe('offline');
 });
+test('verified owner and installation can use their cached profile when preferences are offline', async () => {
+  const { storage, client } = fixture();
+  jest.mocked(client.request).mockResolvedValueOnce(profile.me);
+  await expect(loadInstallationSession(client, storage)).resolves.toEqual({
+    me: profile.me,
+    preferences: profile.preferences,
+    authentication: 'offline',
+  });
+  expect(storage.deleteItemAsync).not.toHaveBeenCalled();
+});
+test.each([
+  { ...profile.me, user: { ...profile.me.user, id: 'owner-2' } },
+  { ...profile.me, installationId: 'installation-2' },
+])('verified identity mismatch cannot open cached local work: %j', async (me) => {
+  const { storage, client } = fixture();
+  jest.mocked(client.request).mockResolvedValueOnce(me);
+  await expect(loadInstallationSession(client, storage)).rejects.toBeInstanceOf(
+    NetworkUnavailableError,
+  );
+  expect(client.request).toHaveBeenNthCalledWith(1, '/api/me');
+  expect(client.request).toHaveBeenNthCalledWith(2, '/api/preferences');
+  expect(storage.deleteItemAsync).not.toHaveBeenCalled();
+  expect(storage.setItemAsync).not.toHaveBeenCalled();
+});
 test.each([
   null,
   {},
