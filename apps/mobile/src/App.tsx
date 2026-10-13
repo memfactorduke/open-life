@@ -369,7 +369,16 @@ function Shell({
   const [area, setArea] = useState<Area>('Today');
   const [workoutView, setWorkoutView] = useState<'library' | 'train' | 'whoop'>('library');
   const [focusTarget, setFocusTarget] = useState<TodayTarget>();
+  const contentScroll = useRef<ScrollView>(null);
+  const previousSelection = useRef({ area, workoutView });
   const handledNotifications = useRef(new Set<string>());
+  useEffect(() => {
+    const previous = previousSelection.current;
+    if (previous.area !== area || previous.workoutView !== workoutView) {
+      contentScroll.current?.scrollTo({ y: 0, animated: false });
+      previousSelection.current = { area, workoutView };
+    }
+  }, [area, workoutView]);
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -494,6 +503,7 @@ function Shell({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          ref={contentScroll}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[layout.content, wide && layout.wideContent]}
         >
