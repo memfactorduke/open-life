@@ -19,7 +19,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
 import * as Notifications from 'expo-notifications';
-import { File, Paths } from 'expo-file-system';
+import { exportRecoveryShareFile } from './offline/photo-export';
 import {
   MeSchema,
   AttentionResponseSchema,
@@ -782,9 +782,13 @@ export function Settings({
     if (!choice && client.offline) {
       let pending: boolean;
       try {
-        pending = (await client.offline.store.outbox()).some(
-          (entry) => !['synced', 'discarded'].includes(entry.state),
-        );
+        const [entries, photos] = await Promise.all([
+          client.offline.store.outbox(),
+          client.offline.store.photos(),
+        ]);
+        pending =
+          entries.some((entry) => !['synced', 'discarded'].includes(entry.state)) ||
+          photos.some((photo) => !['synced', 'discarded'].includes(photo.status));
       } catch (caught) {
         fail(caught);
         return;
@@ -811,11 +815,9 @@ export function Settings({
     setError(undefined);
     try {
       if (client.offline && choice === 'export') {
-        const file = new File(Paths.cache, `mems-life-pending-${Crypto.randomUUID()}.json`);
-        file.create();
-        file.write(await client.offline.store.exportPending());
+        const recoveryFile = await exportRecoveryShareFile(client.offline.store);
         const shared = await Share.share({
-          url: file.uri,
+          url: recoveryFile,
           title: 'Mem’s Life saved local changes',
         });
         if (shared.action === Share.dismissedAction) return;

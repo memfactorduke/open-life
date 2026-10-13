@@ -135,6 +135,7 @@ const base = {
   sessionId: uuid,
   expectedRevision: z.number().int().nonnegative(),
 };
+const event = { occurredAt: instant.optional() };
 const added = {
   itemId: uuid,
   exerciseId: uuid,
@@ -208,6 +209,7 @@ export function sessionItemsFromRoutine(
 export const SessionCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({
     ...base,
+    ...event,
     type: z.literal('session.start'),
     expectedRevision: z.literal(0),
     name: z.string().trim().min(1).max(500),
@@ -229,15 +231,17 @@ export const SessionCommandSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({ ...base, type: z.literal('session.skip-exercise'), itemId: uuid }),
   z.strictObject({ ...base, type: z.literal('session.remove-exercise'), itemId: uuid }),
-  z.strictObject({ ...base, type: z.literal('session.record-set'), ...setInput }),
+  z.strictObject({ ...base, ...event, type: z.literal('session.record-set'), ...setInput }),
   z.strictObject({
     ...base,
+    ...event,
     type: z.literal('session.correct-set'),
     ...setInput,
     reason: z.string().trim().min(1).max(2000),
   }),
   z.strictObject({
     ...base,
+    ...event,
     type: z.literal('session.remove-set'),
     itemId: uuid,
     setId: uuid,
@@ -259,8 +263,8 @@ export const SessionCommandSchema = z.discriminatedUnion('type', [
     deviceId: z.string().min(1).max(200),
     itemId: uuid.nullable(),
   }),
-  z.strictObject({ ...base, type: z.literal('session.finish') }),
-  z.strictObject({ ...base, type: z.literal('session.abandon') }),
+  z.strictObject({ ...base, ...event, type: z.literal('session.finish') }),
+  z.strictObject({ ...base, ...event, type: z.literal('session.abandon') }),
   z.strictObject({
     ...base,
     type: z.literal('session.update-routine'),
@@ -316,6 +320,44 @@ export type SessionTimer = z.infer<typeof SessionTimerSchema>;
 export type WorkoutSession = z.infer<typeof SessionSchema>;
 export type SessionCommand = z.infer<typeof SessionCommandSchema>;
 export type SessionCommandResponse = z.infer<typeof SessionCommandResponseSchema>;
+
+/** Owner-recorded history only; never used for execution leases or timer deadlines. */
+export function sessionEventTime(
+  command: SessionCommand,
+  session: WorkoutSession | null,
+  receivedAt: string,
+): string {
+  if (!('occurredAt' in command) || command.occurredAt === undefined) return receivedAt;
+  const occurredAt = command.occurredAt;
+  const eventMs = Date.parse(occurredAt);
+  if (!Number.isFinite(eventMs) || eventMs > Date.parse(receivedAt) + 5 * 60_000)
+    throw new Error(
+      'Workout event time must be a valid instant no more than five minutes in the future.',
+    );
+  // No maximum age: a workout can remain offline for days before replay.
+  if (session && eventMs < Date.parse(session.startedAt))
+    throw new Error('Workout event time cannot precede the workout start.');
+  if (
+    session &&
+    (command.type === 'session.correct-set' || command.type === 'session.remove-set')
+  ) {
+    const result = session.items
+      .find((item) => item.id === command.itemId)
+      ?.results.find((set) => set.id === command.setId);
+    if (result && eventMs < Date.parse(result.correctedAt ?? result.recordedAt))
+      throw new Error(
+        'Workout correction time cannot precede the recorded set or its previous correction.',
+      );
+  }
+  if (
+    session &&
+    (command.type === 'session.finish' || command.type === 'session.abandon') &&
+    session.items.some((item) => item.results.some((set) => eventMs < Date.parse(set.recordedAt)))
+  )
+    throw new Error('Workout finish time cannot precede a recorded set.');
+  return occurredAt;
+}
+
 export function timerRemaining(timer: SessionTimer, serverNow: string): number {
   return timer.state === 'running' && timer.deadline
     ? Math.max(0, (Date.parse(timer.deadline) - Date.parse(serverNow)) / 1000)

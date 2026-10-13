@@ -6,7 +6,7 @@ import {
   SessionListSchema,
   SessionResponseSchema,
   SessionHistorySchema,
-  SessionExerciseSchema,
+  ExercisePerformanceResponseSchema,
   measuredWorkingVolume,
   timerRemaining,
   ExerciseListResponseSchema,
@@ -22,23 +22,12 @@ import {
   type Preferences,
   type Exercise,
   type Routine,
+  type ExercisePerformanceResponse,
 } from '@mems-life/domain';
 import { request, RequestError } from '../api';
 import './sessions.css';
 
-const PerformanceSchema = z.object({
-  performances: z.array(
-    z.object({
-      sessionId: z.string(),
-      status: z.enum(['active', 'completed', 'abandoned']),
-      startedAt: z.iso.datetime(),
-      items: z.array(SessionExerciseSchema),
-      measuredWorkingVolumeKgReps: z.number(),
-    }),
-  ),
-  nextCursor: z.string().nullable(),
-});
-type Performance = z.infer<typeof PerformanceSchema>['performances'][number];
+type Performance = ExercisePerformanceResponse['performances'][number];
 type Draft = {
   weightUnit?: Preferences['weightUnit'];
   distanceUnit?: Preferences['distanceUnit'];
@@ -439,7 +428,7 @@ export function Sessions({
     try {
       const data = await request(
         `/api/exercises/${item.exerciseId}/performance${more && performanceCursor ? `?cursor=${performanceCursor}` : ''}`,
-        PerformanceSchema,
+        ExercisePerformanceResponseSchema,
       );
       setPerformances((values) => (more ? [...values, ...data.performances] : data.performances));
       setPerformanceCursor(data.nextCursor);
@@ -454,7 +443,10 @@ export function Sessions({
     setPerformances([]);
     setPerformanceCursor(null);
     if (item)
-      void request(`/api/exercises/${item.exerciseId}/performance`, PerformanceSchema)
+      void request(
+        `/api/exercises/${item.exerciseId}/performance`,
+        ExercisePerformanceResponseSchema,
+      )
         .then((data) => {
           if (!cancelled) {
             setPerformances(data.performances);

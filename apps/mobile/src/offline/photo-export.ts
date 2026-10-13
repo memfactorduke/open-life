@@ -26,9 +26,9 @@ export async function exportRecoveryFiles(store: OfflineStore): Promise<string> 
   directory.create({ intermediates: true, idempotent: true });
   const images = [];
   for (const photo of await store.photos()) {
-    if (photo.status === 'synced') continue;
+    if (['synced', 'discarded'].includes(photo.status)) continue;
     const file = new File(directory, `${photo.id}.jpg`);
-    new File(photo.uri).copy(file);
+    await new File(photo.uri).copy(file);
     const bytes = await file.bytes();
     const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes);
     const sha256 = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join(
@@ -50,4 +50,30 @@ export async function exportRecoveryFiles(store: OfflineStore): Promise<string> 
     JSON.stringify({ data: JSON.parse(await store.exportPending()), images }, null, 2),
   );
   return directory.uri;
+}
+
+/** One portable file for the share sheet; local paths are never needed to recover its images. */
+export async function exportRecoveryShareFile(store: OfflineStore): Promise<string> {
+  const directory = new Directory(await exportRecoveryFiles(store));
+  const manifest = JSON.parse(await new File(directory, 'manifest.json').text()) as {
+    data: unknown;
+    images: Array<{ id: string; entryId: string; file: string; size: number; sha256: string }>;
+  };
+  const images = [];
+  for (const image of manifest.images) {
+    images.push({
+      ...image,
+      encoding: 'base64',
+      bytes: await new File(directory, image.file).base64(),
+    });
+  }
+  const file = new File(directory, 'recovery.json');
+  file.write(
+    JSON.stringify(
+      { format: 'mems-life-offline-recovery', version: 1, data: manifest.data, images },
+      null,
+      2,
+    ),
+  );
+  return file.uri;
 }

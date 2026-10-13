@@ -1,6 +1,7 @@
 import {
   TaskCommandSchema,
   SessionCommandSchema,
+  sessionEventTime,
   FoodCommandSchema,
   TaskSchema,
   SessionSchema,
@@ -94,6 +95,15 @@ export function reduceOffline(
     });
   }
   const c = SessionCommandSchema.parse(command);
+  let eventTime: string;
+  try {
+    eventTime = sessionEventTime(c, current ? SessionSchema.parse(current) : null, now);
+  } catch (error) {
+    throw new OfflineError(
+      'INVALID_EVENT_TIME',
+      error instanceof Error ? error.message : 'Check the workout event time.',
+    );
+  }
   if (c.type === 'session.start') {
     if (current) throw new OfflineError('EXISTS', 'This workout already exists.');
     const routine = c.routineId
@@ -125,7 +135,7 @@ export function reduceOffline(
       items,
       supersets: [],
       timer: null,
-      startedAt: now,
+      startedAt: eventTime,
       updatedAt: now,
       finishedAt: null,
     });
@@ -216,7 +226,7 @@ export function reduceOffline(
           measurements: c.measurements,
           notes: c.notes,
           round: c.round,
-          recordedAt: now,
+          recordedAt: eventTime,
           correctedAt: null,
           removedAt: null,
         });
@@ -229,7 +239,7 @@ export function reduceOffline(
           measurements: c.measurements,
           notes: c.notes,
           round: c.round,
-          correctedAt: now,
+          correctedAt: eventTime,
         });
       }
       break;
@@ -237,8 +247,8 @@ export function reduceOffline(
     case 'session.remove-set': {
       const set = itemOf(c.itemId).results.find((r) => r.id === c.setId);
       if (!set || set.removedAt) throw new OfflineError('SET_NOT_FOUND', 'Choose a recorded set.');
-      set.removedAt = now;
-      set.correctedAt = now;
+      set.removedAt = eventTime;
+      set.correctedAt = eventTime;
       break;
     }
     case 'session.set-notes':
@@ -251,7 +261,7 @@ export function reduceOffline(
     case 'session.finish':
     case 'session.abandon':
       session.status = c.type === 'session.finish' ? 'completed' : 'abandoned';
-      session.finishedAt = now;
+      session.finishedAt = eventTime;
       session.timer = null;
       break;
     default:

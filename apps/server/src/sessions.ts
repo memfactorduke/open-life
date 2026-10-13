@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import {
   SessionSchema,
   SessionCommandSchema,
+  sessionEventTime,
   timerRemaining,
   measuredWorkingVolume,
   RoutineSchema,
@@ -77,6 +78,15 @@ export async function executeSessionCommand(
       command.expectedRevision,
     );
     const now = new Date().toISOString();
+    let eventTime: string;
+    try {
+      eventTime = sessionEventTime(command, old, now);
+    } catch (error) {
+      fail(
+        'INVALID_EVENT_TIME',
+        error instanceof Error ? error.message : 'Check the workout event time.',
+      );
+    }
     let session: WorkoutSession;
     const records: ChangedRecord[] = [];
     if (command.type === 'session.start') {
@@ -150,7 +160,7 @@ export async function executeSessionCommand(
         items,
         supersets: [],
         timer: null,
-        startedAt: now,
+        startedAt: eventTime,
         updatedAt: now,
         finishedAt: null,
       };
@@ -226,7 +236,7 @@ export async function executeSessionCommand(
               measurements: command.measurements,
               notes: command.notes,
               round: command.round,
-              recordedAt: now,
+              recordedAt: eventTime,
               correctedAt: null,
               removedAt: null,
             });
@@ -239,7 +249,7 @@ export async function executeSessionCommand(
               measurements: command.measurements,
               notes: command.notes,
               round: command.round,
-              correctedAt: now,
+              correctedAt: eventTime,
             });
           }
           break;
@@ -250,8 +260,8 @@ export async function executeSessionCommand(
           );
           if (!result || result.removedAt)
             fail('SET_NOT_FOUND', 'Choose an existing result to remove.');
-          result.removedAt = now;
-          result.correctedAt = now;
+          result.removedAt = eventTime;
+          result.correctedAt = eventTime;
           break;
         }
         case 'session.set-notes':
@@ -305,7 +315,7 @@ export async function executeSessionCommand(
         case 'session.finish':
         case 'session.abandon':
           session.status = command.type === 'session.finish' ? 'completed' : 'abandoned';
-          session.finishedAt = now;
+          session.finishedAt = eventTime;
           session.timer = null;
           break;
         case 'session.update-routine': {

@@ -265,19 +265,41 @@ try {
       },
     ],
   };
-  await store.save(start);
-  await store.save({
-    type: 'session.record-set',
+  const workoutStart = '2026-10-09T20:00:00.000Z';
+  const workoutSet = '2026-10-09T20:10:00.000Z';
+  const workoutFinish = '2026-10-09T21:00:00.000Z';
+  await store.save(start, { now: workoutStart });
+  const originalStartPayload = (await store.outbox())[0].payload;
+  await store.save(start, { now: workoutFinish });
+  assert.equal((await store.outbox())[0].payload, originalStartPayload);
+  await assert.rejects(store.save({ ...start, occurredAt: workoutFinish }), /operation ID/);
+  await store.save(
+    {
+      type: 'session.record-set',
+      operationId: randomUUID(),
+      sessionId,
+      expectedRevision: 1,
+      itemId: sessionItem,
+      setId,
+      kind: 'working',
+      measurements: { mode: 'weighted', reps: 4, loadKg: 40 },
+      notes: '',
+      round: null,
+    },
+    { now: workoutSet },
+  );
+  const finish = {
+    type: 'session.finish',
     operationId: randomUUID(),
     sessionId,
-    expectedRevision: 1,
-    itemId: sessionItem,
-    setId,
-    kind: 'working',
-    measurements: { mode: 'weighted', reps: 4, loadKg: 40 },
-    notes: '',
-    round: null,
-  });
+    expectedRevision: 2,
+  };
+  await store.save(finish, { now: workoutFinish });
+  const localSession = (await store.records('session')).find((r) => r.id === sessionId).value;
+  assert.equal(localSession.startedAt, workoutStart);
+  assert.equal(localSession.items[0].results[0].recordedAt, workoutSet);
+  assert.equal(localSession.finishedAt, workoutFinish);
+  assert.equal(JSON.parse((await store.outbox())[0].payload).occurredAt, workoutStart);
   const task = {
     type: 'task.create',
     operationId: randomUUID(),
@@ -330,11 +352,11 @@ try {
   db.close();
   await openSQLite(identity);
   coordinator = new OfflineCoordinator(store, transport, randomUUID);
-  assert.equal((await store.outbox()).length, 5);
+  assert.equal((await store.outbox()).length, 6);
   assert.deepEqual(await readFile(file), bytes);
   assert(!JSON.stringify(await store.records()).includes('fictional-password'));
   check('offline task, workout chain, food text and selected photo survive SQLite reopen', {
-    outbox: 5,
+    outbox: 6,
     photoSha256: photo.sha256,
     credentialFree: true,
   });
@@ -361,6 +383,30 @@ try {
   );
   assert.equal(await receiptCount(taskEdit.operationId), 1);
   const session = (await store.records('session')).find((r) => r.id === sessionId).confirmed;
+  assert.equal(session.startedAt, workoutStart);
+  assert.equal(session.items[0].results[0].recordedAt, workoutSet);
+  assert.equal(session.finishedAt, workoutFinish);
+  assert.equal(Date.parse(session.finishedAt) - Date.parse(session.startedAt), 3_600_000);
+  assert(Date.parse(session.updatedAt) > Date.parse(workoutFinish));
+  const queuedFinish = JSON.parse(
+    (await store.outbox()).find((o) => o.operationId === finish.operationId).payload,
+  );
+  const firstReceipt = (
+    await request('/api/sessions/commands', queuedFinish, 'POST', installation.epoch)
+  ).json();
+  const repeatedReceipt = (
+    await request('/api/sessions/commands', queuedFinish, 'POST', installation.epoch)
+  ).json();
+  assert.deepEqual(repeatedReceipt, firstReceipt);
+  assert.deepEqual(firstReceipt.session, session);
+  assert.equal(await receiptCount(finish.operationId), 1);
+  check('delayed offline hour-long workout retains event times and immutable finish receipt', {
+    durationMs: 3_600_000,
+    startedAt: session.startedAt,
+    recordedAt: session.items[0].results[0].recordedAt,
+    finishedAt: session.finishedAt,
+    receivedAt: session.updatedAt,
+  });
   assert.equal(session.items[0].id, sessionItem);
   assert.equal(session.items[0].targets[0].id, sessionTarget);
   assert.equal(session.items[0].results[0].id, setId);

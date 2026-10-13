@@ -465,6 +465,113 @@ test('PostgreSQL session snapshots, revisions, replay, corrections, history, mod
       auth,
     );
     assert.equal(measured.session.items[0]!.results[0]!.measurements.mode, 'weighted');
+    await executeSessionCommand(
+      pool,
+      actor,
+      {
+        type: 'session.finish',
+        operationId: randomUUID(),
+        sessionId: stable.session.id,
+        expectedRevision: 2,
+      },
+      auth,
+    );
+    const delayedStart = {
+      ...stableStart,
+      operationId: randomUUID(),
+      sessionId: randomUUID(),
+      occurredAt: '2026-10-09T20:00:00.000Z',
+    };
+    const delayed = await executeSessionCommand(pool, actor, delayedStart, auth);
+    assert.equal(delayed.session.startedAt, delayedStart.occurredAt);
+    assert.notEqual(delayed.session.updatedAt, delayedStart.occurredAt);
+    const recordedAt = '2026-10-09T20:10:00.000Z';
+    const delayedSet = {
+      type: 'session.record-set' as const,
+      operationId: randomUUID(),
+      sessionId: delayed.session.id,
+      expectedRevision: 1,
+      itemId: stableItemId,
+      setId: randomUUID(),
+      kind: 'working' as const,
+      measurements: { mode: 'weighted' as const, reps: 8, loadKg: 45 },
+      notes: '',
+      round: null,
+      occurredAt: recordedAt,
+    };
+    const result = await executeSessionCommand(pool, actor, delayedSet, auth);
+    assert.equal(result.session.items[0]!.results[0]!.recordedAt, recordedAt);
+    assert.deepEqual(await executeSessionCommand(pool, actor, delayedSet, auth), result);
+    await assert.rejects(
+      executeSessionCommand(
+        pool,
+        actor,
+        { ...delayedSet, occurredAt: '2026-10-09T20:11:00.000Z' },
+        auth,
+      ),
+      /operation ID/,
+    );
+    const finish = {
+      type: 'session.finish' as const,
+      operationId: randomUUID(),
+      sessionId: delayed.session.id,
+      expectedRevision: 2,
+      occurredAt: '2026-10-09T21:00:00.000Z',
+    };
+    await assert.rejects(
+      executeSessionCommand(
+        pool,
+        actor,
+        { ...finish, occurredAt: '2026-10-09T20:05:00.000Z' },
+        auth,
+      ),
+      /recorded set/,
+    );
+    await assert.rejects(
+      executeSessionCommand(
+        pool,
+        actor,
+        { ...finish, occurredAt: new Date(Date.now() + 3600_000).toISOString() },
+        auth,
+      ),
+      /future/,
+    );
+    const finished = await executeSessionCommand(pool, actor, finish, auth);
+    assert.equal(
+      Date.parse(finished.session.finishedAt!) - Date.parse(finished.session.startedAt),
+      3600_000,
+    );
+    assert.deepEqual(await executeSessionCommand(pool, actor, finish, auth), finished);
+    const correct = {
+      ...delayedSet,
+      type: 'session.correct-set' as const,
+      operationId: randomUUID(),
+      expectedRevision: 3,
+      reason: 'Fictional correction',
+      occurredAt: '2026-10-10T12:00:00.000Z',
+      measurements: { ...delayedSet.measurements, reps: 9 },
+    };
+    const corrected = await executeSessionCommand(pool, actor, correct, auth);
+    assert.equal(corrected.session.items[0]!.results[0]!.recordedAt, recordedAt);
+    assert.equal(corrected.session.items[0]!.results[0]!.correctedAt, correct.occurredAt);
+    const removed = await executeSessionCommand(
+      pool,
+      actor,
+      {
+        type: 'session.remove-set',
+        operationId: randomUUID(),
+        sessionId: delayed.session.id,
+        expectedRevision: 4,
+        itemId: stableItemId,
+        setId: delayedSet.setId,
+        reason: 'Fictional removal',
+        occurredAt: '2026-10-11T12:00:00.000Z',
+      },
+      auth,
+    );
+    assert.equal(removed.session.items[0]!.results[0]!.removedAt, '2026-10-11T12:00:00.000Z');
+    const events = (await sessionHistory(pool, actor, delayed.session.id)).events;
+    assert(events.every((event) => Date.parse(event.createdAt) > Date.parse(finish.occurredAt)));
   } finally {
     await pool.end();
   }

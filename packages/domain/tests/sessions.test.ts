@@ -4,6 +4,7 @@ import {
   SessionSchema,
   measuredWorkingVolume,
   timerRemaining,
+  sessionEventTime,
   type WorkoutSession,
 } from '../src/sessions.js';
 const id = '10000000-0000-4000-8000-000000000001';
@@ -109,4 +110,57 @@ test('actual results require performance while empty plan targets remain valid',
     SessionCommandSchema.safeParse({ ...command, measurements: { ...measurements, reps: 0 } })
       .success,
   ).toBe(true);
+});
+
+test('historical event timestamps are optional, validated and confined to history commands', () => {
+  const start = {
+    type: 'session.start',
+    operationId: id,
+    sessionId: id,
+    expectedRevision: 0,
+    name: 'Fixture',
+    routineId: null,
+    expectedRoutineRevision: null,
+  };
+  expect(
+    SessionCommandSchema.safeParse({ ...start, occurredAt: '2026-10-09T20:00:00.000Z' }).success,
+  ).toBe(true);
+  expect(SessionCommandSchema.safeParse({ ...start, occurredAt: 'Friday evening' }).success).toBe(
+    false,
+  );
+  expect(
+    SessionCommandSchema.safeParse({
+      type: 'session.timer',
+      operationId: id,
+      sessionId: id,
+      expectedRevision: 1,
+      action: 'start',
+      timerId: id,
+      kind: 'rest',
+      durationSeconds: 60,
+      deviceId: 'fixture',
+      itemId: null,
+      occurredAt: now,
+    }).success,
+  ).toBe(false);
+  expect(sessionEventTime(SessionCommandSchema.parse(start), null, now)).toBe(now);
+});
+test('event clock allows delayed replay and small clock skew but rejects impossible history', () => {
+  const finish = {
+    type: 'session.finish' as const,
+    operationId: id,
+    sessionId: id,
+    expectedRevision: 1,
+    occurredAt: '2026-10-12T13:00:00.000Z',
+  };
+  expect(sessionEventTime(finish, session, '2026-10-16T12:00:00.000Z')).toBe(
+    '2026-10-12T13:00:00.000Z',
+  );
+  expect(() => sessionEventTime(finish, session, now)).toThrow('future');
+  expect(() =>
+    sessionEventTime({ ...finish, occurredAt: '2026-10-12T11:00:00.000Z' }, session, now),
+  ).toThrow('start');
+  expect(
+    sessionEventTime({ ...finish, occurredAt: '2026-10-12T12:04:00.000Z' }, session, now),
+  ).toBe('2026-10-12T12:04:00.000Z');
 });

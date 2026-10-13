@@ -140,8 +140,8 @@ export class OfflineStore {
       foodSave?: { photoUris: string[]; draftKey: string };
     } = {},
   ): Promise<LocalRecord> {
-    const command = parseOfflineCommand(input);
-    const payload = json(command);
+    let command = parseOfflineCommand(input);
+    let payload = json(command);
     const aggregate = aggregateOf(command);
     const now = options.now ?? new Date().toISOString();
     return this.db.transaction(async (tx) => {
@@ -151,6 +151,12 @@ export class OfflineStore {
       const all = await this.outbox(tx);
       const duplicate = all.find((o) => o.operationId === command.operationId);
       if (duplicate) {
+        // Reusing an unstamped caller command must reuse the first durable event instant.
+        const saved = JSON.parse(duplicate.payload) as OfflineCommand;
+        if ('occurredAt' in saved && !('occurredAt' in command && command.occurredAt !== undefined))
+          payload = json(
+            parseOfflineCommand({ ...command, occurredAt: saved.occurredAt } as OfflineCommand),
+          );
         if (duplicate.payload !== payload)
           throw new OfflineError(
             'OPERATION_REUSED',
@@ -159,6 +165,22 @@ export class OfflineStore {
         return (await this.records(undefined, tx)).find(
           (r) => `${r.recordType}:${r.id}` === aggregate,
         )!;
+      }
+      if (
+        [
+          'session.start',
+          'session.record-set',
+          'session.correct-set',
+          'session.remove-set',
+          'session.finish',
+          'session.abandon',
+        ].includes(command.type)
+      ) {
+        command = parseOfflineCommand({
+          ...command,
+          occurredAt: 'occurredAt' in command ? (command.occurredAt ?? now) : now,
+        } as OfflineCommand);
+        payload = json(command);
       }
       const catalogue = await this.records(undefined, tx);
       const current = catalogue.find((r) => `${r.recordType}:${r.id}` === aggregate);
