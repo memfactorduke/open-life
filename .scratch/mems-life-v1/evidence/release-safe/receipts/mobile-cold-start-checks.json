@@ -1,0 +1,24 @@
+{
+  "verifiedAt": "2026-10-13T05:00:25.124925+00:00",
+  "commit": "c595ee2ff5902e284f62fd0765922adb1d0fa81a",
+  "scope": "Mobile lifecycle only, after clean checkout proof; actual cold native relaunch remains pending",
+  "checks": {
+    "mobileTests": {
+      "passed": 110,
+      "suites": 22,
+      "failed": 0
+    },
+    "rootEslint": "passed",
+    "rootPrettier": "passed",
+    "targetedBootstrapTests": 21
+  },
+  "sourceSha256": {
+    "apps/mobile/src/App.tsx": "389d7934463d74d972c1670b376609b34003e2eed6b72696c5f1112298db5e5c",
+    "apps/mobile/src/client.ts": "94db6c91c773589aa4cf7c8311f9eb1fe0a5107a46b59f064659a1e1e12f67ab",
+    "apps/mobile/src/session-bootstrap.ts": "e2b1a67f80654da449a53f0e07a09fc6ba7f5a6c54dd8aa3bc4b25aabae4bdf5",
+    "apps/mobile/tests/client.test.ts": "0f8a8e4fca51ff9e9ef002c5afa92570a2d59dc6e97ee1c5f5e12cb26a711d08",
+    "apps/mobile/tests/session-bootstrap.test.ts": "cc362654a65da15275c16a9dba7121198d10056bda7e07c3d37e79af3567bf4b"
+  },
+  "rawLogLocalOnly": ".runtime/final-mobile-after-cold-start.log",
+  "nativeGate": "Fresh Release must prove usable offline cold launch; retained records/photos already proven on prior immutable bundle."
+}

@@ -1,0 +1,72 @@
+{
+  "transport": "official SDK 1.32.1 Client + StreamableHTTPClientTransport",
+  "base": "http://localhost:3001",
+  "startedAt": "2026-10-13T04:55:46.839Z",
+  "timezone": "Asia/Tokyo",
+  "foodId": "5abd2964-d12b-4fff-a039-0ab8211c734b",
+  "routineId": "6f5d55ec-03e5-4a3e-84dc-db6f8c2dd6bc",
+  "grantIds": [
+    "7e4e6c60-a389-42b0-aecb-f823af80cbfb",
+    "0b973274-433a-4f05-8770-fb02a454988b",
+    "5297c9a3-b122-4792-9264-fb478448537a",
+    "f3ccfc37-eabd-4984-9dae-eaf52bfa5a9a"
+  ],
+  "routineName": "MCP prepared fictional routine",
+  "routineRevision": 1,
+  "foodText": "MCP reported fictional meal",
+  "foodRevision": 1,
+  "foodOccurredAt": "2026-10-13T04:55:46.839Z",
+  "tokyoDate": "2026-10-13",
+  "historyCount": 1,
+  "retryExactlyOneEntry": true,
+  "agentHistory": true,
+  "readOnlyWriteRejected": true,
+  "sourceSha256": "6d8dc06da6331bfbab53f8f150c4d956060d57dcb049a78782442a2088cbd281",
+  "ownerSharedApiRead": true,
+  "revokedFutureWriteRejected": true,
+  "grantsRevoked": true,
+  "finishedAt": "2026-10-13T04:55:46.965Z",
+  "reportedSet": {
+    "sessionId": "d677b51a-8d0a-4365-a2bc-f5188bb46c90",
+    "sourceRoutineId": "6f5d55ec-03e5-4a3e-84dc-db6f8c2dd6bc",
+    "itemId": "f73d7d55-a3e3-4a3a-acd2-6908454a16d2",
+    "setId": "63c48667-3e10-4b8f-ad1b-748ca8ae41fd",
+    "operationId": "4bab5529-37ad-405c-90c9-828fd423d1b2",
+    "revision": 2,
+    "measurements": {
+      "mode": "weighted",
+      "reps": 3,
+      "loadKg": 22
+    },
+    "notes": "MCP explicitly reported fictional set",
+    "agentHistoryCount": 1,
+    "exactRetry": true,
+    "readOnlyRejected": true,
+    "staleCorrectionRejected": true,
+    "ownerSharedApiRead": true,
+    "sourceSha256": "a59c249257cab497a487b70e901262a52c8b28e53fc5a56a56977f8baad45a7a",
+    "at": "2026-10-13T05:00:33.626Z",
+    "grantsRevoked": true
+  },
+  "webUi": {
+    "at": "2026-10-13T05:01:48.646Z",
+    "url": "http://127.0.0.1:5173",
+    "actualBrowser": "Chromium Playwright",
+    "foodExactOneVisible": true,
+    "foodCreateRevisionOneHistory": true,
+    "sameRoutineHeading": true,
+    "sameReportedSetVisible": true,
+    "reportedSetRevisionTwoHistory": true,
+    "screenshots": [
+      "web-food-history.png",
+      "web-reported-set-history.png"
+    ]
+  },
+  "artifacts": {
+    "seed.mjs": "db0284b64575a3e546d818d13bf0990adb0fed8eb17f5cbea9d78328af0f1ed5",
+    "report-set.mjs": "b280d5b34191f642ad59ab9c0e9f5ad57c6cb110366ea9ca319c9d7161915859",
+    "web-view.mjs": "8398359a5019c495730d492990b17a3cbee71a1b26e25d21ada2788a4e463c10",
+    "web-food-history.png": "260100c461310b8973b919d917c757ca33eeb1e0596412c12853c6ddb49f3253",
+    "web-reported-set-history.png": "deb8a6150eada29ee8b2f4f282b439aca54393a1a5ec26a2277837fa48234973"
+  }
+}

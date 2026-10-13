@@ -156,6 +156,24 @@
       "review": "Explicit reviewed receipt; original evidence links are local-only"
     },
     {
+      "file": "receipts/mobile-cold-start-checks.json",
+      "bytes": 1185,
+      "sha256": "d9a41bde88525368e1bba3d4be9ca62205ee6076e8052395f91b0d5bd7e4344d",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/mobile-cold-start-checks.json",
+      "rawBytes": 1185,
+      "rawSha256": "d9a41bde88525368e1bba3d4be9ca62205ee6076e8052395f91b0d5bd7e4344d",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
+      "file": "receipts/native-mcp-roundtrip--receipt.json",
+      "bytes": 2716,
+      "sha256": "b0ae725db383fb22bc9d939a5ad164cd37d307f76df6337e9f9632cfb55f1aed",
+      "rawLocalOnly": ".scratch/mems-life-v1/evidence/native-mcp-roundtrip/receipt.json",
+      "rawBytes": 2716,
+      "rawSha256": "b0ae725db383fb22bc9d939a5ad164cd37d307f76df6337e9f9632cfb55f1aed",
+      "review": "Explicit reviewed receipt; original evidence links are local-only"
+    },
+    {
       "file": "screenshots/productivity-web--phone-chromium.png",
       "bytes": 29932,
       "sha256": "e158aa29e61ab6c28315d0514455df9ff3e00b57e3cb5e0835a93fff627576bc",
