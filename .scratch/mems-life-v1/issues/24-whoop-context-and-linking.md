@@ -28,7 +28,7 @@ Apply the specification's shared authorization, history, revision and error rule
 
 ## Comments
 
-Evidence: Reconciled 2026-10-13 against the literal criteria, historical [historical acceptance audit](../acceptance-audit.md), current executed receipts and the named test assertions. WHOOP real-PG fixtures cover hourly throttling, pages, score-null versus scored, identity/freshness, replacement account separation, errors and authenticated resource 404 unlinking while preserving local workout results. Shared app/SDK wiring tests exercise scoped credential-free WHOOP reads.
+Evidence: Reconciled 2026-10-13 against the literal criteria, [historical acceptance audit](../acceptance-audit.md), current executed receipts and the named test assertions. WHOOP real-PG fixtures cover hourly throttling, pages, score-null versus scored, identity/freshness, replacement account separation, errors and authenticated resource 404 unlinking while preserving local workout results. Shared app/SDK wiring tests exercise scoped credential-free WHOOP reads.
 
 Evidence: The independent clean checkout receipt identifies commit `9a8a584fa708ec23d945f9e49675b48d04d8401a`: 39 domain + 94 mobile component + 23 actual PostgreSQL/server tests (156 total, zero skips), five standalone recovery scripts, types/lint/format and production builds pass. Three production browser engines pass with zero CSP violations; five Chromium auth compatibility cases pass. [Safe clean-checkout receipt](../evidence/release-safe/receipts/clean-checkout--verification.json). These counts establish their exact source/run boundary, not every native acceptance criterion.
 

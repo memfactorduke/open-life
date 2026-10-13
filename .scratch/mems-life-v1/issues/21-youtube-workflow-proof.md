@@ -27,7 +27,7 @@ Apply the specification's shared authorization, history, revision and error rule
 
 ## Comments
 
-Evidence: Reconciled 2026-10-13 against the literal criteria, historical [historical acceptance audit](../acceptance-audit.md), current executed receipts and the named test assertions. PostgreSQL fictional YouTube scenarios exercise parallel thumbnail/edit paths, rejected edit/retry, uncertain upload and exactly one verified human publication event; generic SDK claim/finish tests separately exercise two clients. No real editor/upload integration or personal publication is performed.
+Evidence: Reconciled 2026-10-13 against the literal criteria, [historical acceptance audit](../acceptance-audit.md), current executed receipts and the named test assertions. PostgreSQL fictional YouTube scenarios exercise parallel thumbnail/edit paths, rejected edit/retry, uncertain upload and exactly one verified human publication event; generic SDK claim/finish tests separately exercise two clients. No real editor/upload integration or personal publication is performed.
 
 Evidence: The independent clean checkout receipt identifies commit `9a8a584fa708ec23d945f9e49675b48d04d8401a`: 39 domain + 94 mobile component + 23 actual PostgreSQL/server tests (156 total, zero skips), five standalone recovery scripts, types/lint/format and production builds pass. Three production browser engines pass with zero CSP violations; five Chromium auth compatibility cases pass. [Safe clean-checkout receipt](../evidence/release-safe/receipts/clean-checkout--verification.json). These counts establish their exact source/run boundary, not every native acceptance criterion.
 
