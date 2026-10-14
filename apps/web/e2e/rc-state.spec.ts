@@ -245,16 +245,27 @@ test('a retained routine dialog does not block another page and keeps its draft'
   page,
 }) => {
   await page.getByRole('link', { name: 'Workouts', exact: false }).click();
-  await page.getByRole('button', { name: 'New routine', exact: true }).click();
-  const dialog = page.getByRole('dialog');
+  await page
+    .getByRole('navigation', { name: 'Workout views' })
+    .getByRole('button', { name: 'Routines', exact: true })
+    .click();
+  await page
+    .locator('.workout-library')
+    .getByRole('button', { name: 'New routine', exact: true })
+    .click();
+  const dialog = page.locator('dialog[aria-labelledby="workout-editor-title"]');
+  await expect(dialog).toBeVisible();
   await dialog.getByLabel('Name', { exact: true }).fill('Unsaved routine draft');
   await page.evaluate(() => {
     window.location.hash = 'food';
   });
+  await expect(page.getByRole('heading', { name: 'Food', exact: true })).toBeVisible();
+  await expect(dialog).toBeHidden();
   await page.getByRole('button', { name: 'Add entry', exact: true }).click();
   await page
     .getByRole('textbox', { name: 'What did you eat?', exact: true })
     .fill('Other page usable');
   await page.getByRole('link', { name: 'Workouts', exact: false }).click();
+  await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('Unsaved routine draft');
 });

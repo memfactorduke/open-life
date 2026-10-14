@@ -87,6 +87,7 @@ test('capture, deliberate phases, completion, archive, deletion and undo persist
   await page.getByLabel(`Move ${title}`, { exact: true }).selectOption('active');
   await expect(page.getByRole('region', { name: 'Active tasks' })).toContainText(title);
   await page.getByRole('button', { name: title, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Edit task', exact: true }).click();
   await page.getByLabel('Description', { exact: true }).fill('A real persisted task description.');
   await page.getByLabel('Notes', { exact: true }).fill('Fictional notes for verification.');
   await page.getByRole('button', { name: 'Save task', exact: true }).click();
@@ -98,25 +99,32 @@ test('capture, deliberate phases, completion, archive, deletion and undo persist
     .getByRole('article')
     .filter({ has: page.getByRole('button', { name: title, exact: true }) });
   await card.getByRole('button', { name: 'Complete', exact: true }).click();
+  await page.locator('.task-more > summary').click();
   await page.getByRole('button', { name: 'Completed', exact: true }).click();
   await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Reopen', exact: true }).click();
   await page.getByRole('button', { name: 'Board', exact: true }).click();
   await page.getByRole('button', { name: title, exact: true }).click();
-  await page.getByRole('button', { name: 'Archive', exact: true }).last().click();
+  await page.getByRole('dialog').getByText('More task actions', { exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Archive', exact: true }).click();
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('button', { name: 'Archive', exact: true }).click();
   await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Unarchive', exact: true }).click();
   await page.getByRole('button', { name: 'Board', exact: true }).click();
   await page.getByRole('button', { name: title, exact: true }).click();
-  await page.getByRole('button', { name: 'Delete task', exact: true }).click();
+  await page.getByRole('dialog').getByText('More task actions', { exact: true }).click();
+  page.once('dialog', (dialog) => {
+    void dialog.accept();
+  });
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete task', exact: true }).click();
   await expect(page.getByRole('button', { name: title, exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible();
   await page.getByRole('button', { name: title, exact: true }).click();
+  await page.getByRole('dialog').getByText('More task actions', { exact: true }).click();
   await page.getByText('Change history', { exact: true }).click();
   await expect(page.locator('.history-drawer')).toContainText('restore');
   await page.screenshot({ path: test.info().outputPath('task-details.png'), fullPage: true });
@@ -140,6 +148,7 @@ test('task conflict preserves edits and lost-response retry uses the original co
   await page.getByLabel('New task', { exact: true }).fill(title);
   await page.getByRole('button', { name: 'Add to Planned' }).click();
   await page.getByRole('button', { name: title, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Edit task', exact: true }).click();
   await page.getByLabel('Description', { exact: true }).fill('Local edit preserved.');
   const saved = (await (await page.request.get('/api/tasks?view=open')).json()).tasks.find(
     (item: { content: { title: string } }) => item.content.title === title,
@@ -184,6 +193,7 @@ test('task conflict preserves edits and lost-response retry uses the original co
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: title, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Edit task', exact: true }).click();
   await expect(page.getByLabel('Description', { exact: true })).toHaveValue(
     'Local edit preserved.',
   );
