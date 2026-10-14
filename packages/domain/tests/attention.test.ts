@@ -186,3 +186,23 @@ test('failed and unknown attempts remain visible while the task is paused; eithe
     ),
   ).toBe(true);
 });
+
+test('a superseded submitted attempt does not hide either work after replacement stops', () => {
+  const eitherStep = { ...step, content: { ...step.content, responsibility: 'either' as const } };
+  const replacement = {
+    ...attempt,
+    id: '77777777-7777-4777-8777-777777777777',
+    createdAt: '2026-10-13T00:31:00.000Z',
+    status: 'failed' as const,
+  };
+  const items = buildTaskAttention(
+    [task],
+    [eitherStep],
+    [attempt, replacement],
+    [],
+    '2026-10-13T00:32:00.000Z',
+  );
+  expect(items.some((item) => item.kind === 'due' && item.step?.id === step.id)).toBe(true);
+  expect(items.some((item) => item.waitingReason === 'agent')).toBe(false);
+  expect(items.some((item) => item.kind === 'failure')).toBe(true);
+});

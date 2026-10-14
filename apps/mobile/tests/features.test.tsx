@@ -1,5 +1,11 @@
 import React from 'react';
-import { fireEvent, render as renderNative, screen, waitFor } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  render as renderNative,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Crypto from 'expo-crypto';
 import {
@@ -219,4 +225,35 @@ it('keeps invalid numeric input visible and prevents saving an older valid targe
   expect(screen.getByRole('button', { name: 'Save routine' })).toBeDisabled();
   await fireEvent.changeText(screen.getByLabelText('Repetitions for set 1'), '0');
   expect(screen.getByRole('button', { name: 'Save routine' })).toBeEnabled();
+});
+
+it('a late task query cannot replace a newly selected completed-history view', async () => {
+  let resolveOpen!: (value: unknown) => void;
+  const completed = {
+    id,
+    revision: 1,
+    phase: 'completed',
+    content: { title: 'Completed fictional task', description: '', notes: '' },
+    order: 0,
+    createdAt: instant,
+    updatedAt: instant,
+    completedAt: instant,
+    archivedAt: null,
+    deletedAt: null,
+  };
+  const request = jest.fn((path: string) => {
+    if (path.includes('/api/tasks/query?view=open'))
+      return new Promise((resolve) => {
+        resolveOpen = resolve;
+      });
+    if (path.includes('/api/tasks/query?view=completed'))
+      return Promise.resolve({ tasks: [completed] });
+    return Promise.resolve({ boards: [], projects: [], series: [] });
+  });
+  await render(<Tasks client={clientWith(request)} />);
+  await waitFor(() => expect(resolveOpen).toBeDefined());
+  await fireEvent.press(screen.getByRole('radio', { name: 'Completed' }));
+  await screen.findByRole('button', { name: 'Open Completed fictional task' });
+  await act(async () => resolveOpen({ tasks: [] }));
+  expect(screen.getByRole('button', { name: 'Open Completed fictional task' })).toBeOnTheScreen();
 });

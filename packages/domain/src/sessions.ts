@@ -1,9 +1,8 @@
 import { z } from 'zod';
 import {
-  ExerciseSnapshotSchema,
   MeasurementsSchema,
-  RoutineTargetSchema,
   RoutineContentSchema,
+  RoutineItemSchema,
   type RoutineItem,
 } from './workouts.js';
 const uuid = z.uuid();
@@ -32,28 +31,38 @@ export const SetResultSchema = z.strictObject({
   correctedAt: instant.nullable(),
   removedAt: instant.nullable(),
 });
-export const SessionExerciseSchema = z.strictObject({
-  id: uuid,
-  exerciseId: uuid,
-  snapshot: ExerciseSnapshotSchema,
-  targets: z.array(RoutineTargetSchema).max(100),
-  notes,
+export const SessionExerciseSchema = RoutineItemSchema.safeExtend({
   status: z.enum(['planned', 'in-progress', 'skipped', 'removed']),
   results: z.array(SetResultSchema).max(1000),
   replacedItemId: uuid.nullable(),
 });
-export const SessionTimerSchema = z.strictObject({
-  id: uuid,
-  kind: z.enum(['rest', 'exercise']),
-  state: z.enum(['running', 'paused', 'finished']),
-  durationSeconds: z.number().finite().positive().max(86400),
-  remainingSeconds: z.number().finite().nonnegative().max(86400),
-  deadline: instant.nullable(),
-  updatedAt: instant,
-  clockBasis: z.literal('server'),
-  initiatingDeviceId: z.string().min(1).max(200),
-  itemId: uuid.nullable(),
-});
+export const SessionTimerSchema = z
+  .strictObject({
+    id: uuid,
+    kind: z.enum(['rest', 'exercise']),
+    state: z.enum(['running', 'paused', 'finished']),
+    durationSeconds: z.number().finite().positive().max(86400),
+    remainingSeconds: z.number().finite().nonnegative().max(86400),
+    deadline: instant.nullable(),
+    updatedAt: instant,
+    clockBasis: z.literal('server'),
+    initiatingDeviceId: z.string().min(1).max(200),
+    itemId: uuid.nullable(),
+  })
+  .superRefine((timer, ctx) => {
+    if ((timer.state === 'running') !== (timer.deadline !== null))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['deadline'],
+        message: 'Only running timers have a deadline.',
+      });
+    if (timer.remainingSeconds > timer.durationSeconds)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['remainingSeconds'],
+        message: 'Remaining time cannot exceed the timer duration.',
+      });
+  });
 export const SupersetSchema = z.strictObject({ id: uuid, itemIds: z.array(uuid).min(2).max(100) });
 export const SessionSchema = z
   .strictObject({
@@ -81,6 +90,15 @@ export const SessionSchema = z
           message: 'Duplicate item identity.',
         });
       ids.add(item.id);
+      for (const [j, target] of item.targets.entries()) {
+        if (ids.has(target.id))
+          ctx.addIssue({
+            code: 'custom',
+            path: ['items', i, 'targets', j, 'id'],
+            message: 'Duplicate target identity.',
+          });
+        ids.add(target.id);
+      }
       for (const [j, result] of item.results.entries()) {
         if (ids.has(result.id))
           ctx.addIssue({
@@ -327,8 +345,18 @@ export function sessionEventTime(
   session: WorkoutSession | null,
   receivedAt: string,
 ): string {
-  if (!('occurredAt' in command) || command.occurredAt === undefined) return receivedAt;
-  const occurredAt = command.occurredAt;
+  if (
+    ![
+      'session.start',
+      'session.record-set',
+      'session.correct-set',
+      'session.remove-set',
+      'session.finish',
+      'session.abandon',
+    ].includes(command.type)
+  )
+    return receivedAt;
+  const occurredAt = 'occurredAt' in command ? (command.occurredAt ?? receivedAt) : receivedAt;
   const eventMs = Date.parse(occurredAt);
   if (!Number.isFinite(eventMs) || eventMs > Date.parse(receivedAt) + 5 * 60_000)
     throw new Error(
@@ -360,7 +388,13 @@ export function sessionEventTime(
 
 export function timerRemaining(timer: SessionTimer, serverNow: string): number {
   return timer.state === 'running' && timer.deadline
-    ? Math.max(0, (Date.parse(timer.deadline) - Date.parse(serverNow)) / 1000)
+    ? Math.max(
+        0,
+        Math.min(
+          timer.remainingSeconds,
+          (Date.parse(timer.deadline) - Date.parse(serverNow)) / 1000,
+        ),
+      )
     : timer.state === 'finished'
       ? 0
       : timer.remainingSeconds;

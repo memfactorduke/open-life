@@ -115,7 +115,9 @@ export function Tasks({
     }
     void openFocus(focusTarget);
   }, [focusTarget]);
+  const loadSequence = React.useRef(0);
   async function load(cursor?: string) {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     try {
       const query = new URLSearchParams({ view });
@@ -132,16 +134,27 @@ export function Tasks({
         nextCursor?: string | null;
       };
       const values = TaskListResponseSchema.parse({ tasks: response.tasks }).tasks;
-      setTasks((previous) => (cursor ? [...previous, ...values] : values));
+      if (sequence !== loadSequence.current) return;
+      setTasks((previous) =>
+        cursor
+          ? [
+              ...previous,
+              ...values.filter((task) => !previous.some((saved) => saved.id === task.id)),
+            ]
+          : values,
+      );
       setNextCursor(response.nextCursor ?? null);
     } catch (error) {
-      command.setError(messageOf(error));
+      if (sequence === loadSequence.current) command.setError(messageOf(error));
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
   }
   useEffect(() => {
     void load();
+    return () => {
+      loadSequence.current++;
+    };
   }, [client, view, board, project, timing, responsibility, priorityFilter, offlineRevision]);
   async function loadConfiguration() {
     try {

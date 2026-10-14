@@ -3,7 +3,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as Crypto from 'expo-crypto';
 import { fetch } from 'expo/fetch';
 import type { InstallationClient } from './client';
-import { RequestRejectedError, SessionExpiredError } from './client';
+import { NetworkUnavailableError, RequestRejectedError, SessionExpiredError } from './client';
 import { ApiErrorSchema } from '@mems-life/domain';
 import { installationStoragePrefix } from './installation';
 export type LocalFoodPhoto = {
@@ -43,27 +43,41 @@ export async function uploadFoodPhoto(
   id: string,
   expectedEpoch?: string,
 ) {
-  const cookie = await client.auth.getCookie();
-  const response = await fetch(`${client.baseURL}/api/media/${id}/content`, {
-    method: 'PUT',
-    headers: {
-      Cookie: cookie ?? '',
-      Origin: 'memslife://',
-      'Content-Type': 'application/octet-stream',
-      ...(expectedEpoch ? { 'X-Mems-Life-Epoch': expectedEpoch } : {}),
-    },
-    body: await new File(photo.uri).bytes(),
-  });
-  if (!response.ok) {
-    if (response.status === 401) throw new SessionExpiredError();
-    const value = ApiErrorSchema.safeParse(await response.json().catch(() => null));
-    throw new RequestRejectedError(
-      response.status,
-      value.success
-        ? value.data.error.message
-        : 'Photo upload failed. Your local photo is retained.',
-      value.success ? value.data.error.code : undefined,
-      value.success ? value.data.error.details : undefined,
-    );
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const cookie = await client.auth.getCookie();
+    const response = await fetch(`${client.baseURL}/api/media/${id}/content`, {
+      method: 'PUT',
+      credentials: 'omit',
+      signal: controller.signal,
+      headers: {
+        Cookie: cookie ?? '',
+        Origin: 'memslife://',
+        'Content-Type': 'application/octet-stream',
+        ...(expectedEpoch ? { 'X-Mems-Life-Epoch': expectedEpoch } : {}),
+      },
+      body: await new File(photo.uri).bytes(),
+    });
+    if (!response.ok) {
+      if (response.status === 401) throw new SessionExpiredError();
+      const value = ApiErrorSchema.safeParse(await response.json().catch(() => null));
+      throw new RequestRejectedError(
+        response.status,
+        value.success
+          ? value.data.error.message
+          : 'Photo upload failed. Your local photo is retained.',
+        value.success ? value.data.error.code : undefined,
+        value.success ? value.data.error.details : undefined,
+      );
+    }
+  } catch (error) {
+    if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError'))
+      throw new NetworkUnavailableError(
+        'Photo upload took too long. Your local photo is retained; try synchronizing again.',
+      );
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
 }

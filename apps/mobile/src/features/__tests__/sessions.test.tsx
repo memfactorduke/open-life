@@ -436,3 +436,93 @@ describe('owned timer alert reconciliation', () => {
     expect(notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 });
+
+it('canceling a saved timer ignores invalid edited duration text', async () => {
+  const { client, commands, request } = fake();
+  const session = fixture();
+  session.timer = {
+    id: id(70),
+    kind: 'rest',
+    clockBasis: 'server',
+    state: 'running',
+    durationSeconds: 90,
+    remainingSeconds: 90,
+    deadline: '2026-10-12T12:01:30Z',
+    initiatingDeviceId: 'test-device',
+    itemId: null,
+    updatedAt: instant,
+  };
+  const original = request.getMockImplementation()!;
+  request.mockImplementation(async (path: string, body?: unknown) =>
+    path === '/api/sessions' && !body
+      ? { sessions: [session], nextCursor: null }
+      : original(path, body),
+  );
+  await render(<Sessions client={client} preferences={defaultPreferences()} />);
+  await screen.findByLabelText('Timer seconds');
+  await fireEvent.changeText(screen.getByLabelText('Timer seconds'), 'invalid');
+  await fireEvent.press(screen.getByRole('button', { name: 'Cancel timer' }));
+  await waitFor(() => expect(commands).toHaveLength(1));
+  expect(commands[0]).toMatchObject({
+    type: 'session.timer',
+    action: 'cancel',
+    durationSeconds: 90,
+    timerId: id(70),
+  });
+});
+
+it('keeps recorded sets on a removed exercise correctable without allowing new activity', async () => {
+  const { client, commands, request } = fake();
+  const session = fixture();
+  session.items[0]!.status = 'removed';
+  session.items[0]!.results = [
+    {
+      id: id(75),
+      kind: 'working',
+      measurements: { mode: 'weighted', reps: 6, loadKg: 40 },
+      notes: '',
+      round: null,
+      recordedAt: instant,
+      correctedAt: null,
+      removedAt: null,
+    },
+  ];
+  const original = request.getMockImplementation()!;
+  request.mockImplementation(async (path: string, body?: unknown) =>
+    path === '/api/sessions' && !body
+      ? { sessions: [session], nextCursor: null }
+      : original(path, body),
+  );
+  await render(<Sessions client={client} preferences={defaultPreferences()} />);
+  await screen.findByRole('button', { name: 'Fictional press · removed · 1 sets' });
+  await fireEvent.press(screen.getByRole('button', { name: 'Fictional press · removed · 1 sets' }));
+  expect(screen.queryByRole('button', { name: 'Record set' })).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Correct actual set 1' }));
+  await fireEvent.changeText(screen.getByLabelText('Repetitions'), '7');
+  await fireEvent.changeText(
+    screen.getByLabelText('Correction reason'),
+    'Corrected counting error',
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Save correction' }));
+  await waitFor(() =>
+    expect(commands[0]).toMatchObject({
+      type: 'session.correct-set',
+      setId: id(75),
+      measurements: { reps: 7 },
+    }),
+  );
+});
+
+it('recording an actual set preserves an unsubmitted exercise note', async () => {
+  const { client } = fake();
+  await render(<Sessions client={client} preferences={defaultPreferences()} />);
+  await screen.findByLabelText('Repetitions');
+  await fireEvent.changeText(
+    screen.getByLabelText('Exercise session notes'),
+    'Adjust grip next set',
+  );
+  await fireEvent.changeText(screen.getByLabelText('Repetitions'), '6');
+  await fireEvent.press(screen.getByRole('button', { name: 'Record set' }));
+  await waitFor(() => expect(screen.getByLabelText('Repetitions').props.value).toBe(''));
+  expect(screen.getByLabelText('Exercise session notes').props.value).toBe('Adjust grip next set');
+});

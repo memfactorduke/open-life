@@ -68,6 +68,7 @@ export class OfflineStore {
       CREATE TABLE IF NOT EXISTS offline_records(partition TEXT NOT NULL,aggregate TEXT NOT NULL,record_type TEXT NOT NULL,id TEXT NOT NULL,revision INTEGER NOT NULL,confirmed TEXT,projection TEXT NOT NULL,status TEXT NOT NULL,PRIMARY KEY(partition,aggregate));
       CREATE TABLE IF NOT EXISTS offline_outbox(seq INTEGER PRIMARY KEY AUTOINCREMENT,partition TEXT NOT NULL,operation_id TEXT NOT NULL,aggregate TEXT NOT NULL,payload TEXT NOT NULL,local_at TEXT NOT NULL,dependencies TEXT NOT NULL,state TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,next_attempt_at INTEGER NOT NULL DEFAULT 0,error TEXT,UNIQUE(partition,operation_id));
       CREATE INDEX IF NOT EXISTS offline_pending ON offline_outbox(partition,aggregate,seq);
+      CREATE INDEX IF NOT EXISTS offline_replay ON offline_outbox(partition,state,seq);
       CREATE TABLE IF NOT EXISTS offline_conflicts(partition TEXT NOT NULL,operation_id TEXT NOT NULL,local_value TEXT NOT NULL,server_value TEXT,error TEXT NOT NULL,PRIMARY KEY(partition,operation_id));
       CREATE TABLE IF NOT EXISTS offline_snapshot(partition TEXT NOT NULL,snapshot_id TEXT NOT NULL,ordinal TEXT NOT NULL,page TEXT NOT NULL,PRIMARY KEY(partition,snapshot_id,ordinal));
       CREATE TABLE IF NOT EXISTS offline_drafts(partition TEXT NOT NULL,key TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(partition,key));
@@ -123,8 +124,38 @@ export class OfflineStore {
       )
     ).map(op);
   }
-  async conflicts() {
-    return this.db.all<{
+  async operation(
+    operationId: string,
+    tx: SqlExecutor = this.db,
+  ): Promise<OutboxEntry | undefined> {
+    const row = (
+      await tx.all<OpRow>(
+        'SELECT * FROM offline_outbox WHERE partition=? AND operation_id=?',
+        this.partitionKey,
+        operationId,
+      )
+    )[0];
+    return row ? op(row) : undefined;
+  }
+  async replayCandidates(): Promise<OutboxEntry[]> {
+    return (
+      await this.db.all<OpRow>(
+        "SELECT * FROM offline_outbox WHERE partition=? AND state IN ('never-sent','uncertain') ORDER BY seq",
+        this.partitionKey,
+      )
+    ).map(op);
+  }
+  private async aggregatePending(aggregate: string, tx: SqlExecutor): Promise<OutboxEntry[]> {
+    return (
+      await tx.all<OpRow>(
+        `SELECT * FROM offline_outbox WHERE partition=? AND aggregate=? AND state IN (${pendingStates}) ORDER BY seq`,
+        this.partitionKey,
+        aggregate,
+      )
+    ).map(op);
+  }
+  async conflicts(tx: SqlExecutor = this.db) {
+    return tx.all<{
       operation_id: string;
       local_value: string;
       server_value: string | null;
@@ -328,52 +359,119 @@ export class OfflineStore {
       status,
     );
   }
-  async photos() {
+  async photos(tx: SqlExecutor = this.db) {
     return (
-      await this.db.all<{ value: string; status: string }>(
+      await tx.all<{ value: string; status: string }>(
         'SELECT value,status FROM offline_photos WHERE partition=?',
         this.partitionKey,
       )
     ).map((r) => ({ ...(JSON.parse(r.value) as DurablePhoto), status: r.status }));
   }
-  async updatePhoto(photo: DurablePhoto, status: 'pending' | 'synced' | 'needs-attention') {
-    const previous = (await this.photos()).find((p) => p.id === photo.id);
-    if (previous) {
-      for (const key of [
-        'uri',
-        'sha256',
-        'size',
-        'entryId',
-        'operationId',
-        'attemptEpoch',
-        'uploadId',
-        'allocationRevision',
-        'finalizeRevision',
-      ] as const) {
-        if (previous[key] !== undefined && previous[key] !== photo[key])
+  async updatePhoto(
+    photo: DurablePhoto,
+    status: 'pending' | 'synced' | 'needs-attention',
+    options: { reviewedEpoch?: string; confirmedRecords?: SyncRecord[] } = {},
+  ) {
+    await this.db.transaction(async (tx) => {
+      const row = (
+        await tx.all<{ value: string; status: string }>(
+          'SELECT value,status FROM offline_photos WHERE partition=? AND id=?',
+          this.partitionKey,
+          photo.id,
+        )
+      )[0];
+      const previous = row ? (JSON.parse(row.value) as DurablePhoto) : undefined;
+      if (!previous || row.status === 'discarded')
+        throw new OfflineError(
+          'PHOTO_REVIEW_REQUIRED',
+          'This retained photo changed. Review it before sending again.',
+        );
+      if (previous) {
+        for (const key of [
+          'uri',
+          'sha256',
+          'size',
+          'entryId',
+          'operationId',
+          'attemptEpoch',
+          'uploadId',
+          'allocationRevision',
+          'finalizeRevision',
+        ] as const) {
+          if (previous[key] !== undefined && previous[key] !== photo[key])
+            throw new OfflineError(
+              'PHOTO_ATTEMPT_IMMUTABLE',
+              'Earlier upload details must remain unchanged. Save a reviewed copy with new identities.',
+            );
+        }
+        if ((photo.attempts ?? 0) < (previous.attempts ?? 0))
           throw new OfflineError(
             'PHOTO_ATTEMPT_IMMUTABLE',
-            'Earlier upload details must remain unchanged. Save a reviewed copy with new identities.',
+            'Earlier upload attempts must remain recorded.',
           );
       }
-      if ((photo.attempts ?? 0) < (previous.attempts ?? 0))
+      const currentState = await this.state(tx);
+      if (status === 'synced') {
+        const reviewed =
+          row.status === 'needs-attention' &&
+          !!photo.recoveredMediaId &&
+          options.reviewedEpoch === currentState.epoch;
+        if (
+          currentState.signedOut ||
+          (!reviewed &&
+            (currentState.replayPaused ||
+              row.status !== 'pending' ||
+              (photo.attemptEpoch && photo.attemptEpoch !== currentState.epoch)))
+        )
+          throw new OfflineError(
+            'PHOTO_REVIEW_REQUIRED',
+            'This upload completed after the account or server changed. Check the retained image before confirming it.',
+          );
+      }
+      if (status === 'needs-attention' && row.status === 'synced')
         throw new OfflineError(
-          'PHOTO_ATTEMPT_IMMUTABLE',
-          'Earlier upload attempts must remain recorded.',
+          'PHOTO_REVIEW_REQUIRED',
+          'This image has already been confirmed. Check its current state.',
         );
-    }
-    await this.db.run(
-      'UPDATE offline_photos SET value=?,status=? WHERE partition=? AND id=?',
-      json({
-        ...photo,
-        retainedEntry: previous?.retainedEntry ?? photo.retainedEntry,
-        recoveryEntryId: previous?.recoveryEntryId ?? photo.recoveryEntryId,
-        recoveryOperationId: previous?.recoveryOperationId ?? photo.recoveryOperationId,
-      }),
-      status,
-      this.partitionKey,
-      photo.id,
-    );
+      if (status === 'pending') {
+        if (row.status !== 'pending')
+          throw new OfflineError(
+            'PHOTO_REVIEW_REQUIRED',
+            'This retained photo changed. Review it before sending again.',
+          );
+        const state = await this.state(tx);
+        if (state.signedOut || state.replayPaused)
+          throw new OfflineError(
+            'PHOTO_REVIEW_REQUIRED',
+            'Sign in and review retained photos before sending again.',
+          );
+      }
+      if (options.confirmedRecords) {
+        if (
+          status !== 'synced' ||
+          !options.confirmedRecords.some(
+            (record) => record.recordType === 'food' && record.id === photo.entryId,
+          )
+        )
+          throw new OfflineError(
+            'INVALID_ACK',
+            'The finalized photo acknowledgement omitted its diary entry.',
+          );
+        for (const record of options.confirmedRecords) await this.applyConfirmed(record, tx);
+      }
+      await tx.run(
+        'UPDATE offline_photos SET value=?,status=? WHERE partition=? AND id=?',
+        json({
+          ...photo,
+          retainedEntry: previous?.retainedEntry ?? photo.retainedEntry,
+          recoveryEntryId: previous?.recoveryEntryId ?? photo.recoveryEntryId,
+          recoveryOperationId: previous?.recoveryOperationId ?? photo.recoveryOperationId,
+        }),
+        status,
+        this.partitionKey,
+        photo.id,
+      );
+    });
   }
   async requeueReviewedPhoto(oldId: string, id: string, operationId: string, entryId?: string) {
     await this.db.transaction(async (tx) => {
@@ -521,6 +619,10 @@ export class OfflineStore {
       const s = await this.state(tx);
       s.signedOut = true;
       await this.setState(s, tx);
+      await tx.run(
+        "UPDATE offline_outbox SET state='uncertain' WHERE partition=? AND state='attempted'",
+        this.partitionKey,
+      );
     });
   }
   async signIn() {
@@ -531,14 +633,18 @@ export class OfflineStore {
     });
   }
   async exportPending() {
-    return json({
-      partition: this.partition,
-      state: await this.state(),
-      outbox: await this.outbox(),
-      records: await this.records(),
-      conflicts: await this.conflicts(),
-      photos: await this.photos(),
-    });
+    // Freeze the complete recovery manifest before copying immutable image files.
+    // A concurrent save or sync must not mix one command list with another projection.
+    return this.db.transaction(async (tx) =>
+      json({
+        partition: this.partition,
+        state: await this.state(tx),
+        outbox: await this.outbox(tx),
+        records: await this.records(undefined, tx),
+        conflicts: await this.conflicts(tx),
+        photos: await this.photos(tx),
+      }),
+    );
   }
   private assertIdentity(page: Partition & { schemaVersion: number }) {
     if (
@@ -723,16 +829,30 @@ export class OfflineStore {
       await this.setState(state, tx);
     }
   }
-  async markAttempt(operationId: string): Promise<void> {
-    await this.db.run(
-      "UPDATE offline_outbox SET state='attempted',attempts=attempts+1 WHERE partition=? AND operation_id=? AND state IN ('never-sent','uncertain')",
-      this.partitionKey,
-      operationId,
-    );
+  async markAttempt(operationId: string, allowPaused = false): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      const state = await this.state(tx);
+      if (state.signedOut || (state.replayPaused && !allowPaused)) return false;
+      const entry = await this.operation(operationId, tx);
+      if (
+        !entry ||
+        !['never-sent', 'uncertain'].includes(entry.state) ||
+        entry.nextAttemptAt > Date.now()
+      )
+        return false;
+      for (const dependency of entry.dependencies)
+        if ((await this.operation(dependency, tx))?.state !== 'synced') return false;
+      await tx.run(
+        "UPDATE offline_outbox SET state='attempted',attempts=attempts+1 WHERE partition=? AND operation_id=?",
+        this.partitionKey,
+        operationId,
+      );
+      return true;
+    });
   }
   async requireAttemptReview(operationId: string, error: string) {
     await this.db.run(
-      "UPDATE offline_outbox SET state='review',error=? WHERE partition=? AND operation_id=? AND attempts>0",
+      "UPDATE offline_outbox SET state='review',error=? WHERE partition=? AND operation_id=? AND attempts>0 AND state='attempted'",
       error,
       this.partitionKey,
       operationId,
@@ -740,16 +860,42 @@ export class OfflineStore {
   }
   async markUncertain(operationId: string, attempts: number) {
     await this.db.run(
-      "UPDATE offline_outbox SET state='uncertain',next_attempt_at=?,error='Connection interrupted; the server may have saved this operation.' WHERE partition=? AND operation_id=?",
+      "UPDATE offline_outbox SET state='uncertain',next_attempt_at=?,error='Connection interrupted; the server may have saved this operation.' WHERE partition=? AND operation_id=? AND state='attempted'",
       Date.now() + Math.min(60000, 1000 * 2 ** Math.min(attempts, 6)),
       this.partitionKey,
       operationId,
     );
   }
-  async accept(operationId: string, records: SyncRecord[]): Promise<void> {
+  async accept(
+    operationId: string,
+    records: SyncRecord[],
+    options: { expectedEpoch?: string; reviewedEpoch?: string } = {},
+  ): Promise<void> {
     await this.db.transaction(async (tx) => {
-      const operation = (await this.outbox(tx)).find((o) => o.operationId === operationId);
+      const operation = await this.operation(operationId, tx);
       if (!operation) throw new OfflineError('OPERATION_NOT_FOUND', 'Unknown local operation.');
+      const state = await this.state(tx);
+      const reviewed =
+        operation.state === 'review' &&
+        operation.attempts > 0 &&
+        options.reviewedEpoch === state.epoch &&
+        !!state.epoch;
+      if (
+        state.signedOut ||
+        (!reviewed &&
+          (operation.state !== 'attempted' ||
+            (state.replayPaused && !options.expectedEpoch) ||
+            (options.expectedEpoch !== undefined && options.expectedEpoch !== state.epoch)))
+      )
+        throw new OfflineError(
+          'ACK_REVIEW_REQUIRED',
+          'The account, server, or retained change changed while sending. Check the original outcome before confirming it.',
+        );
+      if (!records.some((record) => `${record.recordType}:${record.id}` === operation.aggregate))
+        throw new OfflineError(
+          'INVALID_ACK',
+          'The server acknowledgement omitted the edited record.',
+        );
       const before = (await this.records(undefined, tx)).find(
         (r) => `${r.recordType}:${r.id}` === operation.aggregate,
       );
@@ -768,9 +914,7 @@ export class OfflineStore {
           'The server acknowledgement omitted the edited record.',
         );
       let value: unknown = current.confirmed;
-      const remaining = (await this.outbox(tx)).filter(
-        (o) => o.aggregate === operation.aggregate && !['synced', 'discarded'].includes(o.state),
-      );
+      const remaining = await this.aggregatePending(operation.aggregate, tx);
       try {
         for (const o of remaining) {
           if (['conflict', 'review'].includes(o.state))
@@ -846,7 +990,8 @@ export class OfflineStore {
       const record = (await this.records(undefined, tx)).find(
         (r) => `${r.recordType}:${r.id}` === o?.aggregate,
       );
-      if (o && record) await this.conflictInTx(o, record.value, record.confirmed, error, tx);
+      if (o && record && ['never-sent', 'attempted', 'uncertain'].includes(o.state))
+        await this.conflictInTx(o, record.value, record.confirmed, error, tx);
     });
   }
   async keepServer(aggregate: string) {
@@ -1016,7 +1161,9 @@ export class OfflineStore {
         'Choose a previously attempted operation awaiting review.',
       );
     if (choice === 'already-applied') {
-      await this.accept(operationId, records);
+      await this.accept(operationId, records, {
+        reviewedEpoch: (await this.state()).epoch ?? undefined,
+      });
       return;
     }
     throw new OfflineError(

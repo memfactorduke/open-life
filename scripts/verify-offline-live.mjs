@@ -499,16 +499,19 @@ try {
     { epoch, revision: null, outcomeChecked: true },
     freshId,
   );
-  await store.markAttempt(freshOp);
+  if (!(await store.markAttempt(freshOp, true)))
+    throw new Error('Paused reviewed food fork was not attempted.');
   await store.accept(
     freshOp,
     await transport.send(
       JSON.parse((await store.outbox()).find((o) => o.operationId === freshOp).payload),
     ),
+    { expectedEpoch: epoch },
   );
   await store.revalidateNeverSent(never.operationId);
-  await store.markAttempt(never.operationId);
-  await store.accept(never.operationId, await transport.send(never));
+  if (!(await store.markAttempt(never.operationId, true)))
+    throw new Error('Paused revalidated command was not attempted.');
+  await store.accept(never.operationId, await transport.send(never), { expectedEpoch: epoch });
   assert.equal(await receiptCount(freshOp), 1);
   assert.equal(await receiptCount(never.operationId), 1);
   check(
@@ -530,12 +533,14 @@ try {
     store.requeueReviewedPhoto(orphanPhoto.id, randomUUID(), randomUUID(), recoveredEntry),
     /server confirmed/,
   );
-  await store.markAttempt(recoveredTextOp);
+  if (!(await store.markAttempt(recoveredTextOp, true)))
+    throw new Error('Paused retained photo text was not attempted.');
   await store.accept(
     recoveredTextOp,
     await transport.send(
       JSON.parse((await store.outbox()).find((o) => o.operationId === recoveredTextOp).payload),
     ),
+    { expectedEpoch: epoch },
   );
   const recoveredPhotoId = randomUUID(),
     finalizeId = randomUUID();

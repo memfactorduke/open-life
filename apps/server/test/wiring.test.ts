@@ -77,8 +77,19 @@ test('actual application preserves bounded upload and session errors and origin 
       (await pool.query('SELECT version FROM application_migrations ORDER BY version')).rows.map(
         (row) => row.version,
       ),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     );
+    const hardeningIndexes = (
+      await pool.query(
+        "SELECT indexname,indexdef FROM pg_indexes WHERE schemaname='public' AND indexname IN ('audit_events_operation','agent_attempts_latest') ORDER BY indexname",
+      )
+    ).rows;
+    assert.deepEqual(
+      hardeningIndexes.map((row) => row.indexname),
+      ['agent_attempts_latest', 'audit_events_operation'],
+    );
+    assert.match(hardeningIndexes[0].indexdef, /owner_id, step_id.*createdAt.*DESC, id DESC/);
+    assert.match(hardeningIndexes[1].indexdef, /actor_id, operation_id/);
   } finally {
     await service?.app.close();
     await pool.end();

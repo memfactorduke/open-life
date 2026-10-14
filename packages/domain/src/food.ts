@@ -1,15 +1,6 @@
 import { z } from 'zod';
-export const FoodTimezoneSchema = z
-  .string()
-  .max(100)
-  .refine((value) => {
-    try {
-      new Intl.DateTimeFormat('en', { timeZone: value });
-      return true;
-    } catch {
-      return false;
-    }
-  }, 'Use an IANA time zone.');
+import { timeZoneSchema } from './foundation.js';
+export const FoodTimezoneSchema = timeZoneSchema.max(100);
 export const FoodContentSchema = z.strictObject({
   text: z.string().max(20_000),
   occurredAt: z.iso.datetime(),

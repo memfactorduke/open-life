@@ -14,6 +14,26 @@ export type OwnerPrincipal = {
   actorType?: 'owner' | 'agent';
   expectedEpoch?: string;
 };
+/** Some one-time operations intentionally have no replayable secret-bearing receipt. */
+export async function assertOperationIdAvailable(
+  client: PoolClient,
+  actorId: string,
+  operationId: string,
+) {
+  if (
+    (
+      await client.query(
+        'SELECT 1 FROM audit_events WHERE actor_id=$1 AND operation_id=$2 LIMIT 1',
+        [actorId, operationId],
+      )
+    ).rowCount
+  )
+    throw new ApplicationError(
+      409,
+      'OPERATION_ID_REUSED',
+      'This operation ID was already used for another operation.',
+    );
+}
 export async function requireOwner(
   client: Pool | PoolClient,
   userId: string,
@@ -75,6 +95,7 @@ export async function updatePreferences(
         );
       return PreferencesRecordSchema.parse(previous.response);
     }
+    await assertOperationIdAvailable(client, actor.userId, command.operationId);
     const current = await client.query<{ revision: number }>(
       'SELECT revision FROM owner_preferences WHERE owner_id=$1',
       [actor.userId],

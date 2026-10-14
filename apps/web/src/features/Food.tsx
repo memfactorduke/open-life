@@ -32,11 +32,15 @@ function PrivatePhoto({ id }: { id: string }) {
   useEffect(() => {
     let disposed = false;
     let objectURL = '';
+    setUrl('');
+    setError('');
     fetch(`/api/media/${id}`, { credentials: 'include', cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Photo unavailable');
-        objectURL = URL.createObjectURL(await response.blob());
-        if (!disposed) setUrl(objectURL);
+        const blob = await response.blob();
+        if (disposed) return;
+        objectURL = URL.createObjectURL(blob);
+        setUrl(objectURL);
       })
       .catch((error) => {
         if (!disposed) setError(error.message);
@@ -64,6 +68,9 @@ export function Food({
   const [day, setDay] = useState(() => local(new Date().toISOString(), timezone).slice(0, 10));
   const [text, setText] = useState('');
   const [time, setTime] = useState(() => local(new Date().toISOString(), timezone));
+  const initialTime = useRef(time);
+  const query = useRef({ day, timezone });
+  query.current = { day, timezone };
   const [selected, setSelected] = useState<FoodEntry | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [notice, setNotice] = useState('');
@@ -71,6 +78,8 @@ export function Food({
   const [loaded, setLoaded] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const pending = useRef<Record<string, unknown> | null>(null);
+  const loadGeneration = useRef(0);
+  const historyGeneration = useRef(0);
   const handledFocus = useRef<typeof focusTarget>(undefined);
   const uploads = useRef(
     new Map<
@@ -85,29 +94,36 @@ export function Food({
     >(),
   );
   async function load() {
+    const generation = ++loadGeneration.current;
+    const current = query.current;
+    setLoaded(false);
     try {
       const result = await request(
-        `/api/food?date=${day}&timezone=${encodeURIComponent(timezone)}`,
+        `/api/food?date=${current.day}&timezone=${encodeURIComponent(current.timezone)}`,
         FoodListResponseSchema,
       );
+      if (generation !== loadGeneration.current) return;
       setEntries(result.entries);
       setLoaded(true);
     } catch (error) {
-      setNotice((error as Error).message);
+      if (generation === loadGeneration.current) setNotice((error as Error).message);
     }
   }
   useEffect(() => {
     void load();
+    return () => {
+      loadGeneration.current++;
+    };
   }, [day, timezone]);
+  const hasDraft = () =>
+    !!pending.current ||
+    files.length > 0 ||
+    text !== (selected?.content.text ?? '') ||
+    time !== (selected ? local(selected.content.occurredAt, timezone) : initialTime.current);
   useEffect(() => {
     if (!focusTarget || handledFocus.current === focusTarget || !loaded || busy) return;
     handledFocus.current = focusTarget;
-    if (
-      pending.current ||
-      files.length ||
-      text !== (selected?.content.text ?? '') ||
-      (selected && time !== local(selected.content.occurredAt, timezone))
-    ) {
+    if (hasDraft()) {
       setNotice('Save or discard the current food draft before opening another entry.');
       return;
     }
@@ -139,15 +155,18 @@ export function Food({
     setTime(local(entry.content.occurredAt, timezone));
     setFiles([]);
     setHistory([]);
+    historyGeneration.current++;
     pending.current = null;
     uploads.current.clear();
   }
   function reset() {
     setSelected(null);
     setText('');
-    setTime(local(new Date().toISOString(), timezone));
+    initialTime.current = local(new Date().toISOString(), timezone);
+    setTime(initialTime.current);
     setFiles([]);
     setHistory([]);
+    historyGeneration.current++;
     pending.current = null;
     uploads.current.clear();
   }
@@ -167,6 +186,7 @@ export function Food({
     }
   }
   async function save() {
+    if (busy) return;
     setBusy(true);
     setNotice('');
     try {
@@ -288,7 +308,9 @@ export function Food({
           <label>
             Notes
             <textarea
-              disabled={pending.current !== null || files.some((file) => uploads.current.has(file))}
+              disabled={
+                busy || pending.current !== null || files.some((file) => uploads.current.has(file))
+              }
               value={text}
               onChange={(event) => setText(event.target.value)}
               maxLength={20000}
@@ -297,7 +319,9 @@ export function Food({
           <label>
             Date and time
             <input
-              disabled={pending.current !== null || files.some((file) => uploads.current.has(file))}
+              disabled={
+                busy || pending.current !== null || files.some((file) => uploads.current.has(file))
+              }
               type="datetime-local"
               required
               value={time}
@@ -336,6 +360,17 @@ export function Food({
             edits remain locked until its outcome is known. Keep this page open until saved.
           </p>
           <button disabled={busy}>{busy ? 'Saving…' : 'Save entry'}</button>
+          {hasDraft() && (
+            <button
+              type="button"
+              onClick={reset}
+              disabled={
+                busy || pending.current !== null || files.some((file) => uploads.current.has(file))
+              }
+            >
+              Discard food draft
+            </button>
+          )}
           {selected && (
             <button
               type="button"
@@ -351,6 +386,11 @@ export function Food({
             Daily history
             <input type="date" value={day} onChange={(event) => setDay(event.target.value)} />
           </label>
+          {!loaded && (
+            <button type="button" onClick={() => void load()}>
+              Retry food history
+            </button>
+          )}
           {!loaded ? (
             <p>Loading entries…</p>
           ) : entries.length === 0 ? (
@@ -377,8 +417,9 @@ export function Food({
                 <button
                   disabled={busy}
                   onClick={() => {
-                    if (!files.length && !pending.current) edit(entry);
-                    else setNotice('Finish the current draft before opening another entry.');
+                    if (!hasDraft() || selected?.id === entry.id) {
+                      if (!hasDraft()) edit(entry);
+                    } else setNotice('Finish the current draft before opening another entry.');
                   }}
                 >
                   Edit
@@ -387,18 +428,22 @@ export function Food({
                   Delete
                 </button>
                 <button
-                  onClick={() =>
+                  onClick={() => {
+                    const generation = ++historyGeneration.current;
                     void request(`/api/food/${entry.id}/history`, FoodHistorySchema)
-                      .then((result) =>
+                      .then((result) => {
+                        if (generation !== historyGeneration.current) return;
                         setHistory(
                           result.events.map(
                             (event) =>
                               `${event.createdAt}: ${event.type} (revision ${event.entry.revision})`,
                           ),
-                        ),
-                      )
-                      .catch((error) => setNotice(error.message))
-                  }
+                        );
+                      })
+                      .catch((error) => {
+                        if (generation === historyGeneration.current) setNotice(error.message);
+                      });
+                  }}
                 >
                   History
                 </button>

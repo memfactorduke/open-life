@@ -28,7 +28,7 @@
     "bootstrap": "node --env-file-if-exists=.runtime/development.env scripts/workspace-command.mjs bootstrap",
     "recover": "node --env-file-if-exists=.runtime/development.env scripts/workspace-command.mjs recover",
     "verify:toolchain": "node scripts/check-toolchain.mjs",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run test:e2e --workspace @mems-life/web",
     "notices": "node scripts/third-party-notices.mjs"
   },
   "devDependencies": {
@@ -55,6 +55,9 @@
   "overrides": {
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "test-renderer": "1.2.0"
+    "test-renderer": "1.2.0",
+    "xcode": {
+      "uuid": "11.1.1"
+    }
   }
 }

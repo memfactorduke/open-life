@@ -350,7 +350,7 @@ export function SignIn({
   );
 }
 
-function Shell({
+export function Shell({
   client,
   session,
   draft,
@@ -368,6 +368,10 @@ function Shell({
   onSignedOut: () => void;
 }) {
   const [area, setArea] = useState<Area>('Today');
+  const [visited, setVisited] = useState<Area[]>(['Today']);
+  useEffect(() => {
+    setVisited((previous) => (previous.includes(area) ? previous : [...previous, area]));
+  }, [area]);
   const [workoutView, setWorkoutView] = useState<'library' | 'train' | 'whoop'>('library');
   const [focusTarget, setFocusTarget] = useState<TodayTarget>();
   const contentScroll = useRef<ScrollView>(null);
@@ -432,9 +436,11 @@ function Shell({
     const responses = Notifications.addNotificationResponseReceivedListener(
       (response) => void respond(response),
     );
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) void respond(response);
-    });
+    void Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (active && response) void respond(response);
+      })
+      .catch(() => undefined);
     return () => {
       active = false;
       clearTimeout(timer);
@@ -497,25 +503,31 @@ function Shell({
                 onExpired={onExpired}
                 onSignedOut={onSignedOut}
               />
-            ) : area === 'Tasks' ? (
-              <Tasks
-                client={client}
-                preferences={session.preferences.value}
-                focusTarget={taskFocusTarget}
-              />
             ) : area === 'Workouts' ? (
               <View>
                 <Action title="Library" onPress={() => setWorkoutView('library')} />
                 <Action title="Train" onPress={() => setWorkoutView('train')} />
                 <Action title="WHOOP" onPress={() => setWorkoutView('whoop')} />
               </View>
-            ) : area === 'Food' ? (
-              <Food
-                client={client}
-                preferences={session.preferences.value}
-                focusTarget={focusTarget?.kind === 'food' ? focusTarget : undefined}
-              />
             ) : null}
+            {(area === 'Tasks' || visited.includes('Tasks')) && (
+              <View style={{ display: area === 'Tasks' ? 'flex' : 'none' }}>
+                <Tasks
+                  client={client}
+                  preferences={session.preferences.value}
+                  focusTarget={taskFocusTarget}
+                />
+              </View>
+            )}
+            {(area === 'Food' || visited.includes('Food')) && (
+              <View style={{ display: area === 'Food' ? 'flex' : 'none' }}>
+                <Food
+                  client={client}
+                  preferences={session.preferences.value}
+                  focusTarget={focusTarget?.kind === 'food' ? focusTarget : undefined}
+                />
+              </View>
+            )}
             <View style={{ display: area === 'Today' ? 'flex' : 'none' }}>
               <Today
                 client={client}

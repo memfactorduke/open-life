@@ -186,10 +186,13 @@ const savedA = await recoveryStore.saveReviewed(a, recoveredA, {
 assert.deepEqual((await recoveryStore.outbox()).find((o) => o.operationId === b).dependencies, [
   recoveredA,
 ]);
-await recoveryStore.markAttempt(recoveredA);
-await recoveryStore.accept(recoveredA, [
-  { recordType: 'food', id: chainId, revision: savedA.revision, value: savedA.value },
-]);
+if (!(await recoveryStore.markAttempt(recoveredA, true)))
+  throw new Error('Paused reviewed food edit was not attempted.');
+await recoveryStore.accept(
+  recoveredA,
+  [{ recordType: 'food', id: chainId, revision: savedA.revision, value: savedA.value }],
+  { expectedEpoch: restored },
+);
 const savedB = await recoveryStore.saveReviewed(b, randomUUID(), {
   epoch: restored,
   revision: 2,
@@ -363,7 +366,9 @@ const acceptedTask = applyTaskCommand(
   JSON.parse((await taskStore.outbox()).find((o) => o.operationId === recoveredEdit).payload),
   now,
 );
-await taskStore.accept(recoveredEdit, [taskRecord(acceptedTask)]);
+if (!(await taskStore.markAttempt(recoveredEdit, true)))
+  throw new Error('Paused reviewed task edit was not attempted.');
+await taskStore.accept(recoveredEdit, [taskRecord(acceptedTask)], { expectedEpoch: restored });
 const retainedSchedule = (await taskStore.outbox()).find((o) => o.operationId === scheduleId);
 const scheduleFields = reviewCommandDifferences(
   JSON.parse(retainedSchedule.payload),

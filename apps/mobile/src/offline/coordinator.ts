@@ -91,16 +91,19 @@ export class OfflineCoordinator {
         }
       }
       if ((await this.store.state()).replayPaused) return;
-      for (const entry of await this.store.outbox()) {
+      for (const entry of await this.store.replayCandidates()) {
         const state = await this.store.state();
         if (state.signedOut || state.replayPaused) return;
         if (!['never-sent', 'uncertain'].includes(entry.state) || entry.nextAttemptAt > Date.now())
           continue;
-        const all = await this.store.outbox();
-        if (
-          entry.dependencies.some((id) => all.find((o) => o.operationId === id)?.state !== 'synced')
-        )
-          continue;
+        let blocked = false;
+        for (const dependency of entry.dependencies) {
+          if ((await this.store.operation(dependency))?.state !== 'synced') {
+            blocked = true;
+            break;
+          }
+        }
+        if (blocked) continue;
         if (recoveredCursor && entry.state === 'never-sent') {
           // Validate against the newly confirmed server version without changing
           // the original payload. Uncertain attempts must instead query their
@@ -123,10 +126,12 @@ export class OfflineCoordinator {
           }
         }
         // Persist attempted before network dispatch; a crash at any later boundary is uncertain.
-        await this.store.markAttempt(entry.operationId);
+        if (!(await this.store.markAttempt(entry.operationId))) continue;
         try {
           const records = await this.transport.send(JSON.parse(entry.payload));
-          await this.store.accept(entry.operationId, records);
+          await this.store.accept(entry.operationId, records, {
+            expectedEpoch: state.epoch ?? undefined,
+          });
         } catch (error) {
           const code = (error as { code?: string }).code;
           const status = (error as { status?: number }).status;

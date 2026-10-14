@@ -61,7 +61,14 @@ export function DateTimeField({
       );
     }
   }
-  const validDraft = Number.isFinite(new Date(draft).getTime());
+  let draftFormatted: string | null = null;
+  try {
+    if (Number.isFinite(new Date(draft).getTime()))
+      draftFormatted = formatDateTime(draft, timezone);
+  } catch {
+    /* Invalid saved zones remain repairable without crashing the editor. */
+  }
+  const validDraft = draftFormatted !== null;
   return (
     <View style={{ gap: 8 }}>
       <Body>
@@ -121,7 +128,7 @@ export function DateTimeField({
           )}
           {validDraft && (
             <Body>
-              Selected: {formatDateTime(draft, timezone)} · {timezone}
+              Selected: {draftFormatted} · {timezone}
             </Body>
           )}
           {!!error && <Body error>{error}</Body>}

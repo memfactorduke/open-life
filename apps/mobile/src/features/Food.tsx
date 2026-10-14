@@ -108,20 +108,30 @@ export function Food({
   const [history, setHistory] = useState<string[]>([]);
   const command = useCommand(client);
   const allocation = useRef(new Map<string, string>());
+  const loadSequence = useRef(0);
+  const picking = useRef(false);
+  const saving = useRef(false);
+  const [pickingPhoto, setPickingPhoto] = useState(false);
+  const hasUnsavedText = selected
+    ? text !== selected.content.text || Date.parse(time) !== Date.parse(selected.content.occurredAt)
+    : !!text.trim();
   async function load() {
+    const sequence = ++loadSequence.current;
     try {
-      setEntries(
-        FoodListResponseSchema.parse(
-          await client.request(`/api/food?date=${day}&timezone=${encodeURIComponent(timezone)}`),
-        ).entries,
+      const response = FoodListResponseSchema.parse(
+        await client.request(`/api/food?date=${day}&timezone=${encodeURIComponent(timezone)}`),
       );
+      if (sequence === loadSequence.current) setEntries(response.entries);
     } catch (error) {
-      setNotice(messageOf(error));
+      if (sequence === loadSequence.current) setNotice(messageOf(error));
     }
   }
   useEffect(() => {
     void load();
-  }, [client, day, offlineRevision]);
+    return () => {
+      loadSequence.current++;
+    };
+  }, [client, day, timezone, offlineRevision]);
   useEffect(() => {
     let active = true;
     const offline = client.offline;
@@ -169,7 +179,7 @@ export function Food({
   useEffect(() => {
     if (!focusTarget || !draftReady) return;
     let active = true;
-    if (text.trim() || photos.length) {
+    if (hasUnsavedText || photos.length || busy || pickingPhoto || command.pending) {
       setNotice('Your diary draft is retained. Save it before opening another entry.');
       return;
     }
@@ -196,8 +206,13 @@ export function Food({
     };
   }, [client, focusTarget, draftReady]);
   async function pick(camera: boolean) {
+    if (picking.current || busy || command.pending || !draftReady) return;
+    picking.current = true;
+    setPickingPhoto(true);
     setNotice('');
     try {
+      if (photos.length + (selected?.photoIds.length ?? 0) >= 12)
+        throw new Error('An entry can contain up to twelve photos.');
       const permission = camera
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -250,10 +265,14 @@ export function Food({
       );
     } catch (error) {
       setNotice(messageOf(error));
+    } finally {
+      picking.current = false;
+      setPickingPhoto(false);
     }
   }
   async function save() {
-    if (busy || !draftReady) return;
+    if (saving.current || picking.current || !draftReady) return;
+    saving.current = true;
     setBusy(true);
     try {
       const occurredAt = foodInstant(time, timezone);
@@ -274,6 +293,7 @@ export function Food({
         setPhotos([]);
         setSelected(null);
         setText('');
+        setTime(new Date().toISOString());
         setDraftEntryId(Crypto.randomUUID());
         setNotice('Saved on this device. Waiting for server confirmation and photo upload.');
         await load();
@@ -338,16 +358,24 @@ export function Food({
       }
       setSelected(null);
       setText('');
+      setTime(new Date().toISOString());
+      setDraftEntryId(Crypto.randomUUID());
       setNotice('Food entry saved.');
       await load();
     } catch (error) {
       setNotice(`${messageOf(error)} Your draft and local photos are retained on this screen.`);
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   }
   async function mutate(entry: FoodEntry, photoId?: string) {
-    if (busy || photos.some((photo) => photo.allocationRevision !== undefined) || command.pending) {
+    if (
+      busy ||
+      picking.current ||
+      photos.some((photo) => photo.allocationRevision !== undefined) ||
+      command.pending
+    ) {
       setNotice('Finish the pending save before removing photos or deleting entries.');
       return;
     }
@@ -376,7 +404,9 @@ export function Food({
         <Body>{selected ? 'Correct your entry' : 'What did you eat?'}</Body>
         <Field
           editable={
+            draftReady &&
             !busy &&
+            !pickingPhoto &&
             !command.pending &&
             !photos.some((photo) => photo.allocationRevision !== undefined)
           }
@@ -387,7 +417,9 @@ export function Food({
         />
         <DateTimeField
           disabled={
+            !draftReady ||
             busy ||
+            pickingPhoto ||
             !!command.pending ||
             photos.some((photo) => photo.allocationRevision !== undefined)
           }
@@ -405,17 +437,31 @@ export function Food({
             if (at) setTime(at);
           }}
         />
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           <Action
             title="Take photo"
             secondary
-            disabled={busy || photos.some((photo) => photo.allocationRevision !== undefined)}
+            disabled={
+              !draftReady ||
+              busy ||
+              pickingPhoto ||
+              command.pending ||
+              photos.length + (selected?.photoIds.length ?? 0) >= 12 ||
+              photos.some((photo) => photo.allocationRevision !== undefined)
+            }
             onPress={() => void pick(true)}
           />
           <Action
             title="Choose photos"
             secondary
-            disabled={busy || photos.some((photo) => photo.allocationRevision !== undefined)}
+            disabled={
+              !draftReady ||
+              busy ||
+              pickingPhoto ||
+              command.pending ||
+              photos.length + (selected?.photoIds.length ?? 0) >= 12 ||
+              photos.some((photo) => photo.allocationRevision !== undefined)
+            }
             onPress={() => void pick(false)}
           />
         </View>
@@ -431,18 +477,22 @@ export function Food({
         <Action
           title="Save food entry"
           busy={busy || command.busy}
-          disabled={!draftReady}
+          disabled={!draftReady || pickingPhoto}
           onPress={() => void save()}
         />
+        {hasUnsavedText && <Body>Save your diary draft before opening another entry.</Body>}
         {selected && (
           <Action
             title="New entry"
             secondary
-            disabled={busy || photos.length > 0 || command.pending}
+            disabled={
+              busy || pickingPhoto || photos.length > 0 || command.pending || hasUnsavedText
+            }
             onPress={() => {
               setSelected(null);
               setDraftEntryId(Crypto.randomUUID());
               setText('');
+              setTime(new Date().toISOString());
               setHistory([]);
             }}
           />
@@ -481,7 +531,7 @@ export function Food({
                 <Action
                   title="Remove photo"
                   secondary
-                  disabled={busy}
+                  disabled={busy || pickingPhoto}
                   onPress={() => void mutate(entry, id)}
                 />
               </View>
@@ -490,7 +540,9 @@ export function Food({
           <Action
             title="Edit entry"
             secondary
-            disabled={busy || photos.length > 0 || command.pending}
+            disabled={
+              busy || pickingPhoto || photos.length > 0 || command.pending || hasUnsavedText
+            }
             onPress={() => {
               setSelected(entry);
               setText(entry.content.text);
@@ -501,7 +553,7 @@ export function Food({
           <Action
             title="Delete entry"
             secondary
-            disabled={busy}
+            disabled={busy || pickingPhoto}
             onPress={() =>
               Alert.alert('Delete food entry?', 'Its history will remain.', [
                 { text: 'Cancel', style: 'cancel' },

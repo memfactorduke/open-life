@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 const email = process.env.WEB_TEST_EMAIL;
 const password = process.env.WEB_TEST_PASSWORD;
+const origin = new URL(process.env.WEB_TEST_URL ?? 'http://127.0.0.1:5173').origin;
 test('real service persists opt-in choices, retains a conflicting draft, and restores fixture choices', async ({
   page,
 }) => {
@@ -33,7 +34,7 @@ test('real service persists opt-in choices, retains a conflicting draft, and res
         expectedRevision: current.revision,
         value: { ...current.value, due: false },
       },
-      headers: { Origin: 'http://127.0.0.1:5173' },
+      headers: { Origin: origin },
     });
     expect(changed.ok()).toBe(true);
     await panel.getByRole('button', { name: 'Save notification choices', exact: true }).click();
@@ -51,7 +52,7 @@ test('real service persists opt-in choices, retains a conflicting draft, and res
     const latest = await (await page.request.get('/api/notifications/preferences')).json();
     const restored = await page.request.put('/api/notifications/preferences', {
       data: { operationId: randomUUID(), expectedRevision: latest.revision, value: initial.value },
-      headers: { Origin: 'http://127.0.0.1:5173' },
+      headers: { Origin: origin },
     });
     expect(restored.ok()).toBe(true);
     expect((await (await page.request.get('/api/notifications/preferences')).json()).value).toEqual(

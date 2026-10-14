@@ -12,7 +12,7 @@ import {
 import { featureOperation, checkRevision } from './feature-migrations.js';
 import { requireOwner, type OwnerPrincipal } from './operations.js';
 import { ApplicationError } from './errors.js';
-import { saveTask, taskFromRow } from './tasks.js';
+import { saveTask, taskFromRow, activateReleasedTask } from './tasks.js';
 import {
   assertAgentParentComplete,
   assertBoundStepTransition,
@@ -223,8 +223,12 @@ export async function executeStepCommand(
         corrected.revision,
         corrected,
       ]);
+    const startedParent =
+      command.type === 'step.status' && ['active', 'completed'].includes(command.status)
+        ? await activateReleasedTask(client, actor.userId, parent)
+        : parent;
     const task = {
-      ...parent,
+      ...startedParent,
       revision: parent.revision + 1,
       updatedAt: now,
       finalReviewSatisfied: false,

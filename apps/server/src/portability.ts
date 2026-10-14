@@ -16,7 +16,13 @@ const transferQueues = new WeakMap<Pool, Promise<void>>();
 export async function beginMaintenanceWrite(client: PoolClient): Promise<void> {
   // A wrapper holds its own session guard across nested work, including this transaction.
   if (admittedWrite.getStore()?.active) return;
-  await client.query('SELECT pg_advisory_xact_lock_shared($1)', [MAINTENANCE_LOCK]);
+  // Reject new work while the operator holds the barrier. Waiting here would
+  // occupy all pool slots and prevent backup queries or maintenance resume.
+  const admitted = await client.query('SELECT pg_try_advisory_xact_lock_shared($1) AS admitted', [
+    MAINTENANCE_LOCK,
+  ]);
+  if (!admitted.rows[0].admitted)
+    throw new ApplicationError(503, 'MAINTENANCE', 'The installation is paused for recovery.');
   // Only the pre-portability migration schema may omit the control table.
   if (
     !(await client.query("SELECT to_regclass('public.portability_control') AS table_name")).rows[0]
@@ -85,22 +91,27 @@ export async function withMaintenanceWrite<T>(pool: Pool, work: () => Promise<T>
   }
 }
 export async function enterMaintenance(pool: Pool): Promise<() => Promise<void>> {
-  const control = await pool.query(
-    'UPDATE portability_control SET maintenance=true,entered_at=now() WHERE singleton=true',
-  );
-  if (control.rowCount !== 1)
-    throw new Error('Maintenance control is missing; repair is required.');
-  const client = await pool.connect();
+  // The operator must keep access to its pool while the barrier is held.
+  const client = new Client(pool.options);
   try {
+    await client.connect();
+    const control = await client.query(
+      'UPDATE portability_control SET maintenance=true,entered_at=now() WHERE singleton=true',
+    );
+    if (control.rowCount !== 1)
+      throw new Error('Maintenance control is missing; repair is required.');
     await client.query('SELECT pg_advisory_lock($1)', [MAINTENANCE_LOCK]);
     await client.query('UPDATE portability_control SET maintenance=true WHERE singleton=true');
   } catch (error) {
-    client.release();
+    await client.end().catch(() => {});
     throw error;
   }
   return async () => {
-    await client.query('SELECT pg_advisory_unlock($1)', [MAINTENANCE_LOCK]);
-    client.release();
+    try {
+      await client.query('SELECT pg_advisory_unlock($1)', [MAINTENANCE_LOCK]);
+    } finally {
+      await client.end();
+    }
   };
 }
 export async function resumeMaintenance(pool: Pool): Promise<void> {

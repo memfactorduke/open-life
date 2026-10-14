@@ -256,6 +256,9 @@ export function registerMcpRoutes(
       }
       const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true });
       await server.connect(transport as Parameters<typeof server.connect>[0]);
+      // Hijacked responses bypass Fastify's onSend security headers.
+      reply.raw.setHeader('Cache-Control', 'no-store');
+      reply.raw.setHeader('X-Content-Type-Options', 'nosniff');
       reply.hijack();
       try {
         await transport.handleRequest(request.raw, reply.raw, request.body);

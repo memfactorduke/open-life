@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test';
 import { readFile, writeFile } from 'node:fs/promises';
 import sharp from 'sharp';
 
-test.use({ baseURL: 'https://localhost:3443', ignoreHTTPSErrors: true });
+const origin = process.env.WEB_TEST_URL ?? 'https://localhost:3443';
+test.use({ baseURL: origin, ignoreHTTPSErrors: true });
 
 test('production CSP permits private photos while preserving secure task files and accessible layouts', async ({
   page,
@@ -12,12 +13,15 @@ test('production CSP permits private photos while preserving secure task files a
     process.env.WEB_PRODUCTION_TEST !== '1',
     'Requires the isolated local production TLS fixture.',
   );
-  const credentials = JSON.parse(
-    await readFile(
-      new URL('../../../.runtime/production-web/credentials.json', import.meta.url),
-      'utf8',
-    ),
-  );
+  const credentials =
+    process.env.WEB_TEST_EMAIL && process.env.WEB_TEST_PASSWORD
+      ? { email: process.env.WEB_TEST_EMAIL, password: process.env.WEB_TEST_PASSWORD }
+      : JSON.parse(
+          await readFile(
+            new URL('../../../.runtime/production-web/credentials.json', import.meta.url),
+            'utf8',
+          ),
+        );
   const violations: unknown[] = [];
   await page.exposeFunction('recordCspViolation', (value: unknown) => violations.push(value));
   await page.addInitScript(() =>
@@ -127,6 +131,8 @@ test('production CSP permits private photos while preserving secure task files a
   await expect(page.getByRole('status').first()).toHaveText('Your preferences are saved.');
   await page.reload();
   await expect(page.getByLabel('Appearance')).toHaveValue('dark');
+  await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Agent access', exact: true })).toBeVisible();
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.getByLabel('Display name').focus();
   const focus = await page.getByLabel('Display name').evaluate((element) => ({
@@ -148,7 +154,7 @@ test('production CSP permits private photos while preserving secure task files a
     testInfo.outputPath('production-verification.json'),
     JSON.stringify(
       {
-        origin: 'https://localhost:3443',
+        origin,
         tls: 'Self-signed isolated laboratory; ignoreHTTPSErrors does not waive CSP or secure cookies.',
         csp,
         violations,
