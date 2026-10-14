@@ -63,8 +63,8 @@ For Expo, run `npm run start --workspace @mems-life/mobile`. A physical phone ca
 
 ```sh
 docker compose --env-file /path/to/protected/installation.env build
-docker compose --env-file /path/to/protected/installation.env run --rm app npm run db:migrate
-docker compose --env-file /path/to/protected/installation.env run --rm app npm run bootstrap
+docker compose --env-file /path/to/protected/installation.env run --rm app node apps/server/dist/cli.js migrate
+docker compose --env-file /path/to/protected/installation.env run --rm app node apps/server/dist/cli.js bootstrap
 docker compose --env-file /path/to/protected/installation.env up -d
 ```
 

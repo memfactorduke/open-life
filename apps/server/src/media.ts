@@ -2,7 +2,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { mkdir, open, lstat, link, unlink, realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { resolve, join } from 'node:path';
-import sharp from 'sharp';
+import sharp from './image-codecs.js';
 import type { Pool, PoolClient } from 'pg';
 import type { FoodUpload } from '@mems-life/domain';
 import { featureOperation } from './feature-migrations.js';

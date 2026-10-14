@@ -6,8 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const image = process.env.CONTAINER_VERIFY_IMAGE ?? 'mems-life:verify';
-const postgresImage =
-  'postgres:16.14-bookworm@sha256:64154d0babcb1741988719e703419af0382b19953706149f9872fbd0f438efa8';
+const postgresImage = process.env.CONTAINER_VERIFY_DATABASE_IMAGE ?? 'mems-life:database-verify';
 const runId = `mems-life-verify-${randomBytes(6).toString('hex')}`;
 const resources = {
   network: runId,
@@ -59,6 +58,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 try {
   docker(['info'], { stdio: 'ignore' });
   if (!process.argv.includes('--skip-build')) {
+    docker(['build', '--target', 'database', '--tag', postgresImage, '.'], { stdio: 'inherit' });
     docker(['build', '--tag', image, '.'], { stdio: 'inherit' });
   }
   docker(
@@ -76,23 +76,45 @@ try {
     assert.equal(process.getuid(), 1000);
     assert.equal(process.versions.node, '24.21.0');
     assert.equal(createHash('sha256').update(fs.readFileSync('package-lock.json')).digest('hex'), '${lockHash}');
-    for (const path of ['apps/server/src', 'apps/server/test', 'apps/mobile', 'apps/web/src', 'scripts', 'node_modules/expo', 'node_modules/react-native', 'node_modules/react', 'node_modules/typescript', 'node_modules/jest', 'node_modules/tsx', 'node_modules/@playwright']) {
+    for (const path of ['apps/server/src', 'apps/server/test', 'apps/mobile', 'apps/web/src', 'scripts', 'node_modules/expo', 'node_modules/react-native', 'node_modules/react', 'node_modules/typescript', 'node_modules/jest', 'node_modules/tsx', 'node_modules/@playwright', '/usr/local/lib/node_modules/npm', '/usr/local/bin/npm', '/usr/local/bin/npx']) {
       assert.equal(fs.existsSync(path), false, path + ' must not be distributed');
     }
     for (const name of ['@mems-life/domain', 'better-auth', '@better-auth/expo', 'pg', 'fastify', '@modelcontextprotocol/sdk/server/mcp.js', 'sharp']) await import(name);
-    const { default: sharp } = await import('sharp');
+    const { default: sharp } = await import('./apps/server/dist/image-codecs.js');
+    const { nativeImageInventory } = await import('./apps/server/dist/native-image-inventory.js');
+    const nativeInventory = nativeImageInventory();
+    assert.deepEqual(nativeInventory.decoderPolicy.allowed, ['VipsForeignLoadJpegBuffer', 'VipsForeignLoadPngBuffer']);
+    console.log('Native decoder security inventory: ' + JSON.stringify(nativeInventory));
     const png = await sharp({create:{width:4,height:4,channels:3,background:'#78a456'}}).png().toBuffer();
     assert.equal((await sharp(png).metadata()).width, 4);
     fs.accessSync('apps/web/dist/index.html');
     fs.accessSync('THIRD-PARTY-NOTICES.txt');
     fs.writeFileSync('/var/lib/mems-life/media/verification.txt', 'fixture');
     fs.unlinkSync('/var/lib/mems-life/media/verification.txt');
+    const perl = fs.readFileSync('/var/lib/dpkg/status','utf8').split('Package: perl-base').at(1)?.split('Package:').at(0);
+    assert.ok(perl?.includes('Version: 5.36.0-7+deb12u4'), 'Pinned Perl security revision');
     console.log('Runtime identity, lock, imports, files, and media permissions passed.');
   `,
     ],
     { stdio: 'inherit' },
   );
   console.log('Verified lock SHA-256: ' + lockHash);
+  console.log(
+    docker([
+      'image',
+      'inspect',
+      postgresImage,
+      '--format',
+      'Database {{.Id}}; {{.Size}} bytes',
+    ]).trim(),
+  );
+  const databaseConfig = JSON.parse(docker(['image', 'inspect', postgresImage]))[0].Config;
+  assert.deepEqual(databaseConfig.Entrypoint, ['docker-entrypoint.sh']);
+  assert.deepEqual(databaseConfig.Cmd, ['postgres']);
+  assert.equal(databaseConfig.User ?? '', '');
+  assert.ok(databaseConfig.Env.includes('PG_MAJOR=16'));
+  assert.ok(databaseConfig.Env.includes('PGDATA=/var/lib/postgresql/data'));
+  assert.ok(databaseConfig.Volumes['/var/lib/postgresql/data']);
   docker(['network', 'create', resources.network]);
   docker(['volume', 'create', resources.media]);
   docker([
@@ -116,6 +138,14 @@ try {
     });
     return true;
   });
+  const postgresUid = docker(['exec', resources.database, 'id', '-u', 'postgres']).trim();
+  const databaseProcess = docker(['exec', resources.database, 'cat', '/proc/1/status']);
+  const processUid = databaseProcess
+    .split(String.fromCharCode(10))
+    .find((line) => line.startsWith('Uid:'))
+    ?.split(String.fromCharCode(9))
+    .slice(1);
+  assert.ok(processUid?.length && processUid.every((uid) => uid === postgresUid));
   const appEnvironment = [
     '--env',
     `DATABASE_URL=postgresql://mems_life:${password}@${resources.database}:5432/mems_life`,
@@ -129,7 +159,9 @@ try {
     'MEDIA_DIRECTORY=/var/lib/mems-life/media',
   ];
   const administratorContainer = ['run', '--rm', '--network', resources.network, ...appEnvironment];
-  docker([...administratorContainer, image, 'npm', 'run', 'db:migrate'], { stdio: 'inherit' });
+  docker([...administratorContainer, image, 'node', 'apps/server/dist/cli.js', 'migrate'], {
+    stdio: 'inherit',
+  });
   docker(
     [
       ...administratorContainer,
@@ -139,16 +171,26 @@ try {
       '--env',
       'OWNER_NAME=Container Fixture',
       image,
-      'npm',
-      'run',
+      'node',
+      'apps/server/dist/cli.js',
       'bootstrap',
     ],
     { input: `${password}\n`, stdio: ['pipe', 'inherit', 'inherit'] },
   );
-  docker([...administratorContainer, '--interactive', image, 'npm', 'run', 'recover'], {
-    input: `${password}\n`,
-    stdio: ['pipe', 'inherit', 'inherit'],
-  });
+  docker(
+    [
+      ...administratorContainer,
+      '--interactive',
+      image,
+      'node',
+      'apps/server/dist/cli.js',
+      'recover',
+    ],
+    {
+      input: `${password}\n`,
+      stdio: ['pipe', 'inherit', 'inherit'],
+    },
+  );
   docker([
     'run',
     '--detach',

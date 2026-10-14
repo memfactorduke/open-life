@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import sharp from '../src/image-codecs.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { mkdtemp, rm, link, unlink, readdir, symlink, writeFile, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -528,6 +529,91 @@ test('private streaming immutable task files: PostgreSQL receipts, interrupted t
     await assert.rejects(allocateTaskFile(pool, actor, taskId, second, authorize), /not found/);
   } finally {
     await app.close();
+    await pool.end();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('private PNG/JPEG task files finalize using validated buffers with filesystem decoders blocked', async () => {
+  const pool = new Pool({ connectionString: databaseUrl, max: 3 });
+  const directory = await mkdtemp(join(tmpdir(), 'task-image-fixture-'));
+  const authorize = async () => {};
+  try {
+    await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public');
+    await migrate(pool, config);
+    await migrateTaskFiles(pool);
+    await bootstrapOwner(pool, config, {
+      email: 'task-image@example.test',
+      name: 'Image Fixture',
+      password: 'fictional-image-password-123',
+    });
+    const actor = await requireOwner(
+      pool,
+      (await pool.query('SELECT owner_id FROM installation')).rows[0].owner_id,
+    );
+    for (const contentType of ['image/png', 'image/jpeg'] as const) {
+      const taskId = randomUUID();
+      await executeTaskCommand(
+        pool,
+        actor,
+        {
+          type: 'task.create',
+          taskId,
+          operationId: randomUUID(),
+          expectedRevision: 0,
+          content: { title: 'Fictional image', description: '', notes: '' },
+        },
+        authorize,
+      );
+      const generator = sharp({
+        create: { width: 12, height: 8, channels: 3, background: '#b84221' },
+      });
+      const bytes = await (
+        contentType === 'image/png' ? generator.png() : generator.jpeg()
+      ).toBuffer();
+      const fileId = randomUUID();
+      await allocateTaskFile(
+        pool,
+        actor,
+        taskId,
+        {
+          operationId: randomUUID(),
+          expectedRevision: 1,
+          fileId,
+          name: 'fixture-image',
+          size: bytes.length,
+          sha256: createHash('sha256').update(bytes).digest('hex'),
+          contentType,
+        },
+        authorize,
+      );
+      await receiveTaskFile(
+        pool,
+        actor,
+        fileId,
+        Readable.from([bytes.subarray(0, 10), bytes.subarray(10)]),
+        directory,
+        authorize,
+      );
+      await finalizeTaskFile(
+        pool,
+        actor,
+        fileId,
+        { operationId: randomUUID(), expectedRevision: 1 },
+        directory,
+        authorize,
+      );
+      const saved = await readTaskFile(pool, actor, fileId, directory);
+      assert.equal(saved.contentType, contentType);
+      const chunks: Buffer[] = [];
+      for await (const chunk of saved.stream) chunks.push(chunk);
+      assert.deepEqual(Buffer.concat(chunks), bytes);
+      await assert.rejects(
+        sharp(join(directory, 'task-files', 'files', fileId)).metadata(),
+        /unsupported image format|blocked/,
+      );
+    }
+  } finally {
     await pool.end();
     await rm(directory, { recursive: true, force: true });
   }

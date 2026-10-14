@@ -1,6 +1,9 @@
 services:
   database:
-    image: postgres:16.14-bookworm@sha256:64154d0babcb1741988719e703419af0382b19953706149f9872fbd0f438efa8
+    image: mems-life:database
+    build:
+      context: .
+      target: database
     environment:
       POSTGRES_DB: mems_life
       POSTGRES_USER: mems_life
@@ -79,7 +82,10 @@ services:
     restart: 'no'
   restore-database:
     profiles: [restore]
-    image: postgres:16.14-bookworm@sha256:64154d0babcb1741988719e703419af0382b19953706149f9872fbd0f438efa8
+    image: mems-life:database
+    build:
+      context: .
+      target: database
     environment:
       POSTGRES_DB: mems_life
       POSTGRES_USER: mems_life

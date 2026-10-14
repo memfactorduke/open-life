@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-14T05:18:25.858266+00:00",
+  "checkedAt": "2026-10-14T07:27:53.075415+00:00",
   "applicationMerge": "6841794693916693a6e6a7a2640456469d359637",
   "pullRequest": "https://github.com/memfactorduke/open-life/pull/4",
   "checks": {
@@ -19,11 +19,7 @@
     },
     "browser": {
       "tests": 114,
-      "engines": [
-        "chromium",
-        "firefox",
-        "webkit"
-      ],
+      "engines": ["chromium", "firefox", "webkit"],
       "skipped": 0,
       "passed": true
     },
@@ -44,27 +40,93 @@
     "compilePassed": true,
     "capturedInputsChanged": false,
     "javascriptSha256": "daf9dc6f5aef2fcc6cbb8ebb0f88175c2959c3def454f0f5b5cafa6f9a86d11a",
-    "actualJourneys": "in-progress"
+    "actualJourneys": "historical-artifact-record; current accepted workflows are scoped in uiCandidate and ui-verification.json"
   },
   "externalGates": {
-    "physicalCameraAirplane": "pending-after-03:00-America/New_York",
+    "physicalCameraAirplane": "parallel-install-launch-passed; UIautomationinitializationblocked; user-setting-statuspending",
     "whoopLiveConsent": "configuration-absent",
     "remotePush": "deferred-disabled",
     "permanentDeployment": "pending",
     "appleDistribution": "pending"
   },
   "container": {
-    "state": "complete",
-    "sourceManifestSha256": "f3f78885208532bbf8e2bab4def1fc5810c7f16e3352dda168a3e1eaab51c383",
+    "state": "complete-functional-and-installed-npm-verification",
+    "checkedAt": "2026-10-14T05:39:29.948248+00:00",
+    "sourceFreeze": "693c515715a2fc7dd68daf34f89c611719e98486",
+    "gitHeadAtBuild": "76c0236022fe85aab4b72d53c471ee5c89d6abbd",
+    "sourceManifestSha256": "54f94813aa39bac98eeb5ca8231f64a163f990038a84bddc5fb55813b2d4f570",
+    "changedInputsAtBuild": [],
+    "currentSourceComparison": {
+      "changedInputs": [
+        "apps/mobile/src/timers.ts",
+        "apps/mobile/src/features/Sessions.tsx",
+        "apps/mobile/src/features/NotificationSettings.tsx"
+      ],
+      "checkedAt": "2026-10-14T05:39:29.948248+00:00"
+    },
     "applicationExitCode": 0,
     "operatorExitCode": 0,
-    "changedInputs": [],
     "images": {
-      "mems-life:rc-20261013": "sha256:b0b7819f42368528ae7677d5725512b8474adf877623686f27481768daf37938",
-      "mems-life:rc-operator-20261013": "sha256:3b54c85f1db6a2622b4d266b777b1a8ea7e1609aaaeece53d79c34c9d4ffd07d"
+      "mems-life:ui-rc-20261014": "sha256:41705f4ff27301f1d11042a411e21964747a9311c1313f906353b93c5e777b56",
+      "mems-life:ui-rc-operator-20261014": "sha256:df396c1582a09b394843a47c8d6cdcd769cc2c00277574d5b2cfba523ce70732"
     },
-    "vmStopExitCode": 0,
-    "finishedAt": "2026-10-14T03:28:56.609167+00:00"
+    "runtimeAudits": {
+      "application": {
+        "exitCode": 0,
+        "path": "/Users/memfactor/Desktop/misc_repos/open-life/.runtime/ui-audit/container-candidate/application-runtime-audit.json",
+        "imageId": "sha256:41705f4ff27301f1d11042a411e21964747a9311c1313f906353b93c5e777b56",
+        "packageCount": 207,
+        "nameCount": 185,
+        "matchingAdvisoryPackages": 0,
+        "status": "clear"
+      },
+      "operator": {
+        "imageId": "sha256:df396c1582a09b394843a47c8d6cdcd769cc2c00277574d5b2cfba523ce70732",
+        "packageCount": 205,
+        "nameCount": 184,
+        "matchingAdvisoryPackages": 0,
+        "auditPath": "/Users/memfactor/Desktop/misc_repos/open-life/.runtime/ui-audit/container-candidate/operator-runtime-audit-retry.json",
+        "excludedDanglingWorkspaceLinks": [
+          {
+            "path": "node_modules/@mems-life/server",
+            "target": "/app/apps/server",
+            "missingTargetExcluded": true,
+            "targetDirectoryExists": true,
+            "packageManifestExists": false,
+            "reason": "Operator includes compiled server modules directly; server workspace manifest is intentionally absent in Dockerfile operator target."
+          }
+        ],
+        "auditExitCode": 0,
+        "advisoryStatus": "clear"
+      }
+    },
+    "scannerRecovery": {
+      "originalOperatorInventoryExitCode": 1,
+      "cause": "Expected workspace symlink has no package manifest in compiled operator image. Restricted scanner exception verifies its exact target and compiled modules; unexpected missing manifests still fail.",
+      "retryRebuild": false,
+      "retryFinishedAt": "2026-10-14T05:26:39.109759+00:00"
+    },
+    "auditScope": "Exact installed npm registry advisories; OS and bundled native-library coverage remains separate.",
+    "ownedVm": {
+      "profile": "mems-life-verify",
+      "functionalStopExitCode": 0,
+      "retryStopExitCode": 0
+    },
+    "functionalReceipt": ".runtime/ui-audit/container-candidate/container-job-receipt.json",
+    "operatorRetryReceipt": ".runtime/ui-audit/container-candidate/operator-audit-retry-receipt.json",
+    "historicalContainerVerification": {
+      "state": "complete",
+      "sourceManifestSha256": "f3f78885208532bbf8e2bab4def1fc5810c7f16e3352dda168a3e1eaab51c383",
+      "applicationExitCode": 0,
+      "operatorExitCode": 0,
+      "changedInputs": [],
+      "images": {
+        "mems-life:rc-20261013": "sha256:b0b7819f42368528ae7677d5725512b8474adf877623686f27481768daf37938",
+        "mems-life:rc-operator-20261013": "sha256:3b54c85f1db6a2622b4d266b777b1a8ea7e1609aaaeece53d79c34c9d4ffd07d"
+      },
+      "vmStopExitCode": 0,
+      "finishedAt": "2026-10-14T03:28:56.609167+00:00"
+    }
   },
   "operationsPR": {
     "url": "https://github.com/memfactorduke/open-life/pull/5",
@@ -76,10 +138,10 @@
   "evidenceScope": "historical-hardening-before-UI-redesign",
   "uiCandidate": {
     "pullRequest": "https://github.com/memfactorduke/open-life/pull/6",
-    "head": "693c515715a2fc7dd68daf34f89c611719e98486",
+    "head": "19b9bf36f0ac93f924edb025546a6a9dad71a2a8",
     "nativeAutomated": {
-      "tests": 224,
-      "suites": 34,
+      "tests": 243,
+      "suites": 35,
       "passed": true
     },
     "domainAutomated": {
@@ -92,9 +154,50 @@
       "passed": true,
       "skipped": 0
     },
-    "nativeAcceptance": "corrected-build-in-progress-after-real-native-findings",
-    "browserAcceptance": "corrected-integrated-run-in-progress",
-    "containerAcceptance": "fresh-UI-image-verification-launching",
-    "details": "ui-verification.json"
+    "nativeAcceptance": "actual final timer presentation passed; predecessor full-workflow and OS proofs scoped and unchanged relevant code inspected",
+    "browserAcceptance": "156 passed; zero failed/skipped; production security and live Today; source19b9bf3",
+    "containerAcceptance": "HistoricalUI-container functional and npm checks passed; latest runtime image and OS/native assessment recorded in runtimeHardening.",
+    "details": "ui-verification.json",
+    "githubChecks": {
+      "head": "19b9bf3",
+      "result": "both-passed"
+    },
+    "runtimeImageHardening": "separate-worktree-and-PR-after-raw-OS-scan",
+    "state": "merged",
+    "mergeCommit": "2dd64a66c0d884e8fa287b9b8cfd11abb83e6740"
+  },
+  "runtimeHardening": {
+    "pullRequest": "https://github.com/memfactorduke/open-life/pull/7",
+    "state": "fresh-exact-artifact-and-service-tests-passed; source-checks-and-external-acceptance-separate",
+    "head": "8092e9075e5c53e86aa40f33b7f0c74d7dc70965",
+    "serviceTests": {
+      "tests": 44,
+      "passed": 44,
+      "failed": 0,
+      "skipped": 0
+    },
+    "helperPackagingFix": "passed-clean-checkout-exact-upstream-hashes; rebuilt-1143noticefiles-390refs-functional-checks",
+    "details": "container-verification.json",
+    "containerImages": {
+      "application": "sha256:4d622bb17a45f89913c49435fa48af03caf50ee4e53fad780ae5e03e1eab206e",
+      "operator": "sha256:c3e1804f2094f774ee8bee403ee7fb6c93eb3c51344336924fed31eb3f639095",
+      "database": "sha256:c0f88acba389aceebe466a37ae9305100417630117e67bcfc341d0c4ab889630"
+    },
+    "browser": {
+      "source": "03219585",
+      "cases": 156,
+      "failed": 0,
+      "skipped": 0,
+      "flags": "production-security-and-live-Today",
+      "laterSourceChanges": "Tracked upstream helpers, docs/reports, then two behavior-equivalent lint edits. Independent semantic review found no change in limits/dependencies/execution paths; no exact8092 browser run claimed.",
+      "receipt": ".runtime/ui-audit/container-candidate/hardening-browser-final/receipt.json",
+      "ownedPortsClosed": true
+    },
+    "exactArtifactReceipt": ".runtime/ui-audit/container-candidate/lint-final-20261014/verification-receipt.json",
+    "nativeNotices": {
+      "files": 1143,
+      "sourceReferences": 390
+    },
+    "ownedVmStopped": true
   }
 }

@@ -1,11 +1,13 @@
 {
-  "checkedAt": "2026-10-14T05:16:08.872504+00:00",
-  "status": "corrected-native-candidate-awaiting-actual-acceptance",
+  "checkedAt": "2026-10-14T07:27:53.075415+00:00",
+  "status": "ui-source-merged-physical-human-step-pending",
   "baseCommit": "09ccc041dbbf63f9aceae76310eabb9055ea9145",
   "nativeAutomated": {
-    "tests": 224,
-    "suites": 34,
-    "result": "passed"
+    "tests": 243,
+    "suites": 35,
+    "result": "passed",
+    "log": ".runtime/ui-audit/native-timer-frozen-final-tests.log",
+    "source": "19b9bf3"
   },
   "workspaceTypecheck": "passed",
   "lint": "passed",
@@ -41,15 +43,140 @@
     "result": "passed"
   },
   "nativeFindings": {
-    "foodFormatter": "source-fix-awaiting-native-retest",
-    "cacheFreshness": "source-fix-with-bound-acknowledgements-awaiting-native-retest",
-    "dynamicType": "source-fix-preserves-drafts-awaiting-live-font-change-retest",
-    "recentFoodOrdering": "fixed-with-unordered-entry-regression"
+    "foodFormatter": "passed-in-corrected-immutable-native-build",
+    "cacheFreshness": "passed-routine-and-workout-chain-in-corrected-native-build",
+    "dynamicType": "passed-phone-and-tablet-AX1-AX5-with-retained-draft",
+    "recentFoodOrdering": "fixed-with-unordered-entry-regression",
+    "coldOfflineTimerCancellation": "passed-regression-independent-review-and-actual-alert-artifact-OS-acceptance",
+    "deniedNotificationSettingsAction": "passed-regression-independent-review-and-actual-phone-Settings-opening; physical-app-specific-pane-pending"
   },
   "previousFullBrowserRun": {
     "passed": 134,
     "failed": 1,
     "skipped": 0,
     "reason": "Today showed oldest three instead of newest three; source corrected"
+  },
+  "integratedBrowser": {
+    "source": "693c515715a2fc7dd68daf34f89c611719e98486",
+    "passed": 135,
+    "failed": 0,
+    "skipped": 0,
+    "engines": ["chromium", "firefox", "webkit"],
+    "productionSecurity": true,
+    "liveTodayNavigation": true,
+    "finishedAt": "2026-10-14T05:22:38.050Z",
+    "historicalScope": "source693c515 before final timer refinement"
+  },
+  "nativeActualCorrected": {
+    "javascriptSha256": "19a9477431d976dd8b65ef01d306daa2221d57fa646a4ec6242bdb4fb7b91e6f",
+    "iPhoneFood": "open-cancel-resume-save-passed",
+    "iPadRoutineWorkoutChain": "create-visible-without-refresh-start-log-pause-finish-passed",
+    "offlinePhotos": "two retained images survived termination/relaunch with verified file hashes, then synced to server",
+    "dynamicText": "AX1/AX5 cold and live changes passed; task draft retained",
+    "clipboard": "native exact endpoint copy and one-time key hiding passed",
+    "localTimerOsDelivery": "passed-on-corrected-main-flows-artifact; later-alert-fix-OS-acceptance-passed-in-separate-scoped-receipt"
+  },
+  "containerActualCorrected": {
+    "source": "693c515",
+    "applicationImage": "sha256:41705f4ff27301f1d11042a411e21964747a9311c1313f906353b93c5e777b56",
+    "operatorImage": "sha256:df396c1582a09b394843a47c8d6cdcd769cc2c00277574d5b2cfba523ce70732",
+    "functionalApplication": "passed",
+    "functionalOperatorRecovery": "passed",
+    "applicationInstalledNpmAdvisories": {
+      "packages": 207,
+      "matches": 0
+    },
+    "operatorInstalledNpmAdvisories": {
+      "packages": 205,
+      "matches": 0,
+      "expectedMissingWorkspaceManifest": "@mems-life/server; compiled operator modules verified"
+    },
+    "auditScope": "Exact installed npm versions; excludes OS and native-library advisories",
+    "vmStopped": true,
+    "osAndBundledLibraryAdvisories": "Historical baseline scans completed; current hardening artifact and qualified residuals recorded in container-verification.json.",
+    "evidenceScope": "historical693c515-images"
+  },
+  "githubChecks": {
+    "head": "19b9bf36f0ac93f924edb025546a6a9dad71a2a8",
+    "result": "both-passed",
+    "completedAt": "2026-10-14T06:43:54Z"
+  },
+  "reportVisualQa": {
+    "desktop": "passed",
+    "phone390": "passed-no-horizontal-overflow",
+    "verificationTable": "passed",
+    "embeddedImages": 4
+  },
+  "nativeAlertCandidate": {
+    "source": "7600b1f918ebea4f5582c77cf14ff966340ad001",
+    "javascriptSha256": "6090a1bcf3b7c2df06918ec4d90ba160a1ae68ef51ab2c0015040dbca802792b",
+    "nativeBinarySha256": "1afa6c96f3e6412ba893c39bd9cf8a8d835362dff61faac70b654249227b80c1",
+    "buildExitCode": 0,
+    "currentCapturedSourceChanges": [],
+    "actualAcceptance": "passed-scoped-OS-and-workflow-smoke",
+    "typecheckLog": ".runtime/ui-audit/native-alerts-typecheck.log",
+    "checks": {
+      "permissionUi": "actual-phone-choice-off-and-explicit-Settings-opening-passed",
+      "coldRunningSchedule": "exact-one-owned-alarm-preserved; pending-plist-and-session-timer-identities-correlated",
+      "offlineFinishCancellation": "passed-actual-local-ack; exact-owned-pending-alarm-removed-before-expiry; delivered-archive-unchanged",
+      "actualNotificationTapRouting": "passed-actual-tablet-delivery; Food-origin-tap-opens-Workouts-exact-owned-session",
+      "offlinePauseUnacknowledged": "exact-retry-retained-running-alarm; server-only-pause-not-claimed-offline-acknowledged"
+    },
+    "receipt": ".scratch/mems-life-v1/evidence/native-gym-food/rc-usability-alerts-20261014/native-acceptance.json",
+    "remaining": "Physical app-specific Settings pane, camera/airplane, deployment/distribution"
+  },
+  "timerPresentationRefinement": "passed-source-regression-and-actual-final-artifact-presentation",
+  "nativeTimerCandidate": {
+    "source": "19b9bf36f0ac93f924edb025546a6a9dad71a2a8",
+    "javascriptSha256": "d96f6618df8647a54fcf5e58aa109379142381cf99d4a978a24d8581e5663485",
+    "nativeBinarySha256": "2b661c0df1e6f649daf36329d6bdde2b2b2ab8ddde6ee52734abe3e8950361dc",
+    "buildExitCode": 0,
+    "currentCapturedSourceChanges": [],
+    "actualAcceptance": "passed-targeted-real-iPhone-iPad-simulator-presentation",
+    "receipt": ".scratch/mems-life-v1/evidence/native-gym-food/rc-usability-timers-20261014/native-acceptance.json"
+  },
+  "latestBrowserRun": {
+    "source": "19b9bf3",
+    "state": "complete",
+    "receipt": ".runtime/ui-audit/timer-display-browser-receipt.json",
+    "output": ".runtime/ui-audit/timer-display-browser-results",
+    "productionSecurity": true,
+    "liveToday": true,
+    "expectedCases": 156,
+    "passed": 156,
+    "failed": 0,
+    "skipped": 0,
+    "finishedAt": "2026-10-14T06:38:08.420Z"
+  },
+  "physicalCandidate": {
+    "source": "19b9bf3",
+    "parallelBundle": "app.memslife.fixture.uicandidate",
+    "javascriptSha256": "d1e7c3bbf7e20ddb83f149a6630ccc9817430e81a82cc396e95c36f9b09ac7f9",
+    "signedAndCurrentSourceVerified": true,
+    "physicalDeviceContact": true,
+    "deviceGate": "2026-10-14T03:00:00-04:00",
+    "currentScope": "After-gate install/launch/screenshot passed; actual journeys limited as physicalActual records."
+  },
+  "uiSourceMerge": {
+    "pullRequest": "https://github.com/memfactorduke/open-life/pull/6",
+    "mergeCommit": "2dd64a66c0d884e8fa287b9b8cfd11abb83e6740",
+    "mergedAt": "2026-10-14T06:54:30Z",
+    "scope": "Source merge; physical and deployment/distribution acceptance remain separate."
+  },
+  "physicalActual": {
+    "source": "19b9bf36f0ac93f924edb025546a6a9dad71a2a8",
+    "afterTimeGate": true,
+    "parallelBundle": "app.memslife.fixture.uicandidate",
+    "installed": true,
+    "launched": true,
+    "landscapeScreenshot": "verified",
+    "UIAutomation": "initialization-blocked;0testassertions",
+    "automationSwitch": "unknown; user asked to check Settings Developer EnableUIAutomation",
+    "osVersion": "26.6.1",
+    "screenSharing": "unavailable-on-current-OS; actual-interface-verified",
+    "personalDataPreserved": true,
+    "tunnelCreated": false,
+    "cameraOfflineSettingsAcceptance": "pending-human-setting-status",
+    "receipt": ".runtime/physical-ui-candidate/physical-acceptance-receipt.json"
   }
 }

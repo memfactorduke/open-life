@@ -356,7 +356,8 @@
       <main>
         <header class="cover" id="verdict">
           <p class="meta">
-            14 October 2026 · America/New_York · original hardening merged; refined UI acceptance continues
+            14 October 2026 · America/New_York · UI source merged; runtime artifacts verified;
+            physical acceptance remains open
           </p>
           <h1>Release candidate audit</h1>
           <p class="lede">
@@ -364,29 +365,37 @@
             across the application, adds regression coverage, and improves the measured daily
             workloads.
           </p>
-          <div class="banner"><strong>Original hardening passed. The usability candidate is undergoing fresh artifact acceptance.</strong> PRs 4 and 5 are merged. PR6 refines native and web flows. Its 224 native, 68 domain, and 37 real service tests pass. Actual native checks found a date-format crash, stale cache revisions, and large-text layout defects; fixes are now in the corrected build. The final browser and container checks are running. The <a href="usability-audit.html">UI audit</a> records those changes and current limits. Earlier image and native hashes below belong to the earlier candidate.</div>
+          <div class="banner">
+            <strong>The usability source is merged and native/web acceptance passed.</strong> PRs
+            4–6 are merged. Actual device checks corrected the date-format crash, stale cache
+            revisions, large-text defects, and timer presentation. PR7 hardens runtime images and
+            private image decoding. Physical iPad validation, permanent deployment, and Apple
+            distribution remain separate acceptance steps.
+          </div>
           <div class="cards">
             <article class="card">
-              <span class="status log-passed">329 current source tests</span>
+              <span class="status log-passed">355 candidate source tests</span>
               <h2>Application</h2>
               <p>
-                68 shared domain, 224 mobile, and 37 real service tests passed in the current candidate runs.
+                68 shared domain and 243 mobile tests pass. The hardened service candidate passes 44
+                real service tests, with zero skips.
               </p>
             </article>
             <article class="card">
-              <span class="status pending">Artifacts running</span>
+              <span class="status pending">Simulator acceptance passed</span>
               <h2>Release builds</h2>
               <p>
                 Native compilation and fresh container verification passed with unchanged inputs.
-                Corrected simulator journeys, final UI container images, and cloud CI remain required.
+                Corrected simulator main journeys and final UI presentation passed. The runtime
+                artifact is source 8092e90; physical checks remain separate.
               </p>
             </article>
             <article class="card">
               <span class="status gate">Owner/device gates</span>
               <h2>Live acceptance</h2>
               <p>
-                The physical iPad becomes available after 3 a.m. Eastern. WHOOP still requires
-                registered configuration and consent.
+                Physical installation and launch passed after 3 a.m. UI automation needs a device
+                setting check. WHOOP still requires registered configuration and consent.
               </p>
             </article>
           </div>
@@ -415,7 +424,7 @@
                     Validation, state transitions, graphs, recurrence/DST, measurement conversions,
                     actual workout history, timers, food zones, agent contracts.
                   </td>
-                  <td>51 tests across 12 suites; builds and types.</td>
+                  <td>68 tests across 13 suites; builds and types.</td>
                 </tr>
                 <tr>
                   <td>Service and MCP</td>
@@ -423,7 +432,7 @@
                     Authorization, idempotency, leases, claims, board activation, history, private
                     files/media, WHOOP consent, sync and restore, maintenance and migrations.
                   </td>
-                  <td>37 real PostgreSQL/HTTP/MCP tests, including official SDK clients.</td>
+                  <td>44 candidate PostgreSQL/HTTP/MCP tests, including official SDK clients.</td>
                 </tr>
                 <tr>
                   <td>Native offline</td>
@@ -441,7 +450,7 @@
                     All screens, drafts, dates, media locking, workout notes/corrections,
                     timer/haptic/notification lifecycle, compact/wide and large-text behavior.
                   </td>
-                  <td>178 mobile tests across 30 suites; fresh native journeys pending.</td>
+                  <td>243 mobile tests across 35 suites; corrected native main journeys passed.</td>
                 </tr>
                 <tr>
                   <td>Web interface</td>
@@ -667,19 +676,21 @@
               <tbody>
                 <tr>
                   <td>Domain</td>
-                  <td><span class="status log-passed">51 passed / 12 suites</span></td>
+                  <td><span class="status log-passed">68 passed / 13 suites</span></td>
                   <td>Current shared rules; WHOOP’s formerly undiscovered test now runs.</td>
                 </tr>
                 <tr>
                   <td>Mobile</td>
-                  <td><span class="status log-passed">178 passed / 30 suites</span></td>
+                  <td><span class="status log-passed">243 passed / 35 suites</span></td>
                   <td>
                     Components and actual SQLite. This is not physical camera or OS delivery proof.
                   </td>
                 </tr>
                 <tr>
                   <td>Server</td>
-                  <td><span class="status log-passed">37 passed / no skips</span></td>
+                  <td>
+                    <span class="status log-passed">44 candidate service tests / no skips</span>
+                  </td>
                   <td>
                     Actual PostgreSQL, SDK, restore, privacy, claims, migrations and maintenance.
                   </td>
@@ -699,9 +710,9 @@
                 </tr>
                 <tr>
                   <td>Browser</td>
-                  <td><span class="status log-passed">114 passed / zero skips</span></td>
+                  <td><span class="status log-passed">156 passed / zero skips</span></td>
                   <td>
-                    Final five-minute run on a separate fictional CI installation included 21 RC
+                    Final integrated run on a separate fictional HTTPS installation included 21 RC
                     checks, live Today, private media/retries, conflicts and production CSP in all
                     three engines.
                   </td>
@@ -710,16 +721,18 @@
                   <td>Independent clean checkout</td>
                   <td><span class="status pending">Install passed</span></td>
                   <td>
-                    Fresh checkout of commit 6e93c3d: npm ci installed 1,262 packages in six
-                    seconds. Domain, service, web, and iOS bundle builds passed.
+                    Historical hardening checkout of commit 6e93c3d: npm ci installed 1,262 packages
+                    in six seconds. Domain, service, web, and iOS bundle builds passed.
                   </td>
                 </tr>
                 <tr>
                   <td>Native Release</td>
-                  <td><span class="status pending">Build passed; journeys pending</span></td>
+                  <td><span class="status pending">Build and main journeys passed</span></td>
                   <td>
-                    Release build exited 0; captured inputs were unchanged. Bundle daf9dc6f…86d11a.
-                    Named simulator journeys are in progress.
+                    Final display bundle d96f6618…5663485 built with unchanged inputs and passed
+                    actual presentation checks. Predecessor bundles separately proved full daily
+                    workflows, two offline photos, large text, clipboard, and OS
+                    delivery/routing/cancellation. Physical acceptance remains separate.
                   </td>
                 </tr>
                 <tr>
@@ -740,9 +753,12 @@
           <p>
             Standards and specification reviews ran independently. They reproduced and corrected
             stale offline acknowledgements, clock inflation, lost timestamp corrections, failed CSS
-            recovery and process cancellation races. Both final scoped reviews are merge-ready with
-            no material remaining finding. Cloud CI found a missing build prerequisite; that cause
-            was reproduced and ordering corrected, with its rerun active.
+            recovery and process cancellation races. Final scoped reviews found no material
+            remaining finding. Earlier cloud CI exposed a build-order prerequisite, and later lint
+            checks found two behavior-equivalent cleanup lines; both were corrected. Cold-offline
+            alert cancellation and denied-permission recovery passed source regressions and actual
+            scoped OS acceptance. The final runtime artifact passed 44 real service tests and
+            retained the prior browser evidence with its original source identity.
           </p>
         </section>
         <section id="dependencies">
@@ -783,10 +799,14 @@
               <tbody>
                 <tr>
                   <td>Physical iPad camera / airplane recovery</td>
-                  <td>Pending; device unavailable before 03:00 Eastern on 14 October.</td>
                   <td>
-                    Scheduled continuation respects availability and investigates the previous
-                    automation failure before claiming physical proof.
+                    Parallel signed installation and launch passed after 03:00. UI automation failed
+                    to initialize; camera and offline journeys remain unverified.
+                  </td>
+                  <td>
+                    Check Settings → Developer → Enable UI Automation on the iPad. Its state is
+                    unknown; enable it if off, or report if already on. Supported Mac tools cannot
+                    read or change that switch.
                   </td>
                 </tr>
                 <tr>
@@ -831,28 +851,36 @@
             Baseline <code>e29889a14c460bb72f3011cffb5e431749decb59</code>.
             <a href="https://github.com/memfactorduke/open-life/pull/4">PR #4</a> merged at
             <code>6841794693916693a6e6a7a2640456469d359637</code>.
-            <a href="https://github.com/memfactorduke/open-life/pull/5">PR #5</a> is reviewed and
-            awaits its GitHub CI rerun at <code>b7420549842a4cf5563ee5d01239ce04b660fed9</code>. Raw
+            <a href="https://github.com/memfactorduke/open-life/pull/5">PR #5</a> merged at
+            <code>09ccc041dbbf63f9aceae76310eabb9055ea9145</code>.
+            <a href="https://github.com/memfactorduke/open-life/pull/6">PR #6</a> merged at
+            <code>2dd64a66c0d884e8fa287b9b8cfd11abb83e6740</code>.
+            <a href="https://github.com/memfactorduke/open-life/pull/7">PR #7</a> records runtime
+            image and decoder hardening. Frozen source <code>8092e90</code> passed exact-artifact
+            runtime verification; GitHub records the source check and merge state. Raw
             <a href="container-verification.json">container verification</a> binds the exact images
             and unchanged input manifest.
           </p>
           <p>
             Raw local evidence: <code>.runtime/rc-audit/</code>, including final source logs,
             independent review diffs, baseline failures, benchmark JSON and browser traces. Fixture
-            credentials stay private and are excluded from source. Native capture
-            <code>8c8bc3de…e4b1b1d</code> records dirty source explicitly; its build receipt and
-            seven-journey plan live under
-            <code>.scratch/mems-life-v1/evidence/native-gym-food/rc-source-20261013/</code>.
+            credentials stay private and are excluded from source. Final native evidence lives under
+            <code>.scratch/mems-life-v1/evidence/native-gym-food/rc-usability-timers-20261014/</code
+            >, source <code>19b9bf3</code>, JavaScript <code>d96f6618…5663485</code>. Predecessor
+            full-workflow and OS receipts remain bound to their original artifacts. Runtime evidence
+            under <code>.runtime/ui-audit/container-candidate/lint-final-20261014/</code> records
+            the latest rebuilt application/operator images. Earlier packaging artifacts retain their
+            original identities.
           </p>
           <p>
-            The ten-minute continuation monitor checks independent builds quietly, completes
-            remaining verification, and cancels itself when finished. Source merging, local artifact
-            verification and external acceptance are recorded separately.
+            Source merging, local artifact verification and external acceptance are recorded
+            separately. Once source work is complete, the continuation monitor stops while the
+            device-setting response and external acceptance inputs remain pending.
           </p>
         </section>
         <footer>
-          Prepared from actual source reviews and named fixture executions. Final totals and
-          artifact identities will be updated after their runs finish.
+          Prepared from actual source reviews and named fixture executions. Current totals and
+          artifact identities are recorded with their remaining acceptance limits.
         </footer>
       </main>
     </div>

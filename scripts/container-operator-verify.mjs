@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const image = process.env.CONTAINER_OPERATOR_VERIFY_IMAGE ?? 'mems-life:operator-verify';
+const databaseImage = process.env.CONTAINER_VERIFY_DATABASE_IMAGE ?? 'mems-life:database-verify';
 const project = `mems-life-operator-verify-${randomBytes(5).toString('hex')}`;
 mkdirSync(join(root, '.runtime'), { recursive: true });
 const temp = mkdtempSync(join(root, '.runtime', project));
@@ -25,7 +26,14 @@ writeFileSync(
 const override = join(temp, 'override.json');
 writeFileSync(
   override,
-  JSON.stringify({ services: { operator: { image }, 'restore-operator': { image } } }),
+  JSON.stringify({
+    services: {
+      operator: { image },
+      'restore-operator': { image },
+      database: { image: databaseImage },
+      'restore-database': { image: databaseImage },
+    },
+  }),
 );
 const docker = (args, options = {}) =>
   execFileSync('docker', args, { cwd: root, encoding: 'utf8', ...options });
@@ -80,8 +88,10 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 }
 
 try {
-  if (!process.argv.includes('--skip-build'))
+  if (!process.argv.includes('--skip-build')) {
+    docker(['build', '--target', 'database', '-t', databaseImage, '.'], { stdio: 'inherit' });
     docker(['build', '--target', 'operator', '-t', image, '.'], { stdio: 'inherit' });
+  }
   docker(
     [
       'run',
@@ -89,9 +99,38 @@ try {
       image,
       '--input-type=module',
       '-e',
-      `import assert from 'node:assert/strict'; import fs from 'node:fs'; import {execFileSync} from 'node:child_process'; assert.equal(process.versions.node,'24.21.0'); for(const p of ['node_modules/tsx','node_modules/typescript','node_modules/expo','node_modules/react-native','node_modules/jest','node_modules/@playwright','apps/server/src']) assert.equal(fs.existsSync(p),false,p); for(const c of ['pg_dump','pg_restore']) assert.match(execFileSync(c,['--version'],{encoding:'utf8'}),/16\\.14/); console.log('Operator versions and minimal dependency boundary passed.');`,
+      `
+        import assert from 'node:assert/strict';
+        import fs from 'node:fs';
+        import {execFileSync} from 'node:child_process';
+        assert.equal(process.versions.node,'24.21.0');
+        for (const path of ['node_modules/tsx','node_modules/typescript','node_modules/expo','node_modules/react-native','node_modules/jest','node_modules/@playwright','apps/server/src','/usr/local/bin/gosu','/usr/local/bin/docker-entrypoint.sh','/usr/lib/postgresql/16/bin/postgres'])
+          assert.equal(fs.existsSync(path),false,path);
+        for (const client of ['pg_dump','pg_restore'])
+          assert.ok(execFileSync(client,['--version'],{encoding:'utf8'}).includes('16.14'));
+        const status=fs.readFileSync('/var/lib/dpkg/status','utf8');
+        const expected={'perl-base':'5.36.0-7+deb12u4','perl':'5.36.0-7+deb12u4','perl-modules-5.36':'5.36.0-7+deb12u4','libperl5.36':'5.36.0-7+deb12u4','libssl3':'3.0.22-1~deb12u1','openssl':'3.0.22-1~deb12u1','libpcre2-8-0':'10.42-1+deb12u2'};
+        for (const [name,version] of Object.entries(expected)) {
+          const entry=status.split('Package: '+name+String.fromCharCode(10)).at(1)?.split('Package:').at(0);
+          assert.ok(entry?.includes('Version: '+version),'Pinned security revision '+name);
+        }
+        const {nativeImageInventory}=await import('./apps/server/dist/native-image-inventory.js');
+        const native=nativeImageInventory();
+        assert.deepEqual(native.decoderPolicy.allowed,['VipsForeignLoadJpegBuffer','VipsForeignLoadPngBuffer']);
+        console.log('Native decoder security inventory: '+JSON.stringify(native));
+        console.log('Operator versions and minimal dependency boundary passed.');
+      `,
     ],
     { stdio: 'inherit' },
+  );
+  console.log(
+    docker([
+      'image',
+      'inspect',
+      databaseImage,
+      '--format',
+      'Database {{.Id}}; {{.Size}} bytes',
+    ]).trim(),
   );
   compose(['up', '-d', '--wait', 'database']);
   // Only these one-shot setup calls receive fictional auth configuration.

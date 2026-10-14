@@ -31,7 +31,27 @@ RUN node --input-type=module -e "import fs from 'node:fs'; const pkg = JSON.pars
 
 # One-shot maintenance tools retain PostgreSQL's complete matching library closure.
 # Keep runtime last: a normal build still produces the minimal application image.
-FROM postgres:16.14-bookworm@sha256:64154d0babcb1741988719e703419af0382b19953706149f9872fbd0f438efa8 AS operator
+FROM postgres:16.14-bookworm@sha256:64154d0babcb1741988719e703419af0382b19953706149f9872fbd0f438efa8 AS database
+# Patch both deployed databases and the maintenance client base.
+# Exact Bookworm security revisions were checked against Debian's security index.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade \
+       perl-base=5.36.0-7+deb12u4 perl=5.36.0-7+deb12u4 \
+       perl-modules-5.36=5.36.0-7+deb12u4 libperl5.36=5.36.0-7+deb12u4 \
+       libssl3=3.0.22-1~deb12u1 openssl=3.0.22-1~deb12u1 \
+       libpcre2-8-0=10.42-1+deb12u2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && postgres --version | grep '16.14' \
+    && pg_dump --version | grep '16.14' \
+    && pg_restore --version | grep '16.14'
+FROM database AS operator
+# The operator has no database startup path. Preserve both client binaries.
+RUN apt-mark manual postgresql-client-16 \
+    && apt-get purge -y postgresql-16 \
+    && rm -f /usr/local/bin/gosu /usr/local/bin/docker-entrypoint.sh \
+    && test ! -e /usr/lib/postgresql/16/bin/postgres \
+    && pg_dump --version | grep '16.14' \
+    && pg_restore --version | grep '16.14'
 WORKDIR /app
 COPY --from=toolchain /usr/local/bin/node /usr/local/bin/node
 COPY --from=runtime-dependencies /app/package.json /app/package-lock.json ./
@@ -53,6 +73,12 @@ ENTRYPOINT ["node"]
 CMD ["--help"]
 
 FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS runtime
+# Runtime commands call the compiled CLI directly; npm is build tooling only.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade perl-base=5.36.0-7+deb12u4 \
+    && rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm /opt/yarn-* \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+    && test "$(node --version)" = v24.21.0
 ENV NODE_ENV=production HOST=0.0.0.0
 WORKDIR /app
 COPY --from=runtime-dependencies /app/package.json /app/package-lock.json ./

@@ -1,9 +1,10 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { mkdir, open, lstat, realpath, link, unlink, opendir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { Pool, PoolClient } from 'pg';
-import sharp from 'sharp';
+import sharp from './image-codecs.js';
+import { inspectFileBytes } from './file-bytes.js';
 import {
   TaskFileAllocateSchema,
   TaskFileMutationSchema,
@@ -102,29 +103,12 @@ async function validate(path: string, r: Row) {
         'FILE_CHECKSUM',
         'File size or checksum does not match. Retry the original file.',
       );
-    const hash = createHash('sha256');
-    let prefix = Buffer.alloc(0),
-      tail = Buffer.alloc(0);
-    const decoder = r.content_type.startsWith('text/')
-      ? new TextDecoder('utf-8', { fatal: true })
-      : null;
-    try {
-      for await (const chunk of f.createReadStream({ autoClose: false })) {
-        hash.update(chunk);
-        if (prefix.length < 32) prefix = Buffer.concat([prefix, chunk]).subarray(0, 32);
-        tail = Buffer.concat([tail, chunk]).subarray(-1024);
-        if (decoder) {
-          const text = decoder.decode(chunk, { stream: true });
-          if (text.includes('\0')) throw new Error('Binary text');
-        }
-      }
-      decoder?.decode();
-    } catch (error) {
-      if (decoder)
-        throw new ApplicationError(422, 'FILE_TYPE', 'Text files must contain valid UTF-8 text.');
-      throw error;
-    }
-    if (hash.digest('hex') !== r.sha256)
+    const { prefix, tail, imageBytes, sha256 } = await inspectFileBytes(
+      f.createReadStream({ autoClose: false }),
+      r.size,
+      r.content_type,
+    );
+    if (sha256 !== r.sha256)
       throw new ApplicationError(
         422,
         'FILE_CHECKSUM',
@@ -148,7 +132,10 @@ async function validate(path: string, r: Row) {
       );
     if (r.content_type.startsWith('image/')) {
       try {
-        const image = sharp(path, { limitInputPixels: 16_000_000, failOn: 'warning' });
+        const image = sharp(imageBytes!, {
+          limitInputPixels: 16_000_000,
+          failOn: 'warning',
+        });
         const metadata = await image.metadata();
         if ((metadata.pages ?? 1) > 1) throw new Error('Animated image');
         await image.stats();
