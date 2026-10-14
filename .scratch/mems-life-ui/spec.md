@@ -4,7 +4,7 @@ Authorized by the maintainer on 2026-10-13 after the first production run. This 
 
 ## Daily use
 
-Keep Today, Tasks, Workouts, Food, and Settings as stable destinations. The phone uses a bottom bar, regular-width windows use a sidebar, and large text retains every destination. Layout decisions inside features use their measured available width.
+Keep Today, Tasks, Workouts, Food, and Settings as stable destinations. The phone uses a bottom bar, wide windows use a sidebar (native at 1024 points or more with ordinary text size), and large text retains every destination. Layout decisions inside features use their measured available width.
 
 Today shows the date, current workout, items needing action, recent food, and direct capture. Waiting work is disclosed separately. Task detail opens in reading mode, with its next ordinary action and any required step visible; editing and configuration are explicit secondary actions. Workout opens the logger first, with exercise, previous performance, set fields, Log set, rest controls, and Finish workout accessible. Routines remain a secondary view and can start their exact selected routine directly. Food opens a daily timeline; photo/text capture needs no additional metadata step. Cancel preserves a draft.
 
@@ -14,7 +14,7 @@ A native installation address is requested only when missing or intentionally ch
 
 Settings is an index of focused sections. Native includes Profile, Notifications, Connections, Account, and Sync & recovery. Web includes the four applicable account sections; it does not pretend to provide native offline storage. Keep preferences and revision review across section navigation.
 
-Connections starts with issued agent access and an Add agent action. Permission presets use explicit conservative scopes and retain complete custom scope selection. Expiry uses ordinary local dates and duration choices. The one-time key and endpoint are directly copyable. Access active describes authorization, not an observed running connection. WHOOP is an optional connection, with observations still reachable in its details. Notification permission is requested only from the explicit enable action.
+Connections starts with issued agent access and an Add agent action. Permission presets use explicit conservative scopes and retain complete custom scope selection. Expiry uses ordinary local dates and duration choices. The one-time key and endpoint are directly copyable. Access active describes authorization, not an observed running connection. WHOOP is an optional connection, with observations still reachable in its details. Notification permission is requested only after the person explicitly saves enabled notification choices, never on first launch or merely opening Settings.
 
 ## Technical decisions and alternatives
 

@@ -114,7 +114,7 @@ test('a committed save with a lost response is reconciled before newer edits are
   });
   await page.getByRole('button', { name: 'Save preferences' }).click();
   await expect(page.getByRole('alert')).toContainText(
-    "We couldn't confirm whether your preferences were saved.",
+    "The preference save is unconfirmed.",
   );
   await page.unroute('**/api/preferences');
   await page.getByLabel('Display name').fill('Newer unsaved edit');

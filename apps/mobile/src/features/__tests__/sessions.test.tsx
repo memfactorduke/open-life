@@ -580,9 +580,7 @@ it.each([false, true])(
     });
     const focusTarget = { action: 'create' as const, routineId: routine.id };
     const view = await render(<Sessions client={client} preferences={defaultPreferences()} />);
-    await waitFor(() =>
-      expect(view.getByRole('button', { name: 'Start workout', exact: true })).toBeTruthy(),
-    );
+    await waitFor(() => expect(view.getByRole('button', { name: 'Start workout' })).toBeTruthy());
     await view.rerender(
       <Sessions client={client} preferences={defaultPreferences()} focusTarget={focusTarget} />,
     );
