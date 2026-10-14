@@ -48,6 +48,7 @@ test('saved preferences must be reviewed before local edits can be resubmitted',
     <Settings
       client={client}
       session={session}
+      initialSection="Profile"
       onSaved={saved}
       onExpired={jest.fn()}
       onSignedOut={jest.fn()}
@@ -77,12 +78,15 @@ test('signing out with unsaved edits requires an explicit discard', async () => 
     <Settings
       client={client}
       session={session}
+      initialSection="Profile"
       onSaved={jest.fn()}
       onExpired={jest.fn()}
       onSignedOut={jest.fn()}
     />,
   );
   await fireEvent.changeText(screen.getByLabelText('Display name'), 'Jordan');
+  await fireEvent.press(screen.getByRole('button', { name: 'Back to settings' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Account' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
   expect(alert).toHaveBeenCalledWith(
     'Discard unsaved preferences?',
@@ -92,6 +96,8 @@ test('signing out with unsaved edits requires an explicit discard', async () => 
     ]),
   );
   expect(signOut).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByRole('button', { name: 'Back to settings' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Profile' }));
   expect(screen.getByLabelText('Display name').props.value).toBe('Jordan');
   alert.mockRestore();
 });
@@ -110,6 +116,7 @@ test('reviewed edits save against the inspected server state without replacing t
     <Settings
       client={client}
       session={session}
+      initialSection="Profile"
       draft={{ ...value, displayName: 'Jordan' }}
       onSaved={jest.fn()}
       onExpired={jest.fn()}
@@ -159,6 +166,7 @@ async function renderLogout(client: ReturnType<typeof logoutClient>) {
     <Settings
       client={client as unknown as InstallationClient}
       session={session}
+      initialSection="Account"
       onSaved={jest.fn()}
       onExpired={jest.fn()}
       onSignedOut={signedOut}

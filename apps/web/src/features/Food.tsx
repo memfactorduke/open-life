@@ -56,6 +56,23 @@ function PrivatePhoto({ id }: { id: string }) {
     <span>{error || 'Loading photo…'}</span>
   );
 }
+function DraftPhotos({ files }: { files: File[] }) {
+  const [urls, setUrls] = useState<string[]>([]);
+  useEffect(() => {
+    const next = files.map((file) => URL.createObjectURL(file));
+    setUrls(next);
+    return () => next.forEach((url) => URL.revokeObjectURL(url));
+  }, [files]);
+  return (
+    <div className="food-photos">
+      {urls.map((url, index) => (
+        <figure key={url}>
+          <img src={url} alt={`Selected food photo ${index + 1}`} />
+        </figure>
+      ))}
+    </div>
+  );
+}
 export function Food({
   preferences,
   focusTarget,
@@ -64,6 +81,13 @@ export function Food({
   focusTarget?: { id?: string; action?: 'create' | 'capture' };
 } = {}) {
   const timezone = preferences?.timeZone ?? deviceTimezone;
+  const [composerOpen, setComposerOpen] = useState(false);
+  const photoInput = useRef<HTMLInputElement>(null);
+  const notesInput = useRef<HTMLTextAreaElement>(null);
+  const addEntryButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (composerOpen) notesInput.current?.focus();
+  }, [composerOpen]);
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [day, setDay] = useState(() => local(new Date().toISOString(), timezone).slice(0, 10));
   const [text, setText] = useState('');
@@ -129,6 +153,7 @@ export function Food({
     }
     if (!focusTarget.id) {
       reset();
+      setComposerOpen(true);
       document.querySelector<HTMLTextAreaElement>('.food textarea')?.focus();
       return;
     }
@@ -150,6 +175,7 @@ export function Food({
     };
   }, [focusTarget, loaded, busy]);
   function edit(entry: FoodEntry) {
+    setComposerOpen(true);
     setSelected(entry);
     setText(entry.content.text);
     setTime(local(entry.content.occurredAt, timezone));
@@ -257,6 +283,7 @@ export function Food({
         setFiles((current) => current.filter((candidate) => candidate !== file));
       }
       reset();
+      setComposerOpen(false);
       await load();
       setNotice('Food entry saved.');
     } catch (error) {
@@ -290,117 +317,136 @@ export function Food({
       setBusy(false);
     }
   }
+  const locked =
+    busy || pending.current !== null || files.some((file) => uploads.current.has(file));
+  const changeDay = (amount: number) =>
+    setDay(Temporal.PlainDate.from(day).add({ days: amount }).toString());
+  const dayLabel = Temporal.PlainDate.from(day).toLocaleString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+  function begin() {
+    if (!hasDraft()) reset();
+    setComposerOpen(true);
+  }
+  function showHistory(entry: FoodEntry) {
+    const generation = ++historyGeneration.current;
+    void request(`/api/food/${entry.id}/history`, FoodHistorySchema)
+      .then((result) => {
+        if (generation !== historyGeneration.current) return;
+        setHistory(
+          result.events.map(
+            (event) =>
+              `${new Date(event.createdAt).toLocaleString()}: ${event.type === 'food.create' ? 'Entry added' : event.type === 'food.edit' ? 'Entry edited' : event.type === 'food.delete' ? 'Entry deleted' : event.type === 'food.detach' ? 'Photo removed' : 'Photo added'}`,
+          ),
+        );
+      })
+      .catch((error) => {
+        if (generation === historyGeneration.current) setNotice(error.message);
+      });
+  }
+  let displayTime = 'Review date and time';
+  try {
+    displayTime = new Date(instant(time, timezone)).toLocaleString(undefined, {
+      timeZone: timezone,
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    /* Native input validates incomplete values. */
+  }
+  let timeNotice = '';
+  if (time !== initialTime.current) {
+    try {
+      const plain = Temporal.PlainDateTime.from(time);
+      const earlier = plain.toZonedDateTime(timezone, { disambiguation: 'earlier' });
+      const later = plain.toZonedDateTime(timezone, { disambiguation: 'later' });
+      if (earlier.epochMilliseconds !== later.epochMilliseconds)
+        timeNotice = earlier.toPlainDateTime().equals(plain)
+          ? 'This time occurs twice. The first occurrence will be saved.'
+          : `This time falls in the clock change. It will be saved as ${local(instant(time, timezone), timezone).slice(11)}.`;
+    } catch {
+      /* The input's validation handles incomplete values. */
+    }
+  }
   return (
-    <section className="food">
-      <header>
-        <p className="eyebrow">A simple record of what you ate</p>
-        <h1>Food diary</h1>
-      </header>
+    <section className="food" aria-label="Food diary">
       <div role="status">{notice}</div>
-      <div className="food-layout">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
-        >
-          <h2>{selected ? 'Correct an entry' : 'What did you eat?'}</h2>
-          <label>
-            Notes
-            <textarea
-              disabled={
-                busy || pending.current !== null || files.some((file) => uploads.current.has(file))
-              }
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              maxLength={20000}
-            />
-          </label>
-          <label>
-            Date and time
-            <input
-              disabled={
-                busy || pending.current !== null || files.some((file) => uploads.current.has(file))
-              }
-              type="datetime-local"
-              required
-              value={time}
-              onChange={(event) => setTime(event.target.value)}
-            />
-          </label>
-          <p>{timezone}</p>
-          <p>
-            At a daylight-saving gap the time moves forward; a repeated time uses the earlier
-            offset.
-          </p>
-          <label>
-            Add private photos (JPEG or PNG, up to 8 MB each)
-            <input
-              disabled={
-                busy || pending.current !== null || files.some((file) => uploads.current.has(file))
-              }
-              type="file"
-              accept="image/jpeg,image/png"
-              multiple
-              onChange={(event) => {
-                const next = Array.from(event.target.files ?? []);
-                if (
-                  next.some((file) => file.size > 8388608) ||
-                  next.length + (selected?.photoIds.length ?? 0) > 12
-                ) {
-                  setNotice('Choose up to twelve photos, each no larger than 8 MB.');
-                  return;
-                }
-                setFiles(next);
-              }}
-            />
-          </label>
-          <p>
-            {files.length} photos waiting to upload. If an upload fails, Save entry resumes it;
-            edits remain locked until its outcome is known. Keep this page open until saved.
-          </p>
-          <button disabled={busy}>{busy ? 'Saving…' : 'Save entry'}</button>
-          {hasDraft() && (
-            <button
-              type="button"
-              onClick={reset}
-              disabled={
-                busy || pending.current !== null || files.some((file) => uploads.current.has(file))
-              }
-            >
-              Discard food draft
-            </button>
-          )}
-          {selected && (
-            <button
-              type="button"
-              onClick={reset}
-              disabled={busy || files.length > 0 || pending.current !== null}
-            >
-              New entry
-            </button>
-          )}
-        </form>
-        <div>
-          <label>
-            Daily history
-            <input type="date" value={day} onChange={(event) => setDay(event.target.value)} />
-          </label>
+      <header className="food-day">
+        <div className="food-day-navigation">
+          <button type="button" aria-label="Previous day" onClick={() => changeDay(-1)}>
+            ‹
+          </button>
+          <h2>{dayLabel}</h2>
+          <button type="button" aria-label="Next day" onClick={() => changeDay(1)}>
+            ›
+          </button>
+        </div>
+        <label className="food-calendar">
+          Choose day
+          <input
+            aria-label="Daily history"
+            type="date"
+            value={day}
+            onChange={(event) => {
+              if (event.target.value) setDay(event.target.value);
+            }}
+          />
+        </label>
+        <div className="food-actions">
+          <button
+            type="button"
+            onClick={() => {
+              begin();
+              photoInput.current?.click();
+            }}
+          >
+            Add photo
+          </button>
+          <button
+            type="button"
+            ref={addEntryButton}
+            className={!composerOpen ? 'food-add-entry' : undefined}
+            onClick={begin}
+          >
+            {!composerOpen && (hasDraft() || selected) ? 'Resume draft' : 'Add entry'}
+          </button>
+        </div>
+      </header>
+      <div className={`food-layout ${composerOpen ? 'food-layout-editing' : ''}`}>
+        <div className="food-timeline">
           {!loaded && (
-            <button type="button" onClick={() => void load()}>
-              Retry food history
-            </button>
+            <>
+              <p>Loading entries…</p>
+              <button type="button" onClick={() => void load()}>
+                Retry food history
+              </button>
+            </>
           )}
-          {!loaded ? (
-            <p>Loading entries…</p>
-          ) : entries.length === 0 ? (
-            <p>No food recorded for this day. Add a photo or a few words.</p>
-          ) : (
+          {loaded && entries.length === 0 && (
+            <div className="food-empty">
+              <h3>No food recorded</h3>
+              <button
+                type="button"
+                ref={addEntryButton}
+                className={!composerOpen ? 'food-add-entry' : undefined}
+                onClick={begin}
+              >
+                Add your first entry
+              </button>
+            </div>
+          )}
+          {loaded &&
             entries.map((entry) => (
               <article key={entry.id}>
                 <time>
-                  {new Date(entry.content.occurredAt).toLocaleString(undefined, {
+                  {new Date(entry.content.occurredAt).toLocaleTimeString(undefined, {
                     timeZone: timezone,
+                    hour: 'numeric',
+                    minute: '2-digit',
                   })}
                 </time>
                 <p>{entry.content.text || 'Photo entry'}</p>
@@ -408,59 +454,160 @@ export function Food({
                   {entry.photoIds.map((id) => (
                     <figure key={id}>
                       <PrivatePhoto id={id} />
-                      <button disabled={busy} onClick={() => void remove(entry, id)}>
-                        Remove photo
-                      </button>
                     </figure>
                   ))}
                 </div>
                 <button
+                  type="button"
                   disabled={busy}
                   onClick={() => {
-                    if (!hasDraft() || selected?.id === entry.id) {
-                      if (!hasDraft()) edit(entry);
-                    } else setNotice('Finish the current draft before opening another entry.');
+                    if (!hasDraft()) edit(entry);
+                    else if (selected?.id === entry.id) setComposerOpen(true);
+                    else setNotice('Finish the current draft before opening another entry.');
                   }}
                 >
-                  Edit
+                  Edit entry
                 </button>
-                <button disabled={busy} onClick={() => void remove(entry)}>
-                  Delete
-                </button>
-                <button
-                  onClick={() => {
-                    const generation = ++historyGeneration.current;
-                    void request(`/api/food/${entry.id}/history`, FoodHistorySchema)
-                      .then((result) => {
-                        if (generation !== historyGeneration.current) return;
-                        setHistory(
-                          result.events.map(
-                            (event) =>
-                              `${event.createdAt}: ${event.type} (revision ${event.entry.revision})`,
-                          ),
-                        );
-                      })
-                      .catch((error) => {
-                        if (generation === historyGeneration.current) setNotice(error.message);
-                      });
-                  }}
-                >
-                  History
-                </button>
+                <details>
+                  <summary>More</summary>
+                  <button type="button" disabled={busy} onClick={() => showHistory(entry)}>
+                    Entry history
+                  </button>
+                  {entry.photoIds.map((id, index) => (
+                    <button
+                      type="button"
+                      key={id}
+                      disabled={busy}
+                      onClick={() => void remove(entry, id)}
+                    >
+                      Remove photo {index + 1}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="food-destructive"
+                    disabled={busy}
+                    onClick={() => void remove(entry)}
+                  >
+                    Delete entry
+                  </button>
+                </details>
               </article>
-            ))
-          )}
+            ))}
           {history.length > 0 && (
             <aside>
-              <h2>Entry history</h2>
+              <h3>Entry history</h3>
               <ul>
-                {history.map((event) => (
-                  <li key={event}>{event}</li>
+                {history.map((event, index) => (
+                  <li key={index}>{event}</li>
                 ))}
               </ul>
             </aside>
           )}
         </div>
+        <form
+          hidden={!composerOpen}
+          className="food-composer"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          <h2>{selected ? 'Edit entry' : 'Add entry'}</h2>
+          <label className="food-photo-picker">
+            Add photos
+            <input
+              ref={photoInput}
+              disabled={locked}
+              type="file"
+              accept="image/jpeg,image/png"
+              multiple
+              onChange={(event) => {
+                const next = Array.from(event.target.files ?? []);
+                if (
+                  next.some(
+                    (file) =>
+                      file.size > 8388608 || !['image/jpeg', 'image/png'].includes(file.type),
+                  ) ||
+                  next.length + files.length + (selected?.photoIds.length ?? 0) > 12
+                ) {
+                  setNotice('Choose up to twelve JPEG or PNG photos, each no larger than 8 MB.');
+                  return;
+                }
+                setFiles((current) => [...current, ...next]);
+                event.target.value = '';
+              }}
+            />
+          </label>
+          {files.length > 0 && <DraftPhotos files={files} />}
+          <label>
+            What did you eat?
+            <textarea
+              ref={notesInput}
+              disabled={locked}
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              maxLength={20000}
+              placeholder="Add a few words (optional)"
+            />
+          </label>
+          <details className="food-time">
+            <summary>Time · {displayTime}</summary>
+            <label>
+              Date and time
+              <input
+                disabled={locked}
+                type="datetime-local"
+                required
+                value={time}
+                onChange={(event) => setTime(event.target.value)}
+              />
+            </label>
+            {timezone !== deviceTimezone && <p>Times use {timezone}.</p>}
+            {timeNotice && <p>{timeNotice}</p>}
+          </details>
+          {files.length > 0 && (
+            <p>
+              {files.length} {files.length === 1 ? 'photo' : 'photos'} waiting to upload.
+            </p>
+          )}
+          <div className="food-actions">
+            <button disabled={busy} className="food-save">
+              {busy ? 'Saving…' : 'Save entry'}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setComposerOpen(false);
+                addEntryButton.current?.focus();
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          {(hasDraft() || selected) && (
+            <details>
+              <summary>More</summary>
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      'Discard this food draft? Unsaved notes and photo selections will be removed.',
+                    )
+                  ) {
+                    reset();
+                    setComposerOpen(false);
+                  }
+                }}
+              >
+                Discard draft
+              </button>
+            </details>
+          )}
+        </form>
       </div>
     </section>
   );

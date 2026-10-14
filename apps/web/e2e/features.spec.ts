@@ -195,19 +195,28 @@ test('custom exercise and reusable routine save targets in canonical units', asy
   const routineName = `Fictional routine ${suffix}`;
   const preferences = (await (await page.request.get('/api/preferences')).json()).value;
   await page.goto('/#workouts');
+  await page.getByRole('button', { name: 'Routines', exact: true }).first().click();
   await page.getByRole('button', { name: 'Exercise library', exact: true }).click();
   await page.getByRole('button', { name: 'New exercise', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill(exerciseName);
   await page.getByLabel('Measurement', { exact: true }).selectOption('weighted');
   await page.getByRole('button', { name: 'Save exercise', exact: true }).click();
   await expect(page.getByRole('heading', { name: exerciseName, exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Routines', exact: true }).click();
+  await page
+    .locator('.workout-library')
+    .getByRole('button', { name: 'Routines', exact: true })
+    .click();
   await page.getByRole('button', { name: 'New routine', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill(routineName);
   const exercise = (await (await page.request.get('/api/exercises')).json()).exercises.find(
     (value: { name: string }) => value.name === exerciseName,
   );
-  await page.getByLabel('Add an exercise', { exact: true }).selectOption(exercise.id);
+  await page.getByRole('button', { name: 'Add exercise', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Exercise picker' })
+    .getByRole('button', { name: exercise.name, exact: true })
+    .click();
+  await page.locator('.routine-item > summary').click();
   await page.getByRole('button', { name: 'Add target', exact: true }).click();
   await page.getByLabel('Repetitions', { exact: true }).fill('8');
   await page.getByLabel(`Load (${preferences.weightUnit})`, { exact: true }).fill('100');
@@ -224,14 +233,17 @@ test('custom exercise and reusable routine save targets in canonical units', asy
     6,
   );
   await page.reload();
+  await page.getByRole('button', { name: 'Routines', exact: true }).first().click();
   const card = page
     .getByRole('article')
     .filter({ has: page.getByRole('heading', { name: routineName, exact: true }) });
   await card.getByRole('button', { name: 'Edit routine', exact: true }).click();
+  await page.locator('.routine-item > summary').click();
   await expect(page.getByLabel(`Load (${preferences.weightUnit})`, { exact: true })).toHaveValue(
     '100',
   );
   await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await card.getByLabel(`More options for ${routineName}`).click();
   await card.getByRole('button', { name: 'Duplicate', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: `${routineName} (copy)`, exact: true }),
@@ -252,6 +264,7 @@ test('routine conflict preserves local edits and exact replay recovers a committ
 }) => {
   const name = `Fictional recovery ${crypto.randomUUID().slice(0, 8)}`;
   await page.goto('/#workouts');
+  await page.getByRole('button', { name: 'Routines', exact: true }).first().click();
   await page.getByRole('button', { name: 'New routine', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill(name);
   await page.getByRole('button', { name: 'Save routine', exact: true }).click();
@@ -296,5 +309,6 @@ test('routine conflict preserves local edits and exact replay recovers a committ
   expect((await replay).postData()).toBe(original);
   await expect(page.getByRole('dialog')).toBeHidden();
   await page.reload();
+  await page.getByRole('button', { name: 'Routines', exact: true }).first().click();
   await expect(page.getByRole('heading', { name: `${name} local`, exact: true })).toBeVisible();
 });

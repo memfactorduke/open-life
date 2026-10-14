@@ -12,6 +12,7 @@ test('real service persists opt-in choices, retains a conflicting draft, and res
   await page.getByLabel('Password', { exact: true }).fill(password!);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('link', { name: 'Settings', exact: false }).click();
+  await page.getByRole('link', { name: 'Notifications', exact: true }).click();
   const panel = page.getByRole('region', { name: 'Notifications', exact: true });
   await expect(panel.getByLabel('Enable notifications', { exact: false })).toBeVisible();
   const initial = await (await page.request.get('/api/notifications/preferences')).json();
@@ -24,7 +25,6 @@ test('real service persists opt-in choices, retains a conflicting draft, and res
     await panel.getByRole('button', { name: 'Save notification choices', exact: true }).click();
     await expect(panel.getByRole('status')).toHaveText('Notification choices saved.');
     await page.reload();
-    await page.getByRole('link', { name: 'Settings', exact: false }).click();
     await expect(panel.getByRole('checkbox', { name: 'Due reminders' })).toBeChecked();
     const current = await (await page.request.get('/api/notifications/preferences')).json();
     await panel.getByRole('checkbox', { name: 'Work needs help' }).check();
@@ -58,5 +58,63 @@ test('real service persists opt-in choices, retains a conflicting draft, and res
     expect((await (await page.request.get('/api/notifications/preferences')).json()).value).toEqual(
       initial.value,
     );
+  }
+});
+
+test('notification draft and unconfirmed request survive leaving Settings before exact retry', async ({
+  page,
+}) => {
+  test.skip(!email || !password, 'Requires a disposable fictional installation.');
+  await page.goto('/');
+  await page.getByLabel('Email address').fill(email!);
+  await page.getByLabel('Password', { exact: true }).fill(password!);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.goto('/#settings/notifications');
+  const panel = page.getByRole('region', { name: 'Notifications', exact: true });
+  await expect(panel.getByLabel('Enable notifications', { exact: false })).toBeVisible();
+  const initial = await (await page.request.get('/api/notifications/preferences')).json();
+  const writes: unknown[] = [];
+  let fail = true;
+  try {
+    await panel.getByRole('checkbox', { name: 'Enable notifications' }).check();
+    await panel.getByRole('checkbox', { name: 'Due reminders' }).check();
+    await page.getByRole('link', { name: '← Settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
+    await expect(panel.getByRole('checkbox', { name: 'Due reminders' })).toBeChecked();
+    await page.route('**/api/notifications/preferences', async (route) => {
+      if (route.request().method() !== 'PUT') return route.continue();
+      writes.push(route.request().postDataJSON());
+      if (fail) {
+        fail = false;
+        return route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error: { code: 'UNAVAILABLE', message: 'Fictional connection interrupted' },
+          }),
+        });
+      }
+      return route.continue();
+    });
+    await panel.getByRole('button', { name: 'Save notification choices', exact: true }).click();
+    await expect(panel.getByRole('alert')).toContainText('The save is unconfirmed');
+    await page.getByRole('link', { name: '← Settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Tasks', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
+    await expect(panel.getByRole('alert')).toContainText('The save is unconfirmed');
+    await expect(panel.getByRole('checkbox', { name: 'Due reminders' })).toBeChecked();
+    await panel.getByRole('button', { name: 'Retry notification settings' }).click();
+    await expect(panel.getByRole('status')).toHaveText('Notification choices saved.');
+    expect(writes).toHaveLength(2);
+    expect(writes[1]).toEqual(writes[0]);
+  } finally {
+    await page.unroute('**/api/notifications/preferences');
+    const latest = await (await page.request.get('/api/notifications/preferences')).json();
+    const restored = await page.request.put('/api/notifications/preferences', {
+      headers: { Origin: origin },
+      data: { operationId: randomUUID(), expectedRevision: latest.revision, value: initial.value },
+    });
+    expect(restored.ok()).toBe(true);
   }
 });

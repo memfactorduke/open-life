@@ -172,3 +172,63 @@
     width: 100%;
   }
 }
+/* Keep ordinary work in view; open management only when it is needed. */
+.task-more,
+.task-filter-disclosure {
+  margin-block: 12px;
+}
+.task-more > summary,
+.task-filter-disclosure > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--accent, var(--text));
+  font-weight: 600;
+}
+.task-reading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-block: 12px;
+}
+.task-reading > p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.task-reading > button {
+  align-self: flex-start;
+}
+.task-status {
+  color: var(--muted);
+  font-size: 14px;
+}
+.feature-dialog > .detail-heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  padding-block: 12px;
+}
+.feature-dialog > .detail-heading h2 {
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}
+.task-productivity .steps-panel {
+  margin-top: 0;
+}
+.step-options {
+  padding-block: 8px !important;
+}
+.step-options > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 0;
+}
+@media (max-width: 600px) {
+  .task-card .card-actions,
+  .task-column.default-column > h3 {
+    display: none;
+  }
+}

@@ -148,20 +148,33 @@ type Me = z.infer<typeof MeSchema>;
 type Preferences = z.infer<typeof PreferencesSchema>;
 type PreferenceRecord = z.infer<typeof PreferencesRecordSchema>;
 type Page = 'today' | 'tasks' | 'workouts' | 'food' | 'settings';
+type SettingsSection = 'profile' | 'notifications' | 'connections' | 'account';
+const settingsSections: { id: SettingsSection; title: string }[] = [
+  { id: 'profile', title: 'Profile' },
+  { id: 'notifications', title: 'Notifications' },
+  { id: 'connections', title: 'Connections' },
+  { id: 'account', title: 'Account' },
+];
+function currentSettingsSection() {
+  return (
+    settingsSections.find((section) => window.location.hash === `#settings/${section.id}`)?.id ??
+    null
+  );
+}
 type Session =
   | { kind: 'loading' }
   | { kind: 'signedOut'; expired: boolean }
   | { kind: 'error'; message: string }
   | { kind: 'ready'; me: Me };
-const pages: { id: Page; title: string; detail: string; icon: string }[] = [
-  { id: 'today', title: 'Today', detail: 'Your daily focus', icon: '◷' },
-  { id: 'tasks', title: 'Tasks', detail: 'Plans & progress', icon: '☷' },
-  { id: 'workouts', title: 'Workouts', detail: 'Training & history', icon: '↗' },
-  { id: 'food', title: 'Food', detail: 'Your food diary', icon: '◒' },
-  { id: 'settings', title: 'Settings', detail: 'Make it yours', icon: '⚙' },
+const pages: { id: Page; title: string; icon: string }[] = [
+  { id: 'today', title: 'Today', icon: '◷' },
+  { id: 'tasks', title: 'Tasks', icon: '☷' },
+  { id: 'workouts', title: 'Workouts', icon: '↗' },
+  { id: 'food', title: 'Food', icon: '◒' },
+  { id: 'settings', title: 'Settings', icon: '⚙' },
 ];
 function currentPage(): Page {
-  return pages.find((page) => `#${page.id}` === window.location.hash)?.id ?? 'today';
+  return pages.find((page) => `#${page.id}` === window.location.hash.split('/')[0])?.id ?? 'today';
 }
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -169,11 +182,24 @@ const messageOf = (error: unknown) =>
 export function App() {
   const [session, setSession] = useState<Session>({ kind: 'loading' });
   const [page, setPage] = useState<Page>(currentPage);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(
+    currentSettingsSection,
+  );
+  const [visitedSettings, setVisitedSettings] = useState<Set<SettingsSection>>(() => {
+    const initial = currentSettingsSection();
+    return new Set(initial ? [initial] : []);
+  });
+  useEffect(() => {
+    if (settingsSection)
+      setVisitedSettings((previous) =>
+        previous.has(settingsSection) ? previous : new Set([...previous, settingsSection]),
+      );
+  }, [settingsSection]);
   const [visited, setVisited] = useState<Set<Page>>(() => new Set([currentPage()]));
   useEffect(() => {
     setVisited((previous) => (previous.has(page) ? previous : new Set([...previous, page])));
   }, [page]);
-  const [workoutView, setWorkoutView] = useState<'library' | 'train' | 'whoop'>('library');
+  const [workoutView, setWorkoutView] = useState<'library' | 'train'>('train');
   const [focusTarget, setFocusTarget] = useState<TodayTarget>();
   const taskFocusTarget: { id?: string; action?: 'create' } | undefined = useMemo(
     () =>
@@ -237,8 +263,9 @@ export function App() {
   }, [session.kind]);
   useEffect(() => {
     const update = () => {
-      const matched = pages.find((item) => `#${item.id}` === window.location.hash);
+      const matched = pages.find((item) => `#${item.id}` === window.location.hash.split('/')[0]);
       if (matched) setPage(matched.id);
+      setSettingsSection(currentSettingsSection());
     };
     window.addEventListener('hashchange', update);
     return () => window.removeEventListener('hashchange', update);
@@ -308,7 +335,7 @@ export function App() {
             error instanceof RequestError && error.status === 409
               ? 'Preferences changed on another device. Your edits are still here. Reload saved preferences to review the latest version.'
               : error instanceof RequestError && (error.status === 0 || error.status >= 500)
-                ? "We couldn't confirm whether your preferences were saved. Your edits are still here. Save again to check the earlier request before saving any newer edits."
+                ? 'The preference save is unconfirmed. Your edits are still here. Save again to check the earlier request before saving any newer edits.'
                 : messageOf(error),
         });
       }
@@ -353,7 +380,7 @@ export function App() {
   if (session.kind === 'error')
     return (
       <Status
-        title="We couldn't open your workspace"
+        title="This space could not be opened"
         message={session.message}
         action={<button onClick={() => void load()}>Try again</button>}
       />
@@ -369,9 +396,7 @@ export function App() {
       <aside className="sidebar">
         <a href="#today" className="brand">
           <span className="brand-mark">m.</span>
-          <span>
-            Mem's Life<small>A little more intentional.</small>
-          </span>
+          <span>Mem's Life</span>
         </a>
         <nav aria-label="Main navigation">
           {pages.map((item) => (
@@ -384,15 +409,11 @@ export function App() {
               <span className="nav-icon" aria-hidden="true">
                 {item.icon}
               </span>
-              <span>
-                {item.title}
-                <small>{item.detail}</small>
-              </span>
+              <span>{item.title}</span>
             </a>
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <span className="private-indicator">Private workspace</span>
           <div className="account">
             <span className="avatar" aria-hidden="true">
               {name.slice(0, 1).toUpperCase()}
@@ -419,247 +440,282 @@ export function App() {
         {page !== 'today' && (
           <header className="page-header">
             <div>
-              <p className="eyebrow">Your workspace</p>
-              <h1>{title}</h1>
+              <h1>
+                {page === 'settings' && settingsSection
+                  ? settingsSections.find((section) => section.id === settingsSection)!.title
+                  : title}
+              </h1>
             </div>
-            <span className="header-note">A place for your everyday.</span>
           </header>
         )}
-        {page === 'settings' && draft ? (
-          <>
-            <div className="intro">
-              <h2>Make yourself at home.</h2>
-              <p>Choose how your name, measurements, and workspace appear.</p>
-            </div>
-            <form className="settings-card" onSubmit={(event) => void save(event)}>
-              <fieldset disabled={saving}>
-                <legend>Personal preferences</legend>
-                <label>
-                  Display name
-                  <input
-                    autoComplete="nickname"
-                    value={draft.displayName}
-                    maxLength={100}
-                    required
-                    onChange={(event) => edit('displayName', event.target.value)}
-                  />
-                </label>
-                <label>
-                  Time zone
-                  <input
-                    list="time-zones"
-                    value={draft.timeZone}
-                    required
-                    onChange={(event) => edit('timeZone', event.target.value)}
-                  />
-                  <small>Use a time zone such as America/New_York or Europe/London.</small>
-                </label>
-                <datalist id="time-zones">
-                  {[
-                    'America/New_York',
-                    'America/Chicago',
-                    'America/Denver',
-                    'America/Los_Angeles',
-                    'Europe/London',
-                    'Europe/Paris',
-                    'Asia/Tokyo',
-                    'Australia/Sydney',
-                    'UTC',
-                  ].map((zone) => (
-                    <option value={zone} key={zone} />
-                  ))}
-                </datalist>
-                <div className="field-row">
+        {(page === 'settings' || visited.has('settings')) && draft ? (
+          <div hidden={page !== 'settings'}>
+            {settingsSection ? (
+              <a className="settings-back" href="#settings">
+                ← Settings
+              </a>
+            ) : (
+              <nav className="settings-index" aria-label="Settings sections">
+                {settingsSections.map((section) => (
+                  <a key={section.id} href={`#settings/${section.id}`}>
+                    <span>{section.title}</span>
+                    <span aria-hidden="true">›</span>
+                  </a>
+                ))}
+              </nav>
+            )}
+            {settingsSection === 'profile' && (
+              <form className="settings-card" onSubmit={(event) => void save(event)}>
+                <fieldset disabled={saving}>
+                  <legend className="sr-only">Personal preferences</legend>
                   <label>
-                    Weight unit
-                    <select
-                      value={draft.weightUnit}
-                      onChange={(event) =>
-                        edit('weightUnit', event.target.value as Preferences['weightUnit'])
-                      }
-                    >
-                      <option value="lb">Pounds (lb)</option>
-                      <option value="kg">Kilograms (kg)</option>
-                    </select>
+                    Display name
+                    <input
+                      autoComplete="nickname"
+                      value={draft.displayName}
+                      maxLength={100}
+                      required
+                      onChange={(event) => edit('displayName', event.target.value)}
+                    />
                   </label>
                   <label>
-                    Distance unit
-                    <select
-                      value={draft.distanceUnit}
-                      onChange={(event) =>
-                        edit('distanceUnit', event.target.value as Preferences['distanceUnit'])
-                      }
-                    >
-                      <option value="mi">Miles (mi)</option>
-                      <option value="km">Kilometers (km)</option>
-                    </select>
+                    Time zone
+                    <input
+                      list="time-zones"
+                      value={draft.timeZone}
+                      required
+                      onChange={(event) => edit('timeZone', event.target.value)}
+                    />
                   </label>
-                </div>
-                <label>
-                  Appearance
-                  <select
-                    value={draft.theme}
-                    onChange={(event) => edit('theme', event.target.value as Preferences['theme'])}
-                  >
-                    <option value="system">Follow device</option>
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                  </select>
-                </label>
-              </fieldset>
-              {notice && (
-                <p
-                  className={`notice ${notice.kind}`}
-                  role={notice.kind === 'error' ? 'alert' : 'status'}
-                >
-                  {notice.message}
-                </p>
-              )}
-              <div className="form-footer">
-                <span>
-                  {dirty ? 'You have unsaved changes.' : 'Your preferences are up to date.'}
-                </span>
-                <button type="submit" disabled={saving || !dirty || latestForReview !== null}>
-                  {saving ? 'Saving…' : 'Save preferences'}
-                </button>
-              </div>
-              {latestForReview && (
-                <section className="revision-review" aria-labelledby="revision-title">
-                  <h3 id="revision-title">Review the latest preferences</h3>
-                  <p>
-                    Keeping your edits will replace all five preferences with the values shown in
-                    your form.
-                  </p>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th scope="col">Preference</th>
-                        <th scope="col">Saved on the server</th>
-                        <th scope="col">Your edit</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(
-                        ['displayName', 'timeZone', 'weightUnit', 'distanceUnit', 'theme'] as const
-                      ).map((key) => (
-                        <tr key={key}>
-                          <th scope="row">
-                            {
-                              {
-                                displayName: 'Display name',
-                                timeZone: 'Time zone',
-                                weightUnit: 'Weight unit',
-                                distanceUnit: 'Distance unit',
-                                theme: 'Appearance',
-                              }[key]
-                            }
-                          </th>
-                          <td>{latestForReview.value[key]}</td>
-                          <td>{draft[key]}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="review-actions">
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => {
-                        setRecord(latestForReview);
-                        operation.current = null;
-                        setDraft(latestForReview.value);
-                        setLatestForReview(null);
-                        dirtyRef.current = false;
-                        setDirty(false);
-                        setNotice({
-                          kind: 'success',
-                          message: 'Your form now matches the saved preferences.',
-                        });
-                      }}
-                    >
-                      Keep saved preferences
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRecord(latestForReview);
-                        setLatestForReview(null);
-                        operation.current = null;
-                        setNotice({
-                          kind: 'success',
-                          message:
-                            'You reviewed the current saved preferences. Save to replace them with your edits.',
-                        });
-                      }}
-                    >
-                      Keep my reviewed edits
-                    </button>
+                  <datalist id="time-zones">
+                    {[
+                      'America/New_York',
+                      'America/Chicago',
+                      'America/Denver',
+                      'America/Los_Angeles',
+                      'Europe/London',
+                      'Europe/Paris',
+                      'Asia/Tokyo',
+                      'Australia/Sydney',
+                      'UTC',
+                    ].map((zone) => (
+                      <option value={zone} key={zone} />
+                    ))}
+                  </datalist>
+                  <div className="field-row">
+                    <label>
+                      Weight unit
+                      <select
+                        value={draft.weightUnit}
+                        onChange={(event) =>
+                          edit('weightUnit', event.target.value as Preferences['weightUnit'])
+                        }
+                      >
+                        <option value="lb">Pounds (lb)</option>
+                        <option value="kg">Kilograms (kg)</option>
+                      </select>
+                    </label>
+                    <label>
+                      Distance unit
+                      <select
+                        value={draft.distanceUnit}
+                        onChange={(event) =>
+                          edit('distanceUnit', event.target.value as Preferences['distanceUnit'])
+                        }
+                      >
+                        <option value="mi">Miles (mi)</option>
+                        <option value="km">Kilometers (km)</option>
+                      </select>
+                    </label>
                   </div>
-                </section>
-              )}
-              {notice?.kind === 'error' && (
-                <button
-                  className="text-button"
-                  type="button"
-                  disabled={saving}
-                  onClick={() => void reloadPreferences()}
-                >
-                  Reload saved preferences
-                </button>
-              )}
-            </form>
-            <FeatureBoundary>
-              <NotificationSettings />
-            </FeatureBoundary>
-            <FeatureBoundary>
-              <AgentAccess />
-            </FeatureBoundary>
-            <section className="session-card">
-              <div>
-                <h3>Your session</h3>
-                <p>Signed in as {session.me.user.email}.</p>
-                {dirty && <small>Save or discard your changes before signing out.</small>}
-              </div>
-              <div className="session-actions">
-                {dirty && (
-                  <button
-                    className="secondary"
-                    disabled={saving}
-                    onClick={() => {
-                      setDraft(record!.value);
-                      dirtyRef.current = false;
-                      setDirty(false);
-                      setLatestForReview(null);
-                      setNotice(null);
-                      operation.current = null;
-                    }}
+                  <label>
+                    Appearance
+                    <select
+                      value={draft.theme}
+                      onChange={(event) =>
+                        edit('theme', event.target.value as Preferences['theme'])
+                      }
+                    >
+                      <option value="system">Follow device</option>
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                    </select>
+                  </label>
+                </fieldset>
+                {notice && (
+                  <p
+                    className={`notice ${notice.kind}`}
+                    role={notice.kind === 'error' ? 'alert' : 'status'}
                   >
-                    Discard changes
+                    {notice.message}
+                  </p>
+                )}
+                <div className="form-footer">
+                  <span>
+                    {dirty ? 'You have unsaved changes.' : 'Your preferences are up to date.'}
+                  </span>
+                  <button type="submit" disabled={saving || !dirty || latestForReview !== null}>
+                    {saving ? 'Saving…' : 'Save preferences'}
+                  </button>
+                </div>
+                {latestForReview && (
+                  <section className="revision-review" aria-labelledby="revision-title">
+                    <h3 id="revision-title">Review the latest preferences</h3>
+                    <p>
+                      Keeping your edits will replace all five preferences with the values shown in
+                      your form.
+                    </p>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th scope="col">Preference</th>
+                          <th scope="col">Saved on the server</th>
+                          <th scope="col">Your edit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(
+                          [
+                            'displayName',
+                            'timeZone',
+                            'weightUnit',
+                            'distanceUnit',
+                            'theme',
+                          ] as const
+                        ).map((key) => (
+                          <tr key={key}>
+                            <th scope="row">
+                              {
+                                {
+                                  displayName: 'Display name',
+                                  timeZone: 'Time zone',
+                                  weightUnit: 'Weight unit',
+                                  distanceUnit: 'Distance unit',
+                                  theme: 'Appearance',
+                                }[key]
+                              }
+                            </th>
+                            <td>{latestForReview.value[key]}</td>
+                            <td>{draft[key]}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="review-actions">
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => {
+                          setRecord(latestForReview);
+                          operation.current = null;
+                          setDraft(latestForReview.value);
+                          setLatestForReview(null);
+                          dirtyRef.current = false;
+                          setDirty(false);
+                          setNotice({
+                            kind: 'success',
+                            message: 'Your form now matches the saved preferences.',
+                          });
+                        }}
+                      >
+                        Keep saved preferences
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecord(latestForReview);
+                          setLatestForReview(null);
+                          operation.current = null;
+                          setNotice({
+                            kind: 'success',
+                            message:
+                              'You reviewed the current saved preferences. Save to replace them with your edits.',
+                          });
+                        }}
+                      >
+                        Keep my reviewed edits
+                      </button>
+                    </div>
+                  </section>
+                )}
+                {notice?.kind === 'error' && (
+                  <button
+                    className="text-button"
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void reloadPreferences()}
+                  >
+                    Reload saved preferences
                   </button>
                 )}
-                <button
-                  className="secondary"
-                  disabled={saving || dirty}
-                  onClick={() => void signOut()}
-                >
-                  Sign out
-                </button>
+              </form>
+            )}
+            {(settingsSection === 'notifications' || visitedSettings.has('notifications')) && (
+              <div hidden={settingsSection !== 'notifications'}>
+                <FeatureBoundary>
+                  <NotificationSettings />
+                </FeatureBoundary>
               </div>
-            </section>
-          </>
-        ) : page === 'workouts' ? (
-          <nav aria-label="Workout views">
+            )}
+            {(settingsSection === 'connections' || visitedSettings.has('connections')) && (
+              <div className="connections-settings" hidden={settingsSection !== 'connections'}>
+                <FeatureBoundary>
+                  <AgentAccess active={page === 'settings' && settingsSection === 'connections'} />
+                </FeatureBoundary>
+                <FeatureBoundary>
+                  <Whoop />
+                </FeatureBoundary>
+              </div>
+            )}
+            {settingsSection === 'account' && (
+              <section className="session-card">
+                <div>
+                  <h2>Signed-in account</h2>
+                  <p>Signed in as {session.me.user.email}.</p>
+                  <p className="muted">
+                    Account recovery is managed by your installation administrator.
+                  </p>
+                  {dirty && <small>Save or discard your changes before signing out.</small>}
+                </div>
+                <div className="session-actions">
+                  {dirty && (
+                    <button
+                      className="secondary"
+                      disabled={saving}
+                      onClick={() => {
+                        setDraft(record!.value);
+                        dirtyRef.current = false;
+                        setDirty(false);
+                        setLatestForReview(null);
+                        setNotice(null);
+                        operation.current = null;
+                      }}
+                    >
+                      Discard changes
+                    </button>
+                  )}
+                  <button
+                    className="secondary"
+                    disabled={saving || dirty}
+                    onClick={() => void signOut()}
+                  >
+                    Sign out
+                  </button>
+                </div>
+              </section>
+            )}
+          </div>
+        ) : null}
+        {page === 'workouts' ? (
+          <nav className="workout-views" aria-label="Workout views">
+            <button onClick={() => setWorkoutView('train')} aria-pressed={workoutView === 'train'}>
+              Workout
+            </button>
             <button
               onClick={() => setWorkoutView('library')}
               aria-pressed={workoutView === 'library'}
             >
-              Library
-            </button>
-            <button onClick={() => setWorkoutView('train')} aria-pressed={workoutView === 'train'}>
-              Train
-            </button>
-            <button onClick={() => setWorkoutView('whoop')} aria-pressed={workoutView === 'whoop'}>
-              WHOOP
+              Routines
             </button>
           </nav>
         ) : null}
@@ -713,6 +769,10 @@ export function App() {
                     <Workouts
                       active={page === 'workouts' && workoutView === 'library'}
                       preferences={record.value}
+                      onStartRoutine={(routineId) => {
+                        setWorkoutView('train');
+                        setFocusTarget({ kind: 'session', action: 'create', routineId });
+                      }}
                     />
                   </FeatureBoundary>
                 </div>
@@ -729,18 +789,10 @@ export function App() {
                     />
                   </FeatureBoundary>
                 </div>
-                <div hidden={page !== 'workouts' || workoutView !== 'whoop'}>
-                  <FeatureBoundary>
-                    <Whoop />
-                  </FeatureBoundary>
-                </div>
               </>
             )}
           </>
         )}
-        <footer className="workspace-footer">
-          Your life, in your own space.<span>Private installation</span>
-        </footer>
       </main>
     </div>
   );
@@ -789,31 +841,10 @@ function SignIn({ expired, onSignedIn }: { expired: boolean; onSignedIn: () => P
   };
   return (
     <main className="sign-in-layout">
-      <section className="sign-in-story">
-        <a className="brand" href="#">
-          <span className="brand-mark">m.</span>
-          <span>Mem's Life</span>
-        </a>
-        <div>
-          <p className="eyebrow">A private place for everyday life</p>
-          <h1>
-            Make room for
-            <br />
-            <em>what matters.</em>
-          </h1>
-          <p>
-            Your tasks, your training, your everyday meals.
-            <br />
-            Together in a workspace you own.
-          </p>
-        </div>
-        <span className="story-footnote">Personal by design. Private by default.</span>
-      </section>
       <section className="sign-in-panel">
         <form onSubmit={(event) => void submit(event)}>
-          <p className="eyebrow">Welcome home</p>
-          <h2>Sign in to your space.</h2>
-          <p className="muted">Use the owner account for this installation.</p>
+          <span className="sign-in-brand">Mem's Life</span>
+          <h1>Sign in</h1>
           {expired && (
             <p className="notice error" role="alert">
               Your session ended. Sign in again to continue. Your unsaved preferences are still
@@ -850,12 +881,14 @@ function SignIn({ expired, onSignedIn }: { expired: boolean; onSignedIn: () => P
           )}
           <button className="sign-in-button" disabled={busy}>
             {busy ? 'Signing in…' : 'Sign in'}
-            <span aria-hidden="true">↗</span>
           </button>
-          <p className="bootstrap-note">
-            New installation? Create the owner account with the local setup command. Account
-            recovery is managed on the server.
-          </p>
+          <details className="access-help">
+            <summary>Need access?</summary>
+            <p>
+              Use the account created for your private installation. Your installation administrator
+              handles setup and account recovery.
+            </p>
+          </details>
         </form>
       </section>
     </main>

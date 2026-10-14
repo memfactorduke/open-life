@@ -41,6 +41,9 @@ export function Tasks({
   const [boards, setBoards] = useState<Board[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [configuration, setConfiguration] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [agentManagement, setAgentManagement] = useState(false);
+  const [stepState, setStepState] = useState({ canComplete: false, hasAgent: false, nextStep: '' });
   const [configurationBusy, setConfigurationBusy] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
@@ -98,6 +101,14 @@ export function Tasks({
   const dialog = useRef<HTMLDialogElement>(null);
   const queryGeneration = useRef(0);
   const selectedId = useRef<string | null>(null);
+  const drafts = useRef(new Map<string, { content: Draft; revision: number }>());
+  useEffect(() => {
+    if (selected && draft)
+      drafts.current.set(selected.id, {
+        content: draft,
+        revision: drafts.current.get(selected.id)?.revision ?? selected.revision,
+      });
+  }, [selected, draft]);
   const reload = async (currentView = viewRef.current) => {
     const generation = ++queryGeneration.current;
     const filterSnapshot = appliedRef.current;
@@ -205,7 +216,10 @@ export function Tasks({
       } else setUndo(null);
       if (selectedId.current === task.id) {
         setSelected(task);
-        setDraft(task.content);
+        if (command.type === 'task.edit') {
+          setDraft(task.content);
+          drafts.current.set(task.id, { content: task.content, revision: task.revision });
+        }
       }
       await reload();
       if (selectedId.current === task.id) await loadHistory(task.id);
@@ -265,9 +279,19 @@ export function Tasks({
   };
   const show = async (task: Task) => {
     selectedId.current = task.id;
+    setNotice('');
     setSelected(task);
-    setDraft(task.content);
-    setLatest(null);
+    setDraft(drafts.current.get(task.id)?.content ?? task.content);
+    setEditing(false);
+    setAgentManagement(false);
+    setStepState({ canComplete: false, hasAgent: false, nextStep: '' });
+    setLatest(
+      drafts.current.has(task.id) &&
+        drafts.current.get(task.id)?.revision !== task.revision &&
+        JSON.stringify(drafts.current.get(task.id)?.content) !== JSON.stringify(task.content)
+        ? task
+        : null,
+    );
     setHistory([]);
     try {
       const current = await request(`/api/tasks/${task.id}`, TaskResponseSchema);
@@ -440,14 +464,16 @@ export function Tasks({
         </article>
       ))
     ) : (
-      <p className="column-empty">Nothing here yet.</p>
+      <p className="column-empty">
+        {Object.values(applied).some(Boolean)
+          ? 'No matching tasks.'
+          : !tasks.length && view === 'open'
+            ? 'Add a task above to get started.'
+            : 'No tasks here.'}
+      </p>
     );
   return (
     <section className="feature-area">
-      <div className="intro">
-        <h2>Make space for the work ahead.</h2>
-        <p>Capture a thought in Planned. Choose Next when you are ready to work on it.</p>
-      </div>
       <form
         className="quick-capture"
         onSubmit={(event) => {
@@ -481,142 +507,149 @@ export function Tasks({
           Add to Planned
         </button>
       </form>
-      <div className="feature-toolbar" aria-label="Task views">
-        {(['open', 'completed', 'archived'] as const).map((value) => (
-          <button
-            className={view === value ? '' : 'secondary'}
-            aria-pressed={view === value}
-            key={value}
-            onClick={() => setView(value)}
-          >
-            {value === 'open' ? 'Board' : value === 'completed' ? 'Completed' : 'Archive'}
-          </button>
-        ))}
-      </div>
-      <form
-        className="productivity-filters"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setApplied({ ...filters });
-        }}
-      >
-        <label>
-          Search tasks
-          <input
-            type="search"
-            value={filters.search}
-            onChange={(event) => setFilters({ ...filters, search: event.target.value })}
-            placeholder="Title, description or notes"
-          />
-        </label>
-        <label>
-          Board filter
-          <select
-            value={filters.boardId}
-            onChange={(event) => {
-              const next = { ...filters, boardId: event.target.value };
-              setFilters(next);
-              setApplied(next);
-            }}
-          >
-            <option value="">All boards</option>
-            {boards.map((board) => (
-              <option value={board.id} key={board.id}>
-                {board.content.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Project filter
-          <select
-            value={filters.projectId}
-            onChange={(event) => setFilters({ ...filters, projectId: event.target.value })}
-          >
-            <option value="">All projects</option>
-            {projects.map((project) => (
-              <option value={project.id} key={project.id}>
-                {project.content.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button>Find tasks</button>
+      <details className="task-more">
+        <summary>More</summary>
+        <div className="feature-toolbar" aria-label="Task views">
+          {(['open', 'completed', 'archived'] as const).map((value) => (
+            <button
+              className={view === value ? '' : 'secondary'}
+              aria-pressed={view === value}
+              key={value}
+              onClick={() => setView(value)}
+            >
+              {value === 'open' ? 'Board' : value === 'completed' ? 'Completed' : 'Archive'}
+            </button>
+          ))}
+        </div>
         <button
-          type="button"
-          className="secondary"
-          onClick={() => {
-            const empty = {
-              search: '',
-              boardId: '',
-              projectId: '',
-              tag: '',
-              priority: '',
-              timing: '',
-              responsibility: '',
-            };
-            setFilters(empty);
-            setApplied(empty);
-          }}
-        >
-          Clear filters
-        </button>
-        <details>
-          <summary>More filters</summary>
-          <div className="productivity-grid">
-            <label>
-              Tag filter
-              <input
-                value={filters.tag}
-                onChange={(event) => setFilters({ ...filters, tag: event.target.value })}
-              />
-            </label>
-            <label>
-              Priority filter
-              <select
-                value={filters.priority}
-                onChange={(event) => setFilters({ ...filters, priority: event.target.value })}
-              >
-                <option value="">All priorities</option>
-                {['none', 'low', 'normal', 'high', 'urgent'].map((value) => (
-                  <option key={value}>{value}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Dates filter
-              <select
-                value={filters.timing}
-                onChange={(event) => setFilters({ ...filters, timing: event.target.value })}
-              >
-                <option value="">Any date</option>
-                <option value="upcoming">Upcoming</option>
-                <option value="overdue">Overdue</option>
-              </select>
-            </label>
-            <label>
-              Responsibility filter
-              <select
-                value={filters.responsibility}
-                onChange={(event) => setFilters({ ...filters, responsibility: event.target.value })}
-              >
-                <option value="">Everyone</option>
-                <option value="human">Human work</option>
-                <option value="agent">Agent work</option>
-                <option value="either">Either</option>
-              </select>
-            </label>
-          </div>
-        </details>
-        <button
-          type="button"
           className="secondary"
           disabled={configurationBusy}
           onClick={() => setConfiguration(!configuration)}
         >
-          Configure boards & projects
+          Configure boards &amp; projects
         </button>
-      </form>
+      </details>
+      <details className="task-filter-disclosure">
+        <summary>Search and filters</summary>
+        <form
+          className="productivity-filters"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setApplied({ ...filters });
+          }}
+        >
+          <label>
+            Search tasks
+            <input
+              type="search"
+              value={filters.search}
+              onChange={(event) => setFilters({ ...filters, search: event.target.value })}
+              placeholder="Title, description or notes"
+            />
+          </label>
+          <label>
+            Board filter
+            <select
+              value={filters.boardId}
+              onChange={(event) => {
+                const next = { ...filters, boardId: event.target.value };
+                setFilters(next);
+                setApplied(next);
+              }}
+            >
+              <option value="">All boards</option>
+              {boards.map((board) => (
+                <option value={board.id} key={board.id}>
+                  {board.content.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Project filter
+            <select
+              value={filters.projectId}
+              onChange={(event) => setFilters({ ...filters, projectId: event.target.value })}
+            >
+              <option value="">All projects</option>
+              {projects.map((project) => (
+                <option value={project.id} key={project.id}>
+                  {project.content.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button>Find tasks</button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              const empty = {
+                search: '',
+                boardId: '',
+                projectId: '',
+                tag: '',
+                priority: '',
+                timing: '',
+                responsibility: '',
+              };
+              setFilters(empty);
+              setApplied(empty);
+            }}
+          >
+            Clear filters
+          </button>
+          <details>
+            <summary>More filters</summary>
+            <div className="productivity-grid">
+              <label>
+                Tag filter
+                <input
+                  value={filters.tag}
+                  onChange={(event) => setFilters({ ...filters, tag: event.target.value })}
+                />
+              </label>
+              <label>
+                Priority filter
+                <select
+                  value={filters.priority}
+                  onChange={(event) => setFilters({ ...filters, priority: event.target.value })}
+                >
+                  <option value="">All priorities</option>
+                  {['none', 'low', 'normal', 'high', 'urgent'].map((value) => (
+                    <option key={value}>{value}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Dates filter
+                <select
+                  value={filters.timing}
+                  onChange={(event) => setFilters({ ...filters, timing: event.target.value })}
+                >
+                  <option value="">Any date</option>
+                  <option value="upcoming">Upcoming</option>
+                  <option value="overdue">Overdue</option>
+                </select>
+              </label>
+              <label>
+                Responsibility filter
+                <select
+                  value={filters.responsibility}
+                  onChange={(event) =>
+                    setFilters({ ...filters, responsibility: event.target.value })
+                  }
+                >
+                  <option value="">Everyone</option>
+                  <option value="human">Human work</option>
+                  <option value="agent">Agent work</option>
+                  <option value="either">Either</option>
+                </select>
+              </label>
+            </div>
+          </details>
+        </form>
+      </details>
       {configuration && (
         <Configuration
           boards={boards}
@@ -670,7 +703,7 @@ export function Tasks({
               phases.map((value) => ({ id: value, name: phaseNames[value], phase: value }))
             ).map((column) => (
               <section
-                className={`task-column ${phase === column.phase ? 'selected-phase' : ''}`}
+                className={`task-column ${!applied.boardId ? 'default-column' : ''} ${phase === column.phase ? 'selected-phase' : ''}`}
                 key={column.id}
                 aria-label={`${column.name} tasks`}
               >
@@ -686,14 +719,7 @@ export function Tasks({
                     }
                   </span>
                 </h3>
-                <p className="column-phase">
-                  {phaseNames[column.phase]}
-                  {column.phase === 'planned'
-                    ? ' · dormant'
-                    : column.phase === 'next'
-                      ? ' · released'
-                      : ''}
-                </p>
+                {applied.boardId && <p className="column-phase">{phaseNames[column.phase]}</p>}
                 {cards(
                   tasks
                     .filter(
@@ -706,10 +732,6 @@ export function Tasks({
               </section>
             ))}
           </div>
-          <p className="feature-footnote">
-            Next is a deliberate choice to start. Moving a task there does not launch an agent in
-            this build.
-          </p>
         </>
       ) : (
         <div className="task-history-list">{cards(tasks)}</div>
@@ -764,7 +786,7 @@ export function Tasks({
         {selected && draft && (
           <>
             <div className="detail-heading">
-              <h2 id="task-detail-title">Task details</h2>
+              <h2 id="task-detail-title">{selected.content.title}</h2>
               <button
                 className="secondary"
                 disabled={productivityBusy || workflowBlocked || busy || !!pending.current}
@@ -806,54 +828,146 @@ export function Tasks({
                     !!pending.current ||
                     workflowBlocked
                   }
-                  onClick={() => void openFocus(navigationRequest)}
+                  onClick={() => {
+                    drafts.current.delete(selected.id);
+                    void openFocus(navigationRequest);
+                  }}
                 >
                   Discard this draft and continue
                 </button>
               </section>
             )}
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                action(selected, 'task.edit', { content: draft });
-              }}
-            >
-              <fieldset disabled={busy || productivityBusy || workflowBlocked || !!pending.current}>
-                <label>
-                  Title
-                  <input
-                    autoFocus
-                    value={draft.title}
-                    required
-                    maxLength={300}
-                    onChange={(event) => setDraft({ ...draft, title: event.target.value })}
-                  />
-                </label>
-                <label>
-                  Description
-                  <textarea
-                    maxLength={20000}
-                    aria-label="Description"
-                    rows={3}
-                    value={draft.description}
-                    onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-                  />
-                </label>
-                <label>
-                  Notes
-                  <textarea
-                    maxLength={20000}
-                    aria-label="Notes"
-                    rows={4}
-                    value={draft.notes}
-                    onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
-                  />
-                </label>
-                <button disabled={!!latest || !!selected.archivedAt || !draft.title.trim()}>
-                  Save task
-                </button>
-              </fieldset>
-            </form>
+            <section className="task-reading">
+              {!editing && (
+                <>
+                  <p className="task-status">
+                    {phaseNames[selected.phase]}
+                    {selected.paused ? ' · Paused' : ''}
+                  </p>
+                  {stepState.nextStep && (
+                    <p className="step-readiness">Next required step: {stepState.nextStep}</p>
+                  )}
+                  {selected.content.description && <p>{selected.content.description}</p>}
+                  {selected.content.notes && <p className="task-notes">{selected.content.notes}</p>}
+                  {!selected.archivedAt &&
+                    selected.phase !== 'completed' &&
+                    (selected.phase === 'planned' ||
+                      selected.paused ||
+                      (selected.finalReviewRequired && !selected.finalReviewSatisfied) ||
+                      stepState.canComplete) && (
+                      <button
+                        disabled={
+                          busy ||
+                          productivityBusy ||
+                          workflowBlocked ||
+                          !!pending.current ||
+                          !!latest ||
+                          (selected.phase !== 'planned' &&
+                            !selected.paused &&
+                            !(selected.finalReviewRequired && !selected.finalReviewSatisfied) &&
+                            !stepState.canComplete)
+                        }
+                        onClick={() =>
+                          selected.phase === 'planned'
+                            ? action(selected, 'task.move', { phase: 'next', beforeTaskId: null })
+                            : selected.paused
+                              ? action(selected, 'task.pause', { paused: false })
+                              : selected.finalReviewRequired && !selected.finalReviewSatisfied
+                                ? action(selected, 'task.review', {
+                                    required: true,
+                                    satisfied: true,
+                                  })
+                                : action(selected, 'task.complete')
+                        }
+                      >
+                        {selected.phase === 'planned'
+                          ? 'Release to Next'
+                          : selected.paused
+                            ? 'Continue work'
+                            : selected.finalReviewRequired && !selected.finalReviewSatisfied
+                              ? 'Confirm final review'
+                              : 'Complete task'}
+                      </button>
+                    )}
+                  {selected.phase === 'planned' && stepState.hasAgent && (
+                    <p className="step-readiness">
+                      Releasing allows eligible agent steps to start. Human steps still wait for
+                      you.
+                    </p>
+                  )}
+                </>
+              )}
+              <button className="secondary" onClick={() => setEditing(!editing)}>
+                {editing ? 'Done editing' : 'Edit task'}
+              </button>
+            </section>
+            <div hidden={!editing}>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  action(selected, 'task.edit', { content: draft });
+                }}
+              >
+                <fieldset
+                  disabled={busy || productivityBusy || workflowBlocked || !!pending.current}
+                >
+                  <label>
+                    Title
+                    <input
+                      autoFocus
+                      value={draft.title}
+                      required
+                      maxLength={300}
+                      onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Description
+                    <textarea
+                      maxLength={20000}
+                      aria-label="Description"
+                      rows={3}
+                      value={draft.description}
+                      onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Notes
+                    <textarea
+                      maxLength={20000}
+                      aria-label="Notes"
+                      rows={4}
+                      value={draft.notes}
+                      onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
+                    />
+                  </label>
+                  <button disabled={!!latest || !!selected.archivedAt || !draft.title.trim()}>
+                    Save task
+                  </button>
+                </fieldset>
+              </form>
+            </div>
+            {(stepState.hasAgent || agentManagement) && (
+              <AgentWorkflow
+                key={`workflow:${selected.id}`}
+                taskId={selected.id}
+                configurationInitiallyOpen={agentManagement}
+                onBlockedChange={setWorkflowBlocked}
+                onChanged={() => {
+                  void request(
+                    `/api/tasks/${selected.id}`,
+                    z.object({ task: TaskListResponseSchema.shape.tasks.element }),
+                  )
+                    .then(({ task }) => {
+                      if (selectedId.current !== task.id) return;
+                      setSelected(task);
+                      void reload();
+                      void loadHistory(task.id);
+                    })
+                    .catch((error) => setNotice(error.message));
+                }}
+              />
+            )}
             <TaskProductivity
               key={selected.id}
               task={selected}
@@ -864,28 +978,11 @@ export function Tasks({
               action={action}
               refresh={reload}
               onBusyChange={setProductivityBusy}
+              onStepState={setStepState}
               onTask={(task) => {
                 if (selectedId.current !== task.id) return;
                 setSelected(task);
                 void loadHistory(task.id).catch((error) => setNotice(error.message));
-              }}
-            />
-            <AgentWorkflow
-              key={`workflow:${selected.id}`}
-              taskId={selected.id}
-              onBlockedChange={setWorkflowBlocked}
-              onChanged={() => {
-                void request(
-                  `/api/tasks/${selected.id}`,
-                  z.object({ task: TaskListResponseSchema.shape.tasks.element }),
-                )
-                  .then(({ task }) => {
-                    if (selectedId.current !== task.id) return;
-                    setSelected(task);
-                    void reload();
-                    void loadHistory(task.id);
-                  })
-                  .catch((error) => setNotice(error.message));
               }}
             />
             {latest && (
@@ -909,6 +1006,10 @@ export function Tasks({
                     onClick={() => {
                       setSelected(latest);
                       setDraft(latest.content);
+                      drafts.current.set(latest.id, {
+                        content: latest.content,
+                        revision: latest.revision,
+                      });
                       setLatest(null);
                     }}
                   >
@@ -917,6 +1018,7 @@ export function Tasks({
                   <button
                     onClick={() => {
                       setSelected(latest);
+                      drafts.current.set(latest.id, { content: draft, revision: latest.revision });
                       setLatest(null);
                     }}
                   >
@@ -925,42 +1027,57 @@ export function Tasks({
                 </div>
               </section>
             )}
-            <div className="detail-actions">
-              <button
-                className="secondary"
-                disabled={
-                  busy || productivityBusy || workflowBlocked || !!pending.current || !!latest
-                }
-                onClick={() =>
-                  action(selected, selected.archivedAt ? 'task.unarchive' : 'task.archive')
-                }
-              >
-                {selected.archivedAt ? 'Unarchive' : 'Archive'}
-              </button>
-              <button
-                className="secondary"
-                disabled={
-                  busy || productivityBusy || workflowBlocked || !!pending.current || !!latest
-                }
-                onClick={() => {
-                  action(selected, 'task.delete');
-                  close();
-                }}
-              >
-                Delete task
-              </button>
-            </div>
-            <details className="history-drawer">
-              <summary>Change history</summary>
-              {history.length ? (
-                <ol>
-                  {history.map((event, index) => (
-                    <li key={index}>{event}</li>
-                  ))}
-                </ol>
-              ) : (
-                <p>No history loaded.</p>
+            <details className="task-more">
+              <summary>More task actions</summary>
+              {!stepState.hasAgent && (
+                <>
+                  <button
+                    className="secondary"
+                    disabled={workflowBlocked}
+                    onClick={() => setAgentManagement(!agentManagement)}
+                  >
+                    {agentManagement ? 'Hide agent management' : 'Manage agent work'}
+                  </button>
+                </>
               )}
+
+              <div className="detail-actions">
+                <button
+                  className="secondary"
+                  disabled={
+                    busy || productivityBusy || workflowBlocked || !!pending.current || !!latest
+                  }
+                  onClick={() =>
+                    action(selected, selected.archivedAt ? 'task.unarchive' : 'task.archive')
+                  }
+                >
+                  {selected.archivedAt ? 'Unarchive' : 'Archive'}
+                </button>
+                <button
+                  className="secondary"
+                  disabled={
+                    busy || productivityBusy || workflowBlocked || !!pending.current || !!latest
+                  }
+                  onClick={() => {
+                    if (window.confirm('Delete this task? Its history is retained.'))
+                      action(selected, 'task.delete');
+                  }}
+                >
+                  Delete task
+                </button>
+              </div>
+              <details className="history-drawer">
+                <summary>Change history</summary>
+                {history.length ? (
+                  <ol>
+                    {history.map((event, index) => (
+                      <li key={index}>{event}</li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p>No history loaded.</p>
+                )}
+              </details>
             </details>
           </>
         )}

@@ -46,6 +46,39 @@ const day: AttentionResponse = {
       route: { kind: 'task', id: task.id },
       dedupeKey: 'review:2:1',
     },
+    {
+      id: 'waiting:3',
+      sourceId: task.id,
+      sourceRevision: 2,
+      kind: 'waiting',
+      task,
+      step: null,
+      waitingReason: 'agent',
+      route: { kind: 'task', id: task.id },
+      dedupeKey: 'waiting:3:2',
+    },
+    {
+      id: 'failure:4',
+      sourceId: task.id,
+      sourceRevision: 2,
+      kind: 'failure',
+      task,
+      step: null,
+      waitingReason: 'agent_failed',
+      route: { kind: 'task', id: task.id },
+      dedupeKey: 'failure:4:2',
+    },
+    {
+      id: 'unknown:5',
+      sourceId: task.id,
+      sourceRevision: 2,
+      kind: 'outcome-unknown',
+      task,
+      step: null,
+      waitingReason: 'reconcile_agent_outcome',
+      route: { kind: 'task', id: task.id },
+      dedupeKey: 'unknown:5:2',
+    },
   ],
   activeSession: {
     id: id(3),
@@ -152,7 +185,7 @@ test('fictional daily focus adapts across phone, tablet rotation, compact split 
   });
   await page.goto('/#today');
   await expect(page.locator('#today-heading')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Food today', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Food today · 1', exact: true })).toBeVisible();
   for (const [label, width, height] of [
     ['phone', 390, 844],
     ['compact-tablet', 600, 800],
@@ -168,12 +201,29 @@ test('fictional daily focus adapts across phone, tablet rotation, compact split 
     ).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`${label}.png`), fullPage: true });
   }
-  await page.getByRole('button', { name: /Review needed Fictional due task/ }).click();
-  await expect(page.locator('.today-detail')).toContainText(
-    'An agent result is ready for your review.',
-  );
-  await page.getByRole('button', { name: 'Open task', exact: true }).focus();
-  await expect(page.getByRole('button', { name: 'Open task', exact: true })).toBeFocused();
+  await expect(
+    page.getByRole('button', { name: 'Waiting: Fictional due task', exact: true }),
+  ).not.toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Agent needs help: Fictional due task', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Outcome needs checking: Fictional due task', exact: true }),
+  ).toBeVisible();
+  await page.locator('.today-waiting summary').click();
+  await expect(
+    page.getByRole('button', { name: 'Waiting: Fictional due task', exact: true }),
+  ).toBeVisible();
+  await page.locator('.today-waiting summary').click();
+  await expect(page.getByRole('button', { name: 'Resume workout', exact: true })).toHaveCount(1);
+  const review = page.getByRole('button', {
+    name: 'Review needed: Fictional due task',
+    exact: true,
+  });
+  await expect(review).toContainText('Review the agent result.');
+  await review.focus();
+  await expect(review).toBeFocused();
+  await expect(page.locator('.today-detail, .today-next, .today-greeting')).toHaveCount(0);
   fail = true;
   await page.getByRole('button', { name: 'Refresh Today', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Connection interrupted.');
@@ -182,8 +232,8 @@ test('fictional daily focus adapts across phone, tablet rotation, compact split 
   fail = false;
   empty = true;
   await page.getByRole('button', { name: 'Retry Today', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'A clear place to start' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open Workouts', exact: true })).toBeVisible();
+  await expect(page.getByText('Nothing needs your attention.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start workout', exact: true })).toBeVisible();
 });
 
 test('live PostgreSQL day reaches its exact task, workout and food records', async ({
@@ -304,9 +354,12 @@ test('live PostgreSQL day reaches its exact task, workout and food records', asy
       content: { text: `Fictional lunch ${suffix}`, occurredAt: instant, timezone: 'UTC' },
     });
     await page.getByRole('button', { name: 'Refresh Today', exact: true }).click();
-    await expect(page.locator('.today-list')).toContainText(`Fictional due ${suffix}`);
-    await expect(page.locator('.today-list')).toContainText(`Fictional agent step ${suffix}`);
-    await expect(page.locator('.today-list')).toContainText('Waiting for an agent.');
+    await expect(page.locator('.today-focus > .today-list')).toContainText(
+      `Fictional due ${suffix}`,
+    );
+    await page.locator('.today-waiting summary').click();
+    await expect(page.locator('.today-waiting')).toContainText(`Fictional agent step ${suffix}`);
+    await expect(page.locator('.today-waiting')).toContainText('Waiting for an agent.');
     const response = await page.request.get('/api/attention');
     expect(response.ok()).toBeTruthy();
     const projection = await response.json();
@@ -321,7 +374,9 @@ test('live PostgreSQL day reaches its exact task, workout and food records', asy
       ['web', 1440, 900],
     ] as const) {
       await page.setViewportSize({ width, height });
-      await expect(page.getByRole('button', { name: 'Continue task', exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: `Due now: Fictional due ${suffix}`, exact: true }),
+      ).toBeVisible();
       await expect(page.getByRole('button', { name: 'Resume workout', exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
@@ -332,23 +387,21 @@ test('live PostgreSQL day reaches its exact task, workout and food records', asy
       });
     }
     await retain('live-projection', projection);
-    await page
-      .locator('.today-list button')
-      .filter({ hasText: `Fictional due ${suffix}` })
-      .click();
     const taskOpened = page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === `/api/tasks/${dueId}` &&
         response.request().method() === 'GET',
     );
-    await page.getByRole('button', { name: 'Open task', exact: true }).click();
+    await page
+      .getByRole('button', { name: `Due now: Fictional due ${suffix}`, exact: true })
+      .click();
     const taskResponse = await taskOpened;
     expect(taskResponse.ok()).toBeTruthy();
     expect((await taskResponse.json()).task.id).toBe(dueId);
-    const taskDialog = page.getByRole('dialog', { name: 'Task details', exact: true });
-    await expect(taskDialog.getByRole('textbox', { name: 'Title', exact: true })).toHaveValue(
-      `Fictional due ${suffix}`,
-    );
+    const taskDialog = page.getByRole('dialog', { name: `Fictional due ${suffix}`, exact: true });
+    await expect(
+      taskDialog.getByRole('heading', { name: `Fictional due ${suffix}`, exact: true }),
+    ).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('live-task.png'), fullPage: true });
     await page.goto('/#today');
     await page.getByRole('button', { name: 'Resume workout', exact: true }).click();
@@ -361,10 +414,8 @@ test('live PostgreSQL day reaches its exact task, workout and food records', asy
       .locator('.today-food button')
       .filter({ hasText: `Fictional lunch ${suffix}` })
       .click();
-    await expect(
-      page.getByRole('heading', { name: 'Correct an entry', exact: true }),
-    ).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toHaveValue(
+    await expect(page.getByRole('heading', { name: 'Edit entry', exact: true })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'What did you eat?', exact: true })).toHaveValue(
       `Fictional lunch ${suffix}`,
     );
     await page.screenshot({ path: testInfo.outputPath('live-food.png'), fullPage: true });

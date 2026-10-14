@@ -41,3 +41,33 @@
 .whoop dd {
   font-variant-numeric: tabular-nums;
 }
+.whoop {
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.whoop h2,
+.whoop p {
+  margin: 0;
+}
+.whoop header {
+  display: grid;
+  gap: 0.5rem;
+}
+.whoop header p:first-child {
+  font-size: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.whoop-observations {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+}
+.whoop-observations article {
+  display: grid;
+  gap: 0.8rem;
+  border-color: var(--line);
+}
+.whoop button {
+  min-height: 44px;
+}

@@ -46,16 +46,43 @@ const routineContent = (record: Routine): RoutineContent => ({
 });
 const numberValue = (value: number | null) => (value === null ? '' : Number(value.toFixed(5)));
 
+function targetSummary(item: RoutineContent['items'][number], preferences: Preferences) {
+  if (!item.targets.length) return 'No targets';
+  const labels = item.targets.map(({ measurements: m, kind }) => {
+    const parts: string[] = [];
+    if ('reps' in m && m.reps !== null) parts.push(`${m.reps} reps`);
+    const load = 'addedLoadKg' in m ? m.addedLoadKg : 'loadKg' in m ? m.loadKg : null;
+    if (load !== null)
+      parts.push(
+        `${Number(weightFromKg(load, preferences.weightUnit).toFixed(2))} ${preferences.weightUnit}`,
+      );
+    if ('durationSeconds' in m && m.durationSeconds !== null) parts.push(`${m.durationSeconds}s`);
+    if ('distanceMeters' in m && m.distanceMeters !== null)
+      parts.push(
+        `${Number(distanceFromMeters(m.distanceMeters, preferences.distanceUnit).toFixed(2))} ${preferences.distanceUnit}`,
+      );
+    return `${kind === 'warmup' ? 'Warm-up · ' : ''}${parts.join(' · ') || 'Blank target'}`;
+  });
+  return labels.every((label) => label === labels[0])
+    ? `${labels.length} × ${labels[0]}`
+    : labels.join(' / ');
+}
+
 export function Workouts({
   preferences,
   active = true,
+  onStartRoutine,
 }: {
   preferences: Preferences;
   active?: boolean;
+  onStartRoutine?: (routineId: string) => void;
 }) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [tab, setTab] = useState<'routines' | 'exercises'>('routines');
+  const [search, setSearch] = useState('');
+  const [picker, setPicker] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
   const [archived, setArchived] = useState(false);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [latest, setLatest] = useState<Exercise | Routine | null>(null);
@@ -117,6 +144,8 @@ export function Workouts({
     if (!confirmed && (busy || pending.current)) return;
     dialog.current?.close();
     setEditing(null);
+    setPicker(false);
+    setPickerSearch('');
     setLatest(null);
   };
   const run = async (operation: Pending, retry = false) => {
@@ -138,7 +167,7 @@ export function Workouts({
       pending.current = null;
       close(true);
       await load();
-      setNotice('Saved. Your routines are plans. They do not record a workout as performed.');
+      setNotice('Saved.');
     } catch (error) {
       if (error instanceof RequestError && error.status === 409) {
         pending.current = null;
@@ -247,6 +276,8 @@ export function Workouts({
   const addExercise = (id: string) => {
     if (editing?.kind !== 'routine' || !id) return;
     const exercise = exercises.find((value) => value.id === id)!;
+    setPicker(false);
+    setPickerSearch('');
     setRoutine({
       ...editing.content,
       items: [
@@ -303,11 +334,7 @@ export function Workouts({
     </div>
   );
   return (
-    <section className="feature-area">
-      <div className="intro">
-        <h2>Build a plan you can return to.</h2>
-        <p>Keep your exercises and reusable routines together. Open Train to record a workout.</p>
-      </div>
+    <section className="feature-area workout-library">
       <div className="feature-toolbar">
         <div className="segmented">
           {(['routines', 'exercises'] as const).map((value) => (
@@ -315,7 +342,10 @@ export function Workouts({
               className={tab === value ? '' : 'secondary'}
               aria-pressed={tab === value}
               key={value}
-              onClick={() => setTab(value)}
+              onClick={() => {
+                setTab(value);
+                setSearch('');
+              }}
             >
               {value === 'routines' ? 'Routines' : 'Exercise library'}
             </button>
@@ -339,6 +369,10 @@ export function Workouts({
           {tab === 'routines' ? 'New routine' : 'New exercise'}
         </button>
       </div>
+      <label className="library-search">
+        Search {tab}
+        <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
+      </label>
       <label className="check-label">
         <input
           type="checkbox"
@@ -356,23 +390,27 @@ export function Workouts({
         <div className="library-grid">
           {tab === 'routines'
             ? routines
-                .filter((item) => (archived ? !!item.archivedAt : !item.archivedAt))
+                .filter(
+                  (item) =>
+                    (archived ? !!item.archivedAt : !item.archivedAt) &&
+                    item.name.toLowerCase().includes(search.toLowerCase()),
+                )
                 .map((routine) => (
                   <article className="library-card" key={routine.id}>
                     <p className="eyebrow">
                       {routine.items.length} exercises{routine.archivedAt ? ' · Archived' : ''}
                     </p>
                     <h3>{routine.name}</h3>
-                    <p>{routine.notes || 'A reusable training plan.'}</p>
-                    <ol className="routine-preview">
-                      {routine.items.map((item) => (
-                        <li key={item.id}>
-                          {item.snapshot.name}
-                          <span>{item.targets.length} targets</span>
-                        </li>
-                      ))}
-                    </ol>
                     <div className="card-actions">
+                      {!routine.archivedAt && onStartRoutine && (
+                        <button
+                          disabled={busy || !!pending.current}
+                          onClick={() => onStartRoutine(routine.id)}
+                          aria-label={`Start ${routine.name}`}
+                        >
+                          Start
+                        </button>
+                      )}
                       <button
                         className="secondary"
                         disabled={busy || !!pending.current}
@@ -387,25 +425,34 @@ export function Workouts({
                       >
                         Edit routine
                       </button>
-                      <button
-                        className="secondary"
-                        disabled={busy || !!pending.current}
-                        onClick={() => routineAction(routine, true)}
-                      >
-                        Duplicate
-                      </button>
-                      <button
-                        className="text-button"
-                        disabled={busy || !!pending.current}
-                        onClick={() => routineAction(routine)}
-                      >
-                        {routine.archivedAt ? 'Unarchive' : 'Archive'}
-                      </button>
+                      <details className="library-more">
+                        <summary aria-label={`More options for ${routine.name}`}>More</summary>
+                        <div className="library-menu">
+                          <button
+                            className="secondary"
+                            disabled={busy || !!pending.current}
+                            onClick={() => routineAction(routine, true)}
+                          >
+                            Duplicate
+                          </button>
+                          <button
+                            className="text-button"
+                            disabled={busy || !!pending.current}
+                            onClick={() => routineAction(routine)}
+                          >
+                            {routine.archivedAt ? 'Unarchive' : 'Archive'}
+                          </button>
+                        </div>
+                      </details>
                     </div>
                   </article>
                 ))
             : exercises
-                .filter((item) => (archived ? !!item.archivedAt : !item.archivedAt))
+                .filter(
+                  (item) =>
+                    (archived ? !!item.archivedAt : !item.archivedAt) &&
+                    item.name.toLowerCase().includes(search.toLowerCase()),
+                )
                 .map((exercise) => (
                   <article className="library-card" key={exercise.id}>
                     <p className="eyebrow">
@@ -445,21 +492,27 @@ export function Workouts({
                     </div>
                   </article>
                 ))}
-          {!(tab === 'routines' ? routines : exercises).some((item) =>
-            archived ? !!item.archivedAt : !item.archivedAt,
+          {!(tab === 'routines' ? routines : exercises).some(
+            (item) =>
+              (archived ? !!item.archivedAt : !item.archivedAt) &&
+              item.name.toLowerCase().includes(search.toLowerCase()),
           ) && (
             <div className="library-empty">
               <h3>
-                {archived
-                  ? 'No archived records.'
-                  : tab === 'routines'
-                    ? 'Your first routine starts here.'
-                    : 'No exercises yet.'}
+                {search
+                  ? 'No matching records.'
+                  : archived
+                    ? 'No archived records.'
+                    : tab === 'routines'
+                      ? 'Your first routine starts here.'
+                      : 'No exercises yet.'}
               </h3>
               <p>
-                {archived
-                  ? 'Archived records remain available here.'
-                  : 'Use the button above to add one.'}
+                {search
+                  ? 'Try a different name.'
+                  : archived
+                    ? 'Archived records remain available here.'
+                    : 'Use the button above to add one.'}
               </p>
             </div>
           )}
@@ -548,31 +601,64 @@ export function Workouts({
                   </>
                 ) : (
                   <>
-                    <label>
-                      Add an exercise
-                      <select
-                        aria-label="Add an exercise"
-                        disabled={editing.content.items.length >= 100}
-                        value=""
-                        onChange={(event) => addExercise(event.target.value)}
-                      >
-                        <option value="">Choose from your library…</option>
-                        {exercises
-                          .filter((exercise) => !exercise.archivedAt)
-                          .map((exercise) => (
-                            <option value={exercise.id} key={exercise.id}>
-                              {exercise.name}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={editing.content.items.length >= 100}
+                      onClick={() => setPicker(!picker)}
+                      aria-expanded={picker}
+                    >
+                      Add exercise
+                    </button>
+                    {picker && (
+                      <section className="exercise-picker" aria-label="Exercise picker">
+                        <label>
+                          Find exercise
+                          <input
+                            type="search"
+                            autoFocus
+                            value={pickerSearch}
+                            onChange={(event) => setPickerSearch(event.target.value)}
+                          />
+                        </label>
+                        <div className="picker-results">
+                          {exercises
+                            .filter(
+                              (exercise) =>
+                                !exercise.archivedAt &&
+                                exercise.name.toLowerCase().includes(pickerSearch.toLowerCase()),
+                            )
+                            .map((exercise) => (
+                              <button
+                                className="secondary"
+                                type="button"
+                                key={exercise.id}
+                                onClick={() => addExercise(exercise.id)}
+                              >
+                                {exercise.name}
+                              </button>
+                            ))}
+                        </div>
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => setPicker(false)}
+                        >
+                          Cancel
+                        </button>
+                      </section>
+                    )}
                     <div className="routine-items">
                       {editing.content.items.map((item, index) => (
-                        <section className="routine-item" key={item.id}>
-                          <div className="item-heading">
-                            <h3>
-                              <span>{index + 1}.</span> {item.snapshot.name}
-                            </h3>
+                        <details className="routine-item" key={item.id}>
+                          <summary>
+                            <strong>
+                              {index + 1}. {item.snapshot.name}
+                            </strong>
+                            <span>{targetSummary(item, preferences)}</span>
+                          </summary>
+                          <details className="item-options">
+                            <summary>More exercise options</summary>
                             <div className="item-order">
                               <button
                                 type="button"
@@ -608,8 +694,7 @@ export function Workouts({
                                 Remove
                               </button>
                             </div>
-                          </div>
-                          <p className="muted">{modeNames[item.snapshot.mode]}</p>
+                          </details>
                           {item.targets.map((target, targetIndex) => {
                             const fields =
                               target.measurements.mode === 'weighted'
@@ -758,13 +843,9 @@ export function Workouts({
                               onChange={(event) => updateItem(index, { notes: event.target.value })}
                             />
                           </label>
-                        </section>
+                        </details>
                       ))}
                     </div>
-                    <p className="feature-footnote">
-                      Targets can be left blank. Enter the measurements you intend to use. Library
-                      changes do not rewrite exercises already saved in a routine.
-                    </p>
                   </>
                 )}
                 <label>

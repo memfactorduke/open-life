@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Image, Alert } from 'react-native';
+import { View, Image, Alert, Modal, ScrollView } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Temporal } from '@js-temporal/polyfill';
 import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
 import { File } from 'expo-file-system';
@@ -15,7 +17,7 @@ import {
 } from '@mems-life/domain';
 import { parseFoodAcknowledgement, useOfflineRevision } from '../offline-client';
 import type { InstallationClient } from '../client';
-import { Action, Body, Card, Field, Heading } from '../ui';
+import { Action, Body, Card, Field, Heading, usePalette } from '../ui';
 import { retainFoodPhoto, uploadFoodPhoto, type LocalFoodPhoto } from '../media';
 import { useCommand, messageOf } from './helpers';
 import { DateTimeField, formatDateTime } from '../DateTimeField';
@@ -90,6 +92,16 @@ export function Food({
   preferences?: Preferences;
   focusTarget?: { id?: string; action?: 'create' | 'capture' };
 }) {
+  const palette = usePalette();
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [editingTime, setEditingTime] = useState(false);
+  const [more, setMore] = useState(false);
+  const [width, setWidth] = useState(0);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarDay, setCalendarDay] = useState(
+    () => localParts(new Date().toISOString(), preferences?.timeZone ?? deviceTimezone).date,
+  );
+  const historySequence = useRef(0);
   const timezone = preferences?.timeZone ?? deviceTimezone;
   const offlineRevision = useOfflineRevision(client);
   const [draftEntryId, setDraftEntryId] = useState(Crypto.randomUUID);
@@ -97,9 +109,11 @@ export function Food({
   const [localPhotos, setLocalPhotos] = useState<
     Awaited<ReturnType<NonNullable<InstallationClient['offline']>['store']['photos']>>
   >([]);
+  const [loaded, setLoaded] = useState(false);
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [text, setText] = useState('');
   const [time, setTime] = useState(() => new Date().toISOString());
+  const initialTime = useRef(time);
   const [day, setDay] = useState(() => localParts(time, timezone).date);
   const [selected, setSelected] = useState<FoodEntry | null>(null);
   const [photos, setPhotos] = useState<LocalFoodPhoto[]>([]);
@@ -114,14 +128,18 @@ export function Food({
   const [pickingPhoto, setPickingPhoto] = useState(false);
   const hasUnsavedText = selected
     ? text !== selected.content.text || Date.parse(time) !== Date.parse(selected.content.occurredAt)
-    : !!text.trim();
+    : !!text.trim() || time !== initialTime.current;
   async function load() {
     const sequence = ++loadSequence.current;
+    setLoaded(false);
     try {
       const response = FoodListResponseSchema.parse(
         await client.request(`/api/food?date=${day}&timezone=${encodeURIComponent(timezone)}`),
       );
-      if (sequence === loadSequence.current) setEntries(response.entries);
+      if (sequence === loadSequence.current) {
+        setEntries(response.entries);
+        setLoaded(true);
+      }
     } catch (error) {
       if (sequence === loadSequence.current) setNotice(messageOf(error));
     }
@@ -150,6 +168,7 @@ export function Food({
       .then((saved) => {
         if (!active) return;
         if (saved) {
+          if (saved.text || saved.selected || saved.photos.length) setComposerOpen(true);
           setText(saved.text);
           setTime(saved.time);
           setDraftEntryId(saved.draftEntryId);
@@ -189,6 +208,9 @@ export function Food({
         .then((raw) => {
           if (!active) return;
           const entry = FoodResponseSchema.parse(raw).entry;
+          setComposerOpen(true);
+          setHistory([]);
+          historySequence.current++;
           setSelected(entry);
           setText(entry.content.text);
           setTime(entry.content.occurredAt);
@@ -199,7 +221,7 @@ export function Food({
         });
     } else if (focusTarget.action === 'capture') {
       setSelected(null);
-      setNotice('Add food notes, take a photo, or choose photos.');
+      setComposerOpen(true);
     }
     return () => {
       active = false;
@@ -293,7 +315,9 @@ export function Food({
         setPhotos([]);
         setSelected(null);
         setText('');
-        setTime(new Date().toISOString());
+        initialTime.current = new Date().toISOString();
+        setTime(initialTime.current);
+        setComposerOpen(false);
         setDraftEntryId(Crypto.randomUUID());
         setNotice('Saved on this device. Waiting for server confirmation and photo upload.');
         await load();
@@ -358,7 +382,9 @@ export function Food({
       }
       setSelected(null);
       setText('');
-      setTime(new Date().toISOString());
+      initialTime.current = new Date().toISOString();
+      setTime(initialTime.current);
+      setComposerOpen(false);
       setDraftEntryId(Crypto.randomUUID());
       setNotice('Food entry saved.');
       await load();
@@ -390,199 +416,342 @@ export function Food({
       parseFoodAcknowledgement,
     );
     if (result) {
-      if (selected?.id === entry.id) setSelected(photoId ? result.entry : null);
+      if (selected?.id === entry.id) {
+        setSelected(photoId ? result.entry : null);
+        if (!photoId) {
+          setText('');
+          setPhotos([]);
+          initialTime.current = new Date().toISOString();
+          setTime(initialTime.current);
+          setDraftEntryId(Crypto.randomUUID());
+          setComposerOpen(false);
+        }
+      }
       await load();
     }
   }
+  const locked =
+    !draftReady ||
+    busy ||
+    pickingPhoto ||
+    !!command.pending ||
+    photos.some((photo) => photo.allocationRevision !== undefined);
+  function begin() {
+    if (!hasUnsavedText && !photos.length && !command.pending && !busy && !pickingPhoto) {
+      setSelected(null);
+      setText('');
+      initialTime.current = new Date().toISOString();
+      setTime(initialTime.current);
+      setDraftEntryId(Crypto.randomUUID());
+      setHistory([]);
+      historySequence.current++;
+      setEditingTime(false);
+      setMore(false);
+    }
+    setComposerOpen(true);
+  }
+  const changeDay = (amount: number) =>
+    setDay(Temporal.PlainDate.from(day).add({ days: amount }).toString());
+  let displayTime = 'Review date and time';
+  try {
+    displayTime = formatDateTime(foodInstant(time, timezone), timezone);
+  } catch {
+    /* Saved invalid drafts stay repairable. */
+  }
+  const dayLabel = Temporal.PlainDate.from(day).toLocaleString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+  const openEntry = (entry: FoodEntry) => {
+    setSelected(entry);
+    setText(entry.content.text);
+    setTime(entry.content.occurredAt);
+    setHistory([]);
+    historySequence.current++;
+    setMore(false);
+    setComposerOpen(true);
+  };
   return (
-    <View style={{ gap: 14 }}>
-      <Heading eyebrow="Photos and a few words">Food diary</Heading>
+    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={{ gap: 14 }}>
       {!draftReady && <Body>Opening saved diary draft…</Body>}
       {!!notice && <Body>{notice}</Body>}
       {!!command.error && <Body error>{command.error}</Body>}
-      <Card>
-        <Body>{selected ? 'Correct your entry' : 'What did you eat?'}</Body>
-        <Field
-          editable={
-            draftReady &&
-            !busy &&
-            !pickingPhoto &&
-            !command.pending &&
-            !photos.some((photo) => photo.allocationRevision !== undefined)
-          }
-          label="Food notes"
-          multiline
-          value={text}
-          onChangeText={setText}
-        />
-        <DateTimeField
-          disabled={
-            !draftReady ||
-            busy ||
-            pickingPhoto ||
-            !!command.pending ||
-            photos.some((photo) => photo.allocationRevision !== undefined)
-          }
-          label="Date and time"
-          value={(() => {
-            try {
-              return foodInstant(time, timezone);
-            } catch {
-              return null;
-            }
-          })()}
-          timezone={timezone}
-          nullable={false}
-          onChange={(at) => {
-            if (at) setTime(at);
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+        <Action title="Previous day" variant="quiet" compact onPress={() => changeDay(-1)} />
+        <View style={{ flex: 1, minWidth: 140 }}>
+          <Body>{dayLabel}</Body>
+        </View>
+        <Action title="Next day" variant="quiet" compact onPress={() => changeDay(1)} />
+      </View>
+      <Action
+        title="Choose day"
+        variant="quiet"
+        compact
+        onPress={() => {
+          setCalendarDay(day);
+          setCalendarOpen(true);
+        }}
+      />
+      <Modal
+        visible={calendarOpen}
+        presentationStyle="pageSheet"
+        onRequestClose={() => setCalendarOpen(false)}
+      >
+        <ScrollView
+          style={{ backgroundColor: palette.background }}
+          contentContainerStyle={{ padding: 24, gap: 16 }}
+        >
+          <Heading>Choose day</Heading>
+          <DateTimePicker
+            accessibilityLabel="Diary day picker"
+            value={new Date(localInstant(calendarDay, '12:00', timezone)!)}
+            mode="date"
+            display="inline"
+            timeZoneName={timezone}
+            onValueChange={(_event, value) => {
+              if (value) setCalendarDay(localParts(value.toISOString(), timezone).date);
+            }}
+          />
+          <Action
+            title="Show day"
+            onPress={() => {
+              setDay(calendarDay);
+              setCalendarOpen(false);
+            }}
+          />
+          <Action title="Cancel day" secondary onPress={() => setCalendarOpen(false)} />
+        </ScrollView>
+      </Modal>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <Action
+          title="Add photo"
+          variant="quiet"
+          compact
+          disabled={locked}
+          onPress={() => {
+            setComposerOpen(true);
+            void pick(true);
           }}
         />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          <Action
-            title="Take photo"
-            secondary
-            disabled={
-              !draftReady ||
-              busy ||
-              pickingPhoto ||
-              command.pending ||
-              photos.length + (selected?.photoIds.length ?? 0) >= 12 ||
-              photos.some((photo) => photo.allocationRevision !== undefined)
-            }
-            onPress={() => void pick(true)}
-          />
-          <Action
-            title="Choose photos"
-            secondary
-            disabled={
-              !draftReady ||
-              busy ||
-              pickingPhoto ||
-              command.pending ||
-              photos.length + (selected?.photoIds.length ?? 0) >= 12 ||
-              photos.some((photo) => photo.allocationRevision !== undefined)
-            }
-            onPress={() => void pick(false)}
-          />
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {photos.map((photo) => (
-            <Image key={photo.uri} source={{ uri: photo.uri }} style={{ width: 100, height: 90 }} />
-          ))}
-        </View>
-        <Body>
-          {photos.length} photos selected. Local images stay on this device until upload is
-          confirmed.
-        </Body>
         <Action
-          title="Save food entry"
-          busy={busy || command.busy}
-          disabled={!draftReady || pickingPhoto}
-          onPress={() => void save()}
+          title={!composerOpen && (hasUnsavedText || photos.length) ? 'Resume draft' : 'Add entry'}
+          variant="quiet"
+          compact
+          disabled={!draftReady}
+          onPress={begin}
         />
-        {hasUnsavedText && <Body>Save your diary draft before opening another entry.</Body>}
-        {selected && (
-          <Action
-            title="New entry"
-            secondary
-            disabled={
-              busy || pickingPhoto || photos.length > 0 || command.pending || hasUnsavedText
-            }
-            onPress={() => {
-              setSelected(null);
-              setDraftEntryId(Crypto.randomUUID());
-              setText('');
-              setTime(new Date().toISOString());
-              setHistory([]);
-            }}
-          />
-        )}
-      </Card>
-      <Field label="History date" value={day} onChangeText={setDay} placeholder="YYYY-MM-DD" />
-      {entries.length === 0 && (
-        <Body>No food recorded for this day. Add a photo or a few words.</Body>
-      )}
-      {entries.map((entry) => (
-        <Card key={entry.id}>
-          <Body>{formatDateTime(entry.content.occurredAt, timezone)}</Body>
-          <Body>{entry.content.text || 'Photo entry'}</Body>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {localPhotos
-              .filter(
-                (p) => p.entryId === entry.id && p.status !== 'synced' && p.status !== 'discarded',
-              )
-              .map((p) => (
-                <View key={p.id}>
-                  <Image
-                    accessibilityLabel="Food photo saved on this device"
-                    source={{ uri: p.uri }}
-                    style={{ width: 150, height: 130 }}
-                  />
-                  <Body>
-                    {p.status === 'needs-attention'
-                      ? 'Upload needs review'
-                      : 'Saved locally · upload pending'}
-                  </Body>
-                </View>
-              ))}
-            {entry.photoIds.map((id) => (
-              <View key={id}>
-                <PrivatePhoto id={id} entryId={entry.id} client={client} />
+      </View>
+      <View style={{ flexDirection: width > 760 ? 'row' : 'column', gap: 16 }}>
+        {composerOpen && (
+          <View style={{ flex: width > 760 ? 1 : undefined, minWidth: 0 }}>
+            <Card>
+              <Body>{selected ? 'Edit entry' : 'Add entry'}</Body>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
                 <Action
-                  title="Remove photo"
-                  secondary
-                  disabled={busy || pickingPhoto}
-                  onPress={() => void mutate(entry, id)}
+                  title="Take photo"
+                  variant="quiet"
+                  compact
+                  disabled={locked || photos.length + (selected?.photoIds.length ?? 0) >= 12}
+                  onPress={() => void pick(true)}
+                />
+                <Action
+                  title="Choose photos"
+                  variant="quiet"
+                  compact
+                  disabled={locked || photos.length + (selected?.photoIds.length ?? 0) >= 12}
+                  onPress={() => void pick(false)}
                 />
               </View>
-            ))}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {photos.map((photo) => (
+                  <Image
+                    accessibilityLabel="Selected food photo"
+                    key={photo.uri}
+                    source={{ uri: photo.uri }}
+                    style={{ width: 100, height: 90, borderRadius: 10 }}
+                  />
+                ))}
+              </View>
+              <Field
+                editable={!locked}
+                label="What did you eat?"
+                multiline
+                value={text}
+                onChangeText={setText}
+                placeholder="Add a few words (optional)"
+              />
+              <Body>Time · {displayTime}</Body>
+              <Action
+                title="Edit time"
+                variant="quiet"
+                compact
+                disabled={locked}
+                onPress={() => setEditingTime(!editingTime)}
+              />
+              {editingTime && (
+                <DateTimeField
+                  disabled={locked}
+                  label="Date and time"
+                  value={(() => {
+                    try {
+                      return foodInstant(time, timezone);
+                    } catch {
+                      return null;
+                    }
+                  })()}
+                  timezone={timezone}
+                  nullable={false}
+                  onChange={(at) => {
+                    if (at) setTime(at);
+                  }}
+                />
+              )}
+              {photos.length > 0 && (
+                <Body>
+                  {photos.length} {photos.length === 1 ? 'photo' : 'photos'} selected
+                </Body>
+              )}
+              <Action
+                title="Save entry"
+                busy={busy || command.busy}
+                disabled={!draftReady || pickingPhoto}
+                onPress={() => void save()}
+              />
+              <Action
+                title="Cancel"
+                variant="quiet"
+                compact
+                disabled={busy || pickingPhoto}
+                onPress={() => setComposerOpen(false)}
+              />
+              {selected && (
+                <>
+                  <Action title="More" variant="quiet" compact onPress={() => setMore(!more)} />
+                  {more && (
+                    <>
+                      {selected.photoIds.map((id, index) => (
+                        <Action
+                          key={id}
+                          title={`Remove photo ${index + 1}`}
+                          variant="quiet"
+                          compact
+                          disabled={locked}
+                          onPress={() => void mutate(selected, id)}
+                        />
+                      ))}
+                      <Action
+                        title="Entry history"
+                        variant="quiet"
+                        compact
+                        onPress={() => {
+                          const sequence = ++historySequence.current;
+                          void client
+                            .request(`/api/food/${selected.id}/history`)
+                            .then((value) => {
+                              if (sequence !== historySequence.current) return;
+                              setHistory(
+                                FoodHistorySchema.parse(value).events.map(
+                                  (event) =>
+                                    `${formatDateTime(event.createdAt, timezone)}: ${event.type === 'food.create' ? 'Entry added' : event.type === 'food.edit' ? 'Entry edited' : event.type === 'food.delete' ? 'Entry deleted' : event.type === 'food.detach' ? 'Photo removed' : 'Photo added'}`,
+                                ),
+                              );
+                            })
+                            .catch((error) => {
+                              if (sequence === historySequence.current) setNotice(messageOf(error));
+                            });
+                        }}
+                      />
+                      <Action
+                        title="Delete entry"
+                        variant="destructive"
+                        compact
+                        disabled={locked}
+                        onPress={() =>
+                          Alert.alert('Delete food entry?', 'Its history will remain.', [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Delete',
+                              style: 'destructive',
+                              onPress: () => void mutate(selected),
+                            },
+                          ])
+                        }
+                      />
+                    </>
+                  )}
+                </>
+              )}
+              {history.map((event, index) => (
+                <Body key={index}>{event}</Body>
+              ))}
+            </Card>
           </View>
-          <Action
-            title="Edit entry"
-            secondary
-            disabled={
-              busy || pickingPhoto || photos.length > 0 || command.pending || hasUnsavedText
-            }
-            onPress={() => {
-              setSelected(entry);
-              setText(entry.content.text);
-              setTime(entry.content.occurredAt);
-              setHistory([]);
-            }}
-          />
-          <Action
-            title="Delete entry"
-            secondary
-            disabled={busy || pickingPhoto}
-            onPress={() =>
-              Alert.alert('Delete food entry?', 'Its history will remain.', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => void mutate(entry) },
-              ])
-            }
-          />
-          <Action
-            title="Entry history"
-            secondary
-            onPress={() =>
-              void client
-                .request(`/api/food/${entry.id}/history`)
-                .then((value) =>
-                  setHistory(
-                    FoodHistorySchema.parse(value).events.map(
-                      (event) =>
-                        `${event.createdAt}: ${event.type}, revision ${event.entry.revision}`,
-                    ),
-                  ),
-                )
-                .catch((error) => setNotice(messageOf(error)))
-            }
-          />
-        </Card>
-      ))}
-      {history.map((event) => (
-        <Body key={event}>{event}</Body>
-      ))}
+        )}
+        <View style={{ flex: width > 760 ? 1.4 : undefined, gap: 12, minWidth: 0 }}>
+          {!loaded && <Body>Loading entries…</Body>}
+          {!loaded && (
+            <Action
+              title="Retry food history"
+              variant="quiet"
+              compact
+              onPress={() => void load()}
+            />
+          )}
+          {loaded && entries.length === 0 && (
+            <Card>
+              <Body>No food recorded</Body>
+              <Action title="Add your first entry" variant="quiet" compact onPress={begin} />
+            </Card>
+          )}
+          {loaded &&
+            entries.map((entry) => (
+              <Card key={entry.id}>
+                <Body>
+                  {new Date(entry.content.occurredAt).toLocaleTimeString(undefined, {
+                    timeZone: timezone,
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </Body>
+                <Body>{entry.content.text || 'Photo entry'}</Body>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {localPhotos
+                    .filter(
+                      (p) =>
+                        p.entryId === entry.id && p.status !== 'synced' && p.status !== 'discarded',
+                    )
+                    .map((p) => (
+                      <View key={p.id}>
+                        <Image
+                          accessibilityLabel="Food photo saved on this device"
+                          source={{ uri: p.uri }}
+                          style={{ width: 130, height: 100, borderRadius: 10 }}
+                        />
+                        <Body>
+                          {p.status === 'needs-attention'
+                            ? 'Upload needs review'
+                            : 'Saved locally · upload pending'}
+                        </Body>
+                      </View>
+                    ))}
+                  {entry.photoIds.map((id) => (
+                    <PrivatePhoto key={id} id={id} entryId={entry.id} client={client} />
+                  ))}
+                </View>
+                <Action
+                  title="Edit entry"
+                  variant="quiet"
+                  compact
+                  disabled={
+                    busy || pickingPhoto || photos.length > 0 || command.pending || hasUnsavedText
+                  }
+                  onPress={() => openEntry(entry)}
+                />
+              </Card>
+            ))}
+        </View>
+      </View>
     </View>
   );
 }

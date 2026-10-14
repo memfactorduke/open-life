@@ -15,11 +15,14 @@ import {
   type TaskStep,
 } from '@mems-life/domain';
 import { type InstallationClient, RequestRejectedError } from '../client';
-import { Action, Body, Card, Choice, Field, Heading } from '../ui';
+import { Action, Body, Card, Choice, Field, Heading, Disclosure } from '../ui';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { messageOf } from './helpers';
 const stamp = (v: string) => new Date(v).toLocaleString();
 const names: Record<string, string> = {
+  running: 'Running',
+  failed: 'Failed',
+  cancelled: 'Stopped',
   'cancel-requested': 'Stop requested',
   'outcome-unknown': 'Outcome unknown',
   submitted: 'Needs your review',
@@ -32,12 +35,16 @@ export function AgentWorkflow({
   taskId,
   onChanged,
   onBlockedChange,
+  configurationInitiallyOpen = false,
 }: {
   client: InstallationClient;
   taskId: string;
   onChanged?: () => void;
   onBlockedChange?: (blocked: boolean) => void;
+  configurationInitiallyOpen?: boolean;
 }) {
+  const [configurationOpen, setConfigurationOpen] = useState(configurationInitiallyOpen);
+  useEffect(() => setConfigurationOpen(configurationInitiallyOpen), [configurationInitiallyOpen]);
   const insets = React.useContext(SafeAreaInsetsContext);
   const width = useWindowDimensions().width;
   const [preview, setPreview] = useState<{
@@ -384,11 +391,8 @@ export function AgentWorkflow({
           )}
         </ScrollView>
       </Modal>
-      <Heading>Agent work & review</Heading>
-      <Body>
-        Human and agent work belong to this same outcome. Connected workers carry out released
-        steps.
-      </Body>
+      <Heading compact>Agent work & review</Heading>
+
       {notice && <Body error>{notice}</Body>}
       {pending.current && (
         <>
@@ -447,453 +451,569 @@ export function AgentWorkflow({
           />
         </>
       )}
-      <Action
-        title="Create a fictional YouTube workflow in Planned"
-        secondary
-        disabled={locked}
-        onPress={() => command({ type: 'workflow.youtube-create', taskId: Crypto.randomUUID() })}
-      />
-      <Action
-        title="Refresh workflow"
-        secondary
-        busy={busy}
-        onPress={() => void load().catch((e) => setNotice(messageOf(e)))}
-      />
-      {data.task.phase === 'planned' && (
-        <Action
-          title="Release to Next"
-          disabled={locked}
-          onPress={() =>
-            void send('/api/tasks/commands', {
-              type: 'task.move',
-              operationId: Crypto.randomUUID(),
-              taskId,
-              expectedRevision: data.task.revision,
-              phase: 'next',
-              beforeTaskId: null,
-            })
-          }
-        />
-      )}
-      <Action
-        title={data.task.paused ? 'Resume work' : 'Pause work'}
-        disabled={locked}
-        onPress={() =>
-          void send('/api/tasks/commands', {
-            type: 'task.pause',
-            operationId: Crypto.randomUUID(),
-            taskId,
-            expectedRevision: data.task.revision,
-            paused: !data.task.paused,
-          })
-        }
-      />
-      <Body>
-        {data.task.phase === 'planned'
-          ? 'Planned · dormant'
-          : data.task.paused
-            ? 'Paused · no new work begins'
-            : 'Released · workers can claim ready steps'}
-        . Pausing cannot undo an action already performed.
-      </Body>
-      {data.steps.map((step) => {
-        const binding = data.bindings.find((b) => b.stepId === step.id),
-          attempts = data.attempts.filter((a) => a.stepId === step.id),
-          results = data.results.filter((r) => r.stepId === step.id),
-          blocked = step.content.dependencies.some((id) => {
-            const d = data.steps.find((s) => s.id === id);
-            return d?.status !== 'completed' && !(d?.status === 'skipped' && !d.content.required);
-          });
-        return (
-          <Card key={step.id}>
-            <Heading>{step.content.title}</Heading>
-            <Body>
-              {step.content.responsibility === 'human'
-                ? 'Human'
-                : step.content.responsibility === 'agent'
-                  ? 'Agent'
-                  : 'Human or agent'}{' '}
-              ·{' '}
-              {step.status === 'completed'
-                ? 'Completed'
-                : blocked
-                  ? 'Waiting for prerequisites'
-                  : step.content.responsibility === 'human'
-                    ? 'Needs you'
-                    : binding
-                      ? 'Procedure ready'
-                      : 'Needs a procedure'}
-            </Body>
-            <Body>{step.content.instructions}</Body>
-            {step.content.responsibility !== 'human' && (
-              <>
-                <Body>
-                  {binding
-                    ? `Procedure version ${binding.skillVersion}; expected ${binding.requirements.map((r) => `${r.key} (${r.kind})`).join(', ')}`
-                    : 'Select instructions, inputs and a deliverable before this step is available.'}
-                </Body>
-                <Action
-                  title={`Set procedure for ${step.content.title}`}
-                  secondary
-                  disabled={locked}
-                  onPress={() => selectStep(step)}
-                />
-              </>
-            )}
-            {attempts.map((a, index) => (
-              <Card key={a.id}>
-                <Heading>
-                  Attempt {index + 1} · {names[a.effectiveStatus] ?? a.effectiveStatus}
-                </Heading>
-                <Body>
-                  Started {stamp(a.createdAt)}; updated {stamp(a.updatedAt)}; connection lease until{' '}
-                  {stamp(a.expiresAt)}
-                </Body>
-                <Body>Worker: {a.actorId}</Body>
-                <Body>
-                  Procedure: {a.snapshot.skill.name}, version {a.snapshot.binding.skillVersion}
-                </Body>
-                <Body>{a.snapshot.skill.instructions}</Body>
-                {Object.entries(a.snapshot.binding.inputs).map(([key, value]) => (
-                  <Body key={key}>
-                    {key}: {value}
-                  </Body>
-                ))}
-                <Body>
-                  Expected at execution:{' '}
-                  {a.snapshot.binding.requirements.map((r) => `${r.key} (${r.kind})`).join(', ')}
-                </Body>
-                {a.snapshot.skill.resources.map((url) => (
-                  <Action
-                    key={url}
-                    title={`Resource used: ${url}`}
-                    secondary
-                    onPress={() => void Linking.openURL(url).catch((e) => setNotice(messageOf(e)))}
-                  />
-                ))}
-                {a.progress.map((p, i) => (
-                  <Body key={i}>
-                    {stamp(p.at)} · {p.message}
-                  </Body>
-                ))}
-                {a.error && <Body error>{a.error}</Body>}
-                {a.reconciliation?.outcome === 'performed' &&
-                  !a.reconciliation.replacementAuthorized && (
+      {data.steps
+        .filter((step) => step.content.responsibility !== 'human')
+        .map((step) => {
+          const binding = data.bindings.find((b) => b.stepId === step.id),
+            attempts = data.attempts.filter((a) => a.stepId === step.id),
+            results = data.results.filter((r) => r.stepId === step.id),
+            blocked = step.content.dependencies.some((id) => {
+              const d = data.steps.find((s) => s.id === id);
+              return d?.status !== 'completed' && !(d?.status === 'skipped' && !d.content.required);
+            });
+          return (
+            <Card key={step.id}>
+              <Heading compact>{step.content.title}</Heading>
+              <Body>
+                {step.content.responsibility === 'human'
+                  ? 'Human'
+                  : step.content.responsibility === 'agent'
+                    ? 'Agent'
+                    : 'Human or agent'}{' '}
+                ·{' '}
+                {step.status === 'completed'
+                  ? 'Completed'
+                  : attempts.at(-1) &&
+                      !['failed', 'expired', 'reconciled'].includes(
+                        attempts.at(-1)!.effectiveStatus,
+                      )
+                    ? (names[attempts.at(-1)!.effectiveStatus] ?? attempts.at(-1)!.effectiveStatus)
+                    : blocked
+                      ? 'Waiting for prerequisites'
+                      : step.content.responsibility === 'human'
+                        ? 'Needs you'
+                        : binding
+                          ? 'Procedure ready'
+                          : 'Needs a procedure'}
+              </Body>
+              {['running', 'cancel-requested'].includes(attempts.at(-1)?.effectiveStatus ?? '') &&
+                attempts.at(-1)?.progress.at(-1) && (
+                  <Body>{attempts.at(-1)!.progress.at(-1)!.message}</Body>
+                )}
+              {attempts.map((a, index) => (
+                <Card key={a.id}>
+                  <Disclosure
+                    title={`Run ${index + 1} details · ${names[a.effectiveStatus] ?? a.effectiveStatus}`}
+                  >
                     <Body>
-                      Existing external effect preserved. A replacement requires explicit
-                      permission.
+                      Started {stamp(a.createdAt)}; updated {stamp(a.updatedAt)}; connection lease
+                      until {stamp(a.expiresAt)}
                     </Body>
-                  )}
-                {a.reconciliation && (
-                  <Body>
-                    Verified{' '}
-                    {a.reconciliation.outcome === 'performed' ? 'performed' : 'not performed'}:{' '}
-                    {a.reconciliation.evidence}
-                  </Body>
-                )}
-                {['running', 'cancel-requested'].includes(a.effectiveStatus) && (
-                  <>
-                    <Field
-                      label={`Reason for stopping attempt ${index + 1}`}
-                      value={feedback[a.id] ?? ''}
-                      onChangeText={(v) => setFeedback({ ...feedback, [a.id]: v })}
-                    />
-                    <Action
-                      title={`Request stop for attempt ${index + 1}`}
-                      disabled={
-                        locked ||
-                        !feedback[a.id]?.trim() ||
-                        a.effectiveStatus === 'cancel-requested'
-                      }
-                      onPress={() =>
-                        command({
-                          type: 'attempt.cancel',
-                          taskId,
-                          stepId: step.id,
-                          attemptId: a.id,
-                          reason: feedback[a.id],
-                        })
-                      }
-                    />
+                    <Body>Worker: {a.actorId}</Body>
                     <Body>
-                      Stopping is cooperative. Wait for confirmation or verify the destination.
+                      Procedure: {a.snapshot.skill.name}, version {a.snapshot.binding.skillVersion}
                     </Body>
-                  </>
-                )}
-                {a.effectiveStatus === 'outcome-unknown' && (
-                  <>
-                    <Body error>
-                      The connection ended without a confirmed outcome. A timeout does not prove an
-                      upload stopped. Inspect the destination before retrying.
+                    <Body>{a.snapshot.skill.instructions}</Body>
+                    {Object.entries(a.snapshot.binding.inputs).map(([key, value]) => (
+                      <Body key={key}>
+                        {key}: {value}
+                      </Body>
+                    ))}
+                    <Body>
+                      Expected at execution:{' '}
+                      {a.snapshot.binding.requirements
+                        .map((r) => `${r.key} (${r.kind})`)
+                        .join(', ')}
                     </Body>
-                    <Choice
-                      label="Verified outcome"
-                      value={outcomes[a.id] ?? ''}
-                      options={[
-                        { value: 'performed', label: 'The action occurred' },
-                        { value: 'not-performed', label: 'The action did not occur' },
-                      ]}
-                      onChange={(v) =>
-                        setOutcomes({ ...outcomes, [a.id]: v as 'performed' | 'not-performed' })
-                      }
-                    />
-                    <Field
-                      label="Evidence from your check"
-                      multiline
-                      value={evidence[a.id] ?? ''}
-                      onChangeText={(v) => setEvidence({ ...evidence, [a.id]: v })}
-                    />
-                    {outcomes[a.id] === 'performed' &&
-                      a.snapshot.binding.requirements.map((r) => (
-                        <Field
-                          key={r.key}
-                          label={`Verified ${r.key} ${r.kind === 'file' ? 'private file version ID' : r.kind === 'link' ? 'receipt link' : 'result text'}`}
-                          multiline
-                          autoCapitalize="none"
-                          value={receipt[`${a.id}:${r.key}`] ?? ''}
-                          onChangeText={(v) => setReceipt({ ...receipt, [`${a.id}:${r.key}`]: v })}
-                        />
-                      ))}
-                    <Field
-                      label="Evidence that the previous worker stopped"
-                      multiline
-                      value={stopped[a.id] ?? ''}
-                      onChangeText={(v) => setStopped({ ...stopped, [a.id]: v })}
-                    />
-                    <Choice
-                      label="Authorize a replacement attempt after verified worker stop"
-                      value={replacement[a.id] ?? 'no'}
-                      options={[
-                        { value: 'no', label: 'Preserve existing effect' },
-                        { value: 'yes', label: 'Authorize replacement' },
-                      ]}
-                      onChange={(v) => setReplacement({ ...replacement, [a.id]: v })}
-                    />
-                    <Action
-                      title="Save verified outcome"
-                      disabled={locked || !outcomes[a.id] || !evidence[a.id]?.trim()}
-                      onPress={() =>
-                        command({
-                          type: 'attempt.reconcile',
-                          taskId,
-                          stepId: step.id,
-                          attemptId: a.id,
-                          outcome: outcomes[a.id],
-                          evidence: evidence[a.id],
-                          workerStoppedEvidence: stopped[a.id] || undefined,
-                          allowReplacement: replacement[a.id] === 'yes',
-                          artifacts:
-                            outcomes[a.id] === 'performed'
-                              ? a.snapshot.binding.requirements
-                                  .filter((r) => r.required || receipt[`${a.id}:${r.key}`]?.trim())
-                                  .map((r) => ({
-                                    key: r.key,
-                                    kind: r.kind,
-                                    ...(r.kind === 'text'
-                                      ? { text: receipt[`${a.id}:${r.key}`] }
-                                      : r.kind === 'link'
-                                        ? {
-                                            url: receipt[`${a.id}:${r.key}`],
-                                            description: evidence[a.id],
-                                          }
-                                        : {
-                                            fileId: receipt[`${a.id}:${r.key}`],
-                                            description: evidence[a.id],
-                                          }),
-                                  }))
-                              : [],
-                        })
-                      }
-                    />
-                  </>
-                )}
-                {['failed', 'expired', 'yielded', 'reconciled'].includes(a.effectiveStatus) && (
-                  <Body>
-                    {binding?.retryable
-                      ? 'A connected worker can retry eligible work. Previous attempts remain here.'
-                      : 'Automatic retry is disabled.'}
-                  </Body>
-                )}
-              </Card>
-            ))}
-            {results.map((result) => (
-              <Card key={result.id}>
-                <Heading>
-                  Result version {result.version}
-                  {result.approvedAt ? ' · Approved' : ''}
-                </Heading>
-                <Body>{result.summary}</Body>
-                <Body>Submitted {stamp(result.createdAt)}</Body>
-                {result.artifacts.map((a) => (
-                  <View key={a.key}>
-                    <Body>{a.key}</Body>
-                    {a.kind === 'text' ? (
-                      <Body>{a.text}</Body>
-                    ) : a.kind === 'link' ? (
+                    {a.snapshot.skill.resources.map((url) => (
                       <Action
-                        title={a.description || 'Open result'}
+                        key={url}
+                        title={`Resource used: ${url}`}
                         secondary
                         onPress={() =>
-                          void Linking.openURL(a.url).catch((e) => setNotice(messageOf(e)))
+                          void Linking.openURL(url).catch((e) => setNotice(messageOf(e)))
                         }
                       />
-                    ) : (
-                      <>
-                        <Body>Immutable private file: {a.fileId}</Body>
-                        <Action
-                          title={a.description || 'Open private file'}
-                          secondary
-                          onPress={() => void openFile(a.fileId)}
-                        />
-                      </>
+                    ))}
+                    {a.progress.map((p, i) => (
+                      <Body key={i}>
+                        {stamp(p.at)} · {p.message}
+                      </Body>
+                    ))}
+                    {a.error && <Body error>{a.error}</Body>}
+                    {a.reconciliation?.outcome === 'performed' &&
+                      !a.reconciliation.replacementAuthorized && (
+                        <Body>
+                          Existing external effect preserved. A replacement requires explicit
+                          permission.
+                        </Body>
+                      )}
+                    {a.reconciliation && (
+                      <Body>
+                        Verified{' '}
+                        {a.reconciliation.outcome === 'performed' ? 'performed' : 'not performed'}:{' '}
+                        {a.reconciliation.evidence}
+                      </Body>
                     )}
-                  </View>
-                ))}
-                {result.feedback && <Body>Revision requested: {result.feedback}</Body>}
-                <Body>
-                  Opening a result does not approve it. Approval accepts this exact version; it does
-                  not complete a separate human action.
-                </Body>
-                <Action
-                  title={`Approve version ${result.version}`}
-                  disabled={locked || !!result.approvedAt || result !== results.at(-1)}
-                  onPress={() =>
-                    command({
-                      type: 'result.approve',
-                      taskId,
-                      stepId: step.id,
-                      resultId: result.id,
-                      expectedVersion: result.version,
-                    })
-                  }
-                />
-                <Field
-                  label={`Changes for version ${result.version}`}
-                  multiline
-                  value={feedback[result.id] ?? ''}
-                  onChangeText={(v) => setFeedback({ ...feedback, [result.id]: v })}
-                />
-                <Action
-                  title={`Request revisions to version ${result.version}`}
-                  disabled={locked || !feedback[result.id]?.trim() || result !== results.at(-1)}
-                  onPress={() =>
-                    command({
-                      type: 'result.request-changes',
-                      taskId,
-                      stepId: step.id,
-                      resultId: result.id,
-                      expectedVersion: result.version,
-                      feedback: feedback[result.id],
-                    })
-                  }
-                />
-              </Card>
-            ))}
-          </Card>
-        );
-      })}
-      {stepId && (
-        <Card>
-          <Heading>Procedure for {data.steps.find((s) => s.id === stepId)?.content.title}</Heading>
-          <Choice
-            label="Reusable procedure"
-            value={skillId}
-            options={data.skills.map((s) => ({ value: s.id, label: s.versions.at(-1)!.name }))}
-            disabled={locked}
-            onChange={(v) => {
-              setSkillId(v);
-              setVersion('1');
-              setInputs({});
-            }}
-          />
-          {skill && (
+                  </Disclosure>
+                  {['running', 'cancel-requested'].includes(a.effectiveStatus) && (
+                    <Disclosure title="Stop this run">
+                      <Field
+                        label={`Reason for stopping attempt ${index + 1}`}
+                        value={feedback[a.id] ?? ''}
+                        onChangeText={(v) => setFeedback({ ...feedback, [a.id]: v })}
+                      />
+                      <Action
+                        title={`Request stop for attempt ${index + 1}`}
+                        variant="secondary"
+                        disabled={
+                          locked ||
+                          !feedback[a.id]?.trim() ||
+                          a.effectiveStatus === 'cancel-requested'
+                        }
+                        onPress={() =>
+                          command({
+                            type: 'attempt.cancel',
+                            taskId,
+                            stepId: step.id,
+                            attemptId: a.id,
+                            reason: feedback[a.id],
+                          })
+                        }
+                      />
+                      <Body>
+                        Stopping is cooperative. Wait for confirmation or verify the destination.
+                      </Body>
+                    </Disclosure>
+                  )}
+                  {a.effectiveStatus === 'outcome-unknown' && (
+                    <>
+                      <Body error>
+                        The connection ended without a confirmed outcome. A timeout does not prove
+                        an upload stopped. Inspect the destination before retrying.
+                      </Body>
+                      <Choice
+                        label="Verified outcome"
+                        value={outcomes[a.id] ?? ''}
+                        options={[
+                          { value: 'performed', label: 'The action occurred' },
+                          { value: 'not-performed', label: 'The action did not occur' },
+                        ]}
+                        onChange={(v) =>
+                          setOutcomes({ ...outcomes, [a.id]: v as 'performed' | 'not-performed' })
+                        }
+                      />
+                      <Field
+                        label="Evidence from your check"
+                        multiline
+                        value={evidence[a.id] ?? ''}
+                        onChangeText={(v) => setEvidence({ ...evidence, [a.id]: v })}
+                      />
+                      {outcomes[a.id] === 'performed' &&
+                        a.snapshot.binding.requirements.map((r) => (
+                          <Field
+                            key={r.key}
+                            label={`Verified ${r.key} ${r.kind === 'file' ? 'private file version ID' : r.kind === 'link' ? 'receipt link' : 'result text'}`}
+                            multiline
+                            autoCapitalize="none"
+                            value={receipt[`${a.id}:${r.key}`] ?? ''}
+                            onChangeText={(v) =>
+                              setReceipt({ ...receipt, [`${a.id}:${r.key}`]: v })
+                            }
+                          />
+                        ))}
+                      <Field
+                        label="Evidence that the previous worker stopped"
+                        multiline
+                        value={stopped[a.id] ?? ''}
+                        onChangeText={(v) => setStopped({ ...stopped, [a.id]: v })}
+                      />
+                      <Choice
+                        label="Authorize a replacement attempt after verified worker stop"
+                        value={replacement[a.id] ?? 'no'}
+                        options={[
+                          { value: 'no', label: 'Preserve existing effect' },
+                          { value: 'yes', label: 'Authorize replacement' },
+                        ]}
+                        onChange={(v) => setReplacement({ ...replacement, [a.id]: v })}
+                      />
+                      <Action
+                        title="Save verified outcome"
+                        disabled={
+                          locked ||
+                          !outcomes[a.id] ||
+                          !evidence[a.id]?.trim() ||
+                          (a.snapshot.binding.risk === 'external-effect' &&
+                            (outcomes[a.id] === 'not-performed' || replacement[a.id] === 'yes') &&
+                            !stopped[a.id]?.trim())
+                        }
+                        onPress={() =>
+                          command({
+                            type: 'attempt.reconcile',
+                            taskId,
+                            stepId: step.id,
+                            attemptId: a.id,
+                            outcome: outcomes[a.id],
+                            evidence: evidence[a.id],
+                            workerStoppedEvidence: stopped[a.id] || undefined,
+                            allowReplacement: replacement[a.id] === 'yes',
+                            artifacts:
+                              outcomes[a.id] === 'performed'
+                                ? a.snapshot.binding.requirements
+                                    .filter(
+                                      (r) => r.required || receipt[`${a.id}:${r.key}`]?.trim(),
+                                    )
+                                    .map((r) => ({
+                                      key: r.key,
+                                      kind: r.kind,
+                                      ...(r.kind === 'text'
+                                        ? { text: receipt[`${a.id}:${r.key}`] }
+                                        : r.kind === 'link'
+                                          ? {
+                                              url: receipt[`${a.id}:${r.key}`],
+                                              description: evidence[a.id],
+                                            }
+                                          : {
+                                              fileId: receipt[`${a.id}:${r.key}`],
+                                              description: evidence[a.id],
+                                            }),
+                                    }))
+                                : [],
+                          })
+                        }
+                      />
+                    </>
+                  )}
+                  {['failed', 'expired', 'yielded', 'reconciled'].includes(a.effectiveStatus) && (
+                    <Body>
+                      {binding?.retryable
+                        ? 'A connected worker can retry eligible work. Previous attempts remain here.'
+                        : 'Automatic retry is disabled.'}
+                    </Body>
+                  )}
+                </Card>
+              ))}
+              {results.map((result) => (
+                <Disclosure
+                  key={result.id}
+                  title={`Result version ${result.version}${result.approvedAt ? ' · Approved' : ''}`}
+                  defaultOpen={result === results.at(-1)}
+                >
+                  <Body>{result.summary}</Body>
+                  <Disclosure title="Result details">
+                    <Body>
+                      Submitted {stamp(result.createdAt)} · Run{' '}
+                      {attempts.findIndex((a) => a.id === result.attemptId) + 1}
+                    </Body>
+                    <Body>
+                      Approval applies to this version only. Upload and publication are separate
+                      actions.
+                    </Body>
+                  </Disclosure>
+                  {result.artifacts.map((a) => (
+                    <View key={a.key}>
+                      <Body>{a.key}</Body>
+                      {a.kind === 'text' ? (
+                        <Body>{a.text}</Body>
+                      ) : a.kind === 'link' ? (
+                        <Action
+                          title={a.description || 'Open result'}
+                          secondary
+                          onPress={() =>
+                            void Linking.openURL(a.url).catch((e) => setNotice(messageOf(e)))
+                          }
+                        />
+                      ) : (
+                        <>
+                          <Disclosure title="File version details">
+                            <Body>Immutable private file: {a.fileId}</Body>
+                          </Disclosure>
+                          <Action
+                            title={a.description || 'Open private file'}
+                            secondary
+                            onPress={() => void openFile(a.fileId)}
+                          />
+                        </>
+                      )}
+                    </View>
+                  ))}
+                  {result.feedback && <Body>Revision requested: {result.feedback}</Body>}
+                  {result === results.at(-1) && !result.approvedAt && (
+                    <>
+                      <Body>Approve this version to continue.</Body>
+                      <Action
+                        title={`Approve version ${result.version}`}
+                        disabled={locked || !!result.approvedAt || result !== results.at(-1)}
+                        onPress={() =>
+                          command({
+                            type: 'result.approve',
+                            taskId,
+                            stepId: step.id,
+                            resultId: result.id,
+                            expectedVersion: result.version,
+                          })
+                        }
+                      />
+                      <Field
+                        label={`Changes for version ${result.version}`}
+                        multiline
+                        value={feedback[result.id] ?? ''}
+                        onChangeText={(v) => setFeedback({ ...feedback, [result.id]: v })}
+                      />
+                      <Action
+                        title={`Request changes to version ${result.version}`}
+                        secondary
+                        disabled={
+                          locked || !feedback[result.id]?.trim() || result !== results.at(-1)
+                        }
+                        onPress={() =>
+                          command({
+                            type: 'result.request-changes',
+                            taskId,
+                            stepId: step.id,
+                            resultId: result.id,
+                            expectedVersion: result.version,
+                            feedback: feedback[result.id],
+                          })
+                        }
+                      />
+                    </>
+                  )}
+                </Disclosure>
+              ))}
+            </Card>
+          );
+        })}
+      <Disclosure
+        title="Configure agent step"
+        open={configurationOpen}
+        onOpenChange={setConfigurationOpen}
+      >
+        <Body>Choose a step and the instructions its agent should follow.</Body>
+        {data.steps
+          .filter((step) => step.content.responsibility !== 'human')
+          .map((step) => (
+            <Action
+              key={step.id}
+              title={`Set procedure for ${step.content.title}`}
+              secondary
+              disabled={locked}
+              onPress={() => selectStep(step)}
+            />
+          ))}
+        {stepId && (
+          <Card>
+            <Heading>
+              Procedure for {data.steps.find((s) => s.id === stepId)?.content.title}
+            </Heading>
             <Choice
-              label="Procedure version"
-              value={version}
-              options={skill.versions.map((v, i) => ({
-                value: String(i + 1),
-                label: `${i + 1} · ${v.name}`,
-              }))}
-              onChange={setVersion}
+              label="Reusable procedure"
+              value={skillId}
+              options={data.skills.map((s) => ({ value: s.id, label: s.versions.at(-1)!.name }))}
+              disabled={locked}
+              onChange={(v) => {
+                setSkillId(v);
+                setVersion('1');
+                setInputs({});
+              }}
+            />
+            {skill && (
+              <Choice
+                label="Procedure version"
+                value={version}
+                options={skill.versions.map((v, i) => ({
+                  value: String(i + 1),
+                  label: `${i + 1} · ${v.name}`,
+                }))}
+                onChange={setVersion}
+                disabled={locked}
+              />
+            )}
+            {content && (
+              <>
+                <Body>{content.instructions}</Body>
+                {content.inputKeys.map((key) => (
+                  <Field
+                    key={key}
+                    label={key}
+                    multiline
+                    editable={!locked}
+                    value={inputs[key] ?? ''}
+                    onChangeText={(v) => setInputs({ ...inputs, [key]: v })}
+                  />
+                ))}
+                <Body>
+                  Expected deliverable:{' '}
+                  {content.requirements
+                    .map((r) => `${r.key} (${r.kind})${r.required ? ' required' : ''}`)
+                    .join('; ')}
+                </Body>
+              </>
+            )}
+            <Choice
+              label="External destination action"
+              value={risk}
+              options={[
+                { value: 'none', label: 'No external action' },
+                { value: 'external-effect', label: 'Yes, such as uploading' },
+              ]}
+              onChange={setRisk}
               disabled={locked}
             />
-          )}
-          {content && (
-            <>
-              <Body>{content.instructions}</Body>
-              {content.inputKeys.map((key) => (
-                <Field
-                  key={key}
-                  label={key}
-                  multiline
-                  editable={!locked}
-                  value={inputs[key] ?? ''}
-                  onChangeText={(v) => setInputs({ ...inputs, [key]: v })}
-                />
-              ))}
-              <Body>
-                Expected deliverable:{' '}
-                {content.requirements
-                  .map((r) => `${r.key} (${r.kind})${r.required ? ' required' : ''}`)
-                  .join('; ')}
-              </Body>
-            </>
-          )}
-          <Choice
-            label="External destination action"
-            value={risk}
-            options={[
-              { value: 'none', label: 'No external action' },
-              { value: 'external-effect', label: 'Yes, such as uploading' },
-            ]}
-            onChange={setRisk}
-            disabled={locked}
-          />
-          <Choice
-            label="Allow retry after confirmed failure"
-            value={retryable}
-            options={[
-              { value: 'yes', label: 'Allow retry' },
-              { value: 'no', label: 'No retry' },
-            ]}
-            onChange={setRetryable}
-            disabled={locked}
-          />
-          <Choice
-            label="Require exact result approval"
-            value={approval}
-            options={[
-              { value: 'yes', label: 'Require approval' },
-              { value: 'no', label: 'Continue without approval' },
-            ]}
-            onChange={setApproval}
-            disabled={locked}
-          />
+            <Choice
+              label="Allow retry after confirmed failure"
+              value={retryable}
+              options={[
+                { value: 'yes', label: 'Allow retry' },
+                { value: 'no', label: 'No retry' },
+              ]}
+              onChange={setRetryable}
+              disabled={locked}
+            />
+            <Choice
+              label="Require exact result approval"
+              value={approval}
+              options={[
+                { value: 'yes', label: 'Require approval' },
+                { value: 'no', label: 'Continue without approval' },
+              ]}
+              onChange={setApproval}
+              disabled={locked}
+            />
+            <Action
+              title="Save procedure binding"
+              disabled={locked || !content || !!content?.inputKeys.some((k) => !inputs[k]?.trim())}
+              onPress={() => {
+                if (!content) return;
+                command({
+                  type: 'binding.put',
+                  taskId,
+                  stepId,
+                  expectedRevision: bindingRevision,
+                  skillId,
+                  skillVersion: Number(version),
+                  inputs: Object.fromEntries(content.inputKeys.map((k) => [k, inputs[k] ?? ''])),
+                  requirements: content.requirements,
+                  risk,
+                  retryable: retryable === 'yes',
+                  requiresApproval: approval === 'yes',
+                });
+              }}
+            />
+            <Action title="Close procedure" secondary onPress={() => setStepId('')} />
+          </Card>
+        )}
+        <Action
+          title="New reusable procedure"
+          secondary
+          disabled={locked}
+          onPress={() => editSkill('')}
+        />
+        {data.skills.map((s) => (
           <Action
-            title="Save procedure binding"
-            disabled={locked || !content || !!content?.inputKeys.some((k) => !inputs[k]?.trim())}
-            onPress={() => {
-              if (!content) return;
-              command({
-                type: 'binding.put',
-                taskId,
-                stepId,
-                expectedRevision: bindingRevision,
-                skillId,
-                skillVersion: Number(version),
-                inputs: Object.fromEntries(content.inputKeys.map((k) => [k, inputs[k] ?? ''])),
-                requirements: content.requirements,
-                risk,
-                retryable: retryable === 'yes',
-                requiresApproval: approval === 'yes',
-              });
-            }}
+            key={s.id}
+            title={`Edit ${s.versions.at(-1)!.name}`}
+            secondary
+            disabled={locked}
+            onPress={() => editSkill(s.id)}
           />
-          <Action title="Close procedure" secondary onPress={() => setStepId('')} />
-        </Card>
-      )}
-      <Card>
-        <Heading>Private task files</Heading>
+        ))}
+        {editor && (
+          <Card>
+            <Heading>Reusable procedure</Heading>
+            <Body>
+              Bounded instructions and resources guide a worker. They grant no account permissions
+              and run no code here. Saving creates a new version.
+            </Body>
+            <Field
+              label="Procedure name"
+              value={name}
+              maxLength={200}
+              editable={!locked}
+              onChangeText={setName}
+            />
+            <Field
+              label="Bounded instructions"
+              value={instructions}
+              multiline
+              maxLength={20000}
+              editable={!locked}
+              onChangeText={setInstructions}
+            />
+            <Field
+              label="Resource links (one per line)"
+              value={resources}
+              multiline
+              autoCapitalize="none"
+              editable={!locked}
+              onChangeText={setResources}
+            />
+            <Field
+              label="Required input names (comma separated)"
+              value={inputNames}
+              editable={!locked}
+              onChangeText={setInputNames}
+            />
+            <Field
+              label="Deliverable name"
+              value={deliverable}
+              editable={!locked}
+              onChangeText={setDeliverable}
+            />
+            <Choice
+              label="Deliverable type"
+              value={kind}
+              options={[
+                { value: 'text', label: 'Text' },
+                { value: 'link', label: 'Link' },
+                { value: 'file', label: 'Private file' },
+              ]}
+              onChange={setKind}
+              disabled={locked}
+            />
+            <Action
+              title="Save new procedure version"
+              disabled={locked || !name.trim() || !instructions.trim()}
+              onPress={() => {
+                try {
+                  const content = SkillContentSchema.parse({
+                    name,
+                    instructions,
+                    resources: resources
+                      .split('\n')
+                      .map((v) => v.trim())
+                      .filter(Boolean),
+                    inputKeys: inputNames
+                      .split(',')
+                      .map((v) => v.trim())
+                      .filter(Boolean),
+                    requirements: [
+                      { key: deliverable, kind, required: true },
+                      ...(data.skills
+                        .find((s) => s.id === editingSkill)
+                        ?.versions.at(-1)
+                        ?.requirements.slice(1) ?? []),
+                    ],
+                  });
+                  command({
+                    type: 'skill.put',
+                    id: editingSkill || Crypto.randomUUID(),
+                    expectedRevision: skillRevision,
+                    content,
+                  });
+                } catch (e) {
+                  setNotice(messageOf(e));
+                }
+              }}
+            />
+            <Action title="Close reusable procedure" secondary onPress={() => setEditor(false)} />
+          </Card>
+        )}
+        <Disclosure title="Advanced">
+          <Disclosure title="Use workflow template">
+            <Body>YouTube example · eight editable steps, created in Planned.</Body>
+            <Action
+              title="Create a fictional YouTube workflow in Planned"
+              secondary
+              disabled={locked}
+              onPress={() =>
+                command({ type: 'workflow.youtube-create', taskId: Crypto.randomUUID() })
+              }
+            />
+          </Disclosure>
+        </Disclosure>
+      </Disclosure>
+      <Disclosure title="Private task files">
         <Body>
           Choose a private script, image, PDF document or MP4 preview up to 50 MB, or create a text
           version.
@@ -950,113 +1070,15 @@ export function AgentWorkflow({
               <Action title={`Open ${f.name}`} secondary onPress={() => void openFile(f.id)} />
             </View>
           ))}
-      </Card>
-      <Action
-        title="New reusable procedure"
-        secondary
-        disabled={locked}
-        onPress={() => editSkill('')}
-      />
-      {data.skills.map((s) => (
+      </Disclosure>
+      <Disclosure title="More">
         <Action
-          key={s.id}
-          title={`Edit ${s.versions.at(-1)!.name}`}
+          title="Refresh workflow"
           secondary
-          disabled={locked}
-          onPress={() => editSkill(s.id)}
+          busy={busy}
+          onPress={() => void load().catch((e) => setNotice(messageOf(e)))}
         />
-      ))}
-      {editor && (
-        <Card>
-          <Heading>Reusable procedure</Heading>
-          <Body>
-            Bounded instructions and resources guide a worker. They grant no account permissions and
-            run no code here. Saving creates a new version.
-          </Body>
-          <Field
-            label="Procedure name"
-            value={name}
-            maxLength={200}
-            editable={!locked}
-            onChangeText={setName}
-          />
-          <Field
-            label="Bounded instructions"
-            value={instructions}
-            multiline
-            maxLength={20000}
-            editable={!locked}
-            onChangeText={setInstructions}
-          />
-          <Field
-            label="Resource links (one per line)"
-            value={resources}
-            multiline
-            autoCapitalize="none"
-            editable={!locked}
-            onChangeText={setResources}
-          />
-          <Field
-            label="Required input names (comma separated)"
-            value={inputNames}
-            editable={!locked}
-            onChangeText={setInputNames}
-          />
-          <Field
-            label="Deliverable name"
-            value={deliverable}
-            editable={!locked}
-            onChangeText={setDeliverable}
-          />
-          <Choice
-            label="Deliverable type"
-            value={kind}
-            options={[
-              { value: 'text', label: 'Text' },
-              { value: 'link', label: 'Link' },
-              { value: 'file', label: 'Private file' },
-            ]}
-            onChange={setKind}
-            disabled={locked}
-          />
-          <Action
-            title="Save new procedure version"
-            disabled={locked || !name.trim() || !instructions.trim()}
-            onPress={() => {
-              try {
-                const content = SkillContentSchema.parse({
-                  name,
-                  instructions,
-                  resources: resources
-                    .split('\n')
-                    .map((v) => v.trim())
-                    .filter(Boolean),
-                  inputKeys: inputNames
-                    .split(',')
-                    .map((v) => v.trim())
-                    .filter(Boolean),
-                  requirements: [
-                    { key: deliverable, kind, required: true },
-                    ...(data.skills
-                      .find((s) => s.id === editingSkill)
-                      ?.versions.at(-1)
-                      ?.requirements.slice(1) ?? []),
-                  ],
-                });
-                command({
-                  type: 'skill.put',
-                  id: editingSkill || Crypto.randomUUID(),
-                  expectedRevision: skillRevision,
-                  content,
-                });
-              } catch (e) {
-                setNotice(messageOf(e));
-              }
-            }}
-          />
-          <Action title="Close reusable procedure" secondary onPress={() => setEditor(false)} />
-        </Card>
-      )}
+      </Disclosure>
     </View>
   );
 }

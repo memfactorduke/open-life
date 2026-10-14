@@ -71,7 +71,8 @@ for (const scenario of [
     }
     await page.goto('/#food');
     try {
-      await expect(page.locator('.food').getByText(scenario.zone, { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Add entry', exact: true }).click();
+      await page.locator('.food-time summary').click();
       if (scenario.livePreferences) {
         await expect(page.getByLabel('Daily history', { exact: true })).toHaveValue('2026-10-13');
         await expect(page.getByLabel('Date and time', { exact: true })).toHaveValue(
@@ -79,10 +80,12 @@ for (const scenario of [
         );
       }
       const name = `Fictional owner-zone meal ${crypto.randomUUID()}`;
-      await page.getByRole('textbox', { name: 'Notes', exact: true }).fill(name);
+      await page.getByRole('textbox', { name: 'What did you eat?', exact: true }).fill(name);
       await page.getByLabel('Date and time', { exact: true }).fill(scenario.wallTime);
       await page.getByLabel('Daily history', { exact: true }).fill(scenario.wallTime.slice(0, 10));
-      await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toHaveValue(name);
+      await expect(
+        page.getByRole('textbox', { name: 'What did you eat?', exact: true }),
+      ).toHaveValue(name);
       await page.getByRole('button', { name: 'Save entry', exact: true }).click();
       await expect(page.getByRole('status')).toHaveText('Food entry saved.');
       const entries = (await (await page.request.get('/api/food')).json()).entries;
@@ -94,15 +97,21 @@ for (const scenario of [
       const card = page.locator('.food article').filter({ hasText: name });
       await expect(card).toHaveCount(1);
       await expect(card.locator('time')).toHaveText(
-        new Date(scenario.instant).toLocaleString('en-US', { timeZone: scenario.zone }),
+        new Date(scenario.instant).toLocaleTimeString('en-US', {
+          timeZone: scenario.zone,
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
       );
-      await card.getByRole('button', { name: 'Edit', exact: true }).click();
+      await card.getByRole('button', { name: 'Edit entry', exact: true }).click();
       const correctedWallTime =
         scenario.wallTime === '2026-03-08T02:30' ? '2026-03-08T03:30' : scenario.wallTime;
       await expect(page.getByLabel('Date and time', { exact: true })).toHaveValue(
         correctedWallTime,
       );
-      await page.getByRole('textbox', { name: 'Notes', exact: true }).fill(`${name} corrected`);
+      await page
+        .getByRole('textbox', { name: 'What did you eat?', exact: true })
+        .fill(`${name} corrected`);
       await page.getByRole('button', { name: 'Save entry', exact: true }).click();
       await expect(page.getByRole('status')).toHaveText('Food entry saved.');
       const afterEdit = (await (await page.request.get('/api/food')).json()).entries.find(

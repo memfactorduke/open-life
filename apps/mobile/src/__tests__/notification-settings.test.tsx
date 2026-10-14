@@ -19,14 +19,12 @@ test('opening Settings never requests permission; explicit device enable uses sa
   await render(<NotificationSettings client={client} />);
   await waitFor(() => expect(screen.getByLabelText('Enable notifications')).toBeTruthy());
   expect(registerRemoteNotifications).not.toHaveBeenCalled();
-  await fireEvent(screen.getByLabelText('Enable notifications'), 'valueChange', true);
-  await fireEvent.press(screen.getByLabelText('Save notification choices'));
-  await waitFor(() => expect(screen.getByText('Notification choices saved.')).toBeTruthy());
-  expect(registerRemoteNotifications).not.toHaveBeenCalled();
+  expect(screen.queryByLabelText('Due reminders')).toBeNull();
   jest
     .mocked(registerRemoteNotifications)
     .mockResolvedValue('Notifications are not allowed. Attention remains available in Today.');
-  await fireEvent.press(screen.getByLabelText('Enable alerts on this device'));
+  await fireEvent(screen.getByLabelText('Enable notifications'), 'valueChange', true);
+  await fireEvent.press(screen.getByLabelText('Save notification choices'));
   await waitFor(() => expect(screen.getByText(/Notifications are not allowed/)).toBeTruthy());
   expect(registerRemoteNotifications).toHaveBeenCalledWith(
     expect.objectContaining({ preferences: { revision: 2, value: { ...off, enabled: true } } }),
@@ -45,15 +43,43 @@ test('revision conflict retains draft and retry uses refreshed revision', async 
       client={{ baseURL: 'fictional', request } as unknown as InstallationClient}
     />,
   );
-  await waitFor(() => expect(screen.getByLabelText('Due reminders')).toBeTruthy());
+  await waitFor(() => expect(screen.getByLabelText('Enable notifications')).toBeTruthy());
+  await fireEvent(screen.getByLabelText('Enable notifications'), 'valueChange', true);
   await fireEvent(screen.getByLabelText('Due reminders'), 'valueChange', true);
   await fireEvent.press(screen.getByLabelText('Save notification choices'));
   await waitFor(() => expect(screen.getByText(/These choices changed elsewhere/)).toBeTruthy());
   expect(screen.getByLabelText('Due reminders').props.value).toBe(true);
+  jest.mocked(registerRemoteNotifications).mockResolvedValue('Notification choices saved.');
   await fireEvent.press(screen.getByLabelText('Save reviewed notification choices'));
   await waitFor(() => expect(screen.getByText('Notification choices saved.')).toBeTruthy());
   expect(request).toHaveBeenLastCalledWith(
     '/api/notifications/preferences',
-    expect.objectContaining({ expectedRevision: 3, value: { ...off, due: true } }),
+    expect.objectContaining({ expectedRevision: 3, value: { ...off, enabled: true, due: true } }),
   );
+});
+
+test('unconfirmed notification save retries the immutable request before device permission', async () => {
+  let writes = 0;
+  const request = jest.fn(async (_path, body?) => {
+    if (!body) return { revision: 1, value: off, providerConfigured: false };
+    if (++writes === 1) throw new Error('Connection interrupted');
+    return { revision: 2, value: body.value };
+  });
+  await render(
+    <NotificationSettings
+      client={{ baseURL: 'fictional', request } as unknown as InstallationClient}
+    />,
+  );
+  await waitFor(() => expect(screen.getByLabelText('Enable notifications')).toBeTruthy());
+  await fireEvent(screen.getByLabelText('Enable notifications'), 'valueChange', true);
+  await fireEvent.press(screen.getByLabelText('Save notification choices'));
+  await waitFor(() => expect(screen.getByText(/The save is unconfirmed/)).toBeTruthy());
+  expect(registerRemoteNotifications).not.toHaveBeenCalled();
+  const first = request.mock.calls.find((call) => call[1])![1];
+  await fireEvent.press(screen.getByLabelText('Retry notification settings'));
+  await waitFor(() => expect(registerRemoteNotifications).toHaveBeenCalledTimes(1));
+  expect(request.mock.calls.filter((call) => call[1]).map((call) => call[1])).toEqual([
+    first,
+    first,
+  ]);
 });

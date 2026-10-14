@@ -53,7 +53,8 @@
 }
 .agent-access .agent-scope {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  min-height: 44px;
   gap: 0.6rem;
 }
 .agent-access .agent-scope input {
@@ -75,4 +76,39 @@
 }
 .agent-access button {
   min-height: 44px;
+}
+.agent-access {
+  margin-top: 0;
+  max-width: 54rem;
+}
+.agent-access > header .eyebrow {
+  display: none;
+}
+.agent-access form {
+  max-width: 38rem;
+}
+.agent-access form > h3 {
+  font-size: 1.2rem;
+}
+.agent-access select,
+.agent-access input,
+.agent-access textarea {
+  width: 100%;
+  min-width: 0;
+}
+.agent-grants article h4 {
+  font-size: 1.05rem;
+}
+.agent-grants ul {
+  padding-left: 1.25rem;
+  margin: 0;
+  color: var(--muted);
+}
+.agent-key button,
+.agent-access > button {
+  justify-self: start;
+}
+
+.agent-access .agent-revoke {
+  color: var(--error);
 }

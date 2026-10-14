@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
   await page.goto('/#food');
-  await expect(page.getByRole('heading', { name: 'Food diary', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Food', exact: true })).toBeVisible();
 });
 
 test.afterEach(async ({ page }) => {
@@ -74,10 +74,12 @@ test('private two-photo diary persists and exact retries recover committed alloc
     if (request.method() === 'POST' && request.url().endsWith('/api/food/commands'))
       commands.push(request.postDataJSON());
   });
-  await page.getByRole('textbox', { name: 'Notes', exact: true }).fill(name);
+  await page.getByRole('button', { name: 'Add entry', exact: true }).click();
+  await page.getByRole('textbox', { name: 'What did you eat?', exact: true }).fill(name);
+  await page.locator('.food-time summary').click();
   await page.getByLabel('Date and time', { exact: true }).fill('2026-09-15T12:30');
   await page.getByLabel('Daily history', { exact: true }).fill('2026-09-15');
-  await page.getByLabel('Add private photos', { exact: false }).setInputFiles([
+  await page.getByLabel('Add photos', { exact: true }).setInputFiles([
     { name: 'fictional-meal.png', mimeType: 'image/png', buffer: png },
     { name: 'fictional-meal.jpeg', mimeType: 'image/jpeg', buffer: jpeg },
   ]);
@@ -99,8 +101,12 @@ test('private two-photo diary persists and exact retries recover committed alloc
   await expect(page.getByRole('status')).toContainText(
     'Your text and remaining photos are retained here.',
   );
-  await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toHaveValue(name);
-  await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toBeDisabled();
+  await expect(page.getByRole('textbox', { name: 'What did you eat?', exact: true })).toHaveValue(
+    name,
+  );
+  await expect(
+    page.getByRole('textbox', { name: 'What did you eat?', exact: true }),
+  ).toBeDisabled();
   await expect(page.getByText('2 photos waiting to upload.', { exact: false })).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('phone-allocation-response-lost.png'),
@@ -125,7 +131,8 @@ test('private two-photo diary persists and exact retries recover committed alloc
   expect(allocations[1]).toBe(allocations[0]);
   expect(allocationIds[1]).toBe(allocationIds[0]);
   await expect(page.getByLabel('Date and time', { exact: true })).toHaveValue('2026-09-15T12:30');
-  await expect(page.getByRole('button', { name: 'New entry', exact: true })).toBeDisabled();
+  await page.locator('.food-composer > details').last().getByText('More', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Discard draft', exact: true })).toBeDisabled();
   await page.screenshot({
     path: testInfo.outputPath('phone-finalize-response-lost.png'),
     fullPage: true,
@@ -186,8 +193,12 @@ test('private two-photo diary persists and exact retries recover committed alloc
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('phone-saved.png'), fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await card.getByRole('button', { name: 'Edit', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Notes', exact: true }).fill(`${name} corrected`);
+  await card.getByRole('button', { name: 'Edit entry', exact: true }).click();
+  await page
+    .getByRole('textbox', { name: 'What did you eat?', exact: true })
+    .fill(`${name} corrected`);
+  if (!(await page.getByLabel('Date and time', { exact: true }).isVisible()))
+    await page.locator('.food-time summary').click();
   await page.getByLabel('Date and time', { exact: true }).fill('2026-09-15T13:45');
   await page.getByRole('button', { name: 'Save entry', exact: true }).click();
   await expect(page.getByRole('status')).toHaveText('Food entry saved.');
@@ -195,10 +206,13 @@ test('private two-photo diary persists and exact retries recover committed alloc
     .getByRole('article')
     .filter({ has: page.getByText(`${name} corrected`, { exact: true }) });
   await expect(corrected).toBeVisible();
-  await corrected.getByRole('button', { name: 'Remove photo', exact: true }).first().click();
+  await corrected.locator('summary').click();
+  await corrected.getByRole('button', { name: 'Remove photo 1', exact: true }).click();
   await expect(corrected.getByRole('img')).toHaveCount(1);
   expect((await page.request.get(`/api/media/${firstId}`)).status()).toBe(404);
-  await corrected.getByRole('button', { name: 'History', exact: true }).click();
+  if (!(await corrected.getByRole('button', { name: 'Entry history', exact: true }).isVisible()))
+    await corrected.locator('summary').click();
+  await corrected.getByRole('button', { name: 'Entry history', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Entry history', exact: true })).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('desktop-corrected-history.png'),
@@ -225,7 +239,7 @@ test('private two-photo diary persists and exact retries recover committed alloc
     ),
   ).toBe(true);
   page.once('dialog', (dialog) => dialog.accept());
-  await corrected.getByRole('button', { name: 'Delete', exact: true }).click();
+  await corrected.getByRole('button', { name: 'Delete entry', exact: true }).click();
   await expect(corrected).toHaveCount(0);
   expect((await page.request.get(`/api/media/${secondId}`)).status()).toBe(404);
   const deletedHistory = await (await page.request.get(`/api/food/${entry.id}/history`)).json();

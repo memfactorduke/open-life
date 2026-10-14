@@ -1,0 +1,38 @@
+{
+  "checkedAt": "2026-10-14T04:19:41.453242+00:00",
+  "status": "final-native-and-integrated-browser-verification-pending",
+  "baseCommit": "09ccc041dbbf63f9aceae76310eabb9055ea9145",
+  "nativeAutomated": {
+    "tests": 211,
+    "suites": 33,
+    "result": "passed"
+  },
+  "workspaceTypecheck": "passed",
+  "lint": "passed",
+  "productionBuild": "passed",
+  "webEntry": {
+    "rawKB": 516.26,
+    "gzipKB": 156.05
+  },
+  "sqliteSummary": {
+    "archivedOperationsAndPhotos": 6000,
+    "result": "exact-counts-no-archived-json-hydration"
+  },
+  "independentFindings": {
+    "notificationNavigation": "fixed",
+    "directRoutineFreshness": "fixed",
+    "materialRemainingInTargetedFollowup": 0
+  },
+  "physicalIpadGate": "2026-10-14T03:00:00-04:00",
+  "deployment": "not-accepted",
+  "appleDistribution": "not-accepted",
+  "receipts": [
+    "shell-verification.json",
+    "today-verification.json",
+    "tasks-verification.json",
+    "food-verification.json",
+    "connections-verification.json",
+    "workflow-verification.json"
+  ],
+  "format": "passed"
+}

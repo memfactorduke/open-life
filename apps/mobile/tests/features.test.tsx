@@ -93,9 +93,7 @@ it('retains capture text and replays the exact failed operation instead of makin
   expect(screen.getByLabelText('New task').props.value).toBe('Book a fictional appointment');
   await fireEvent.press(screen.getByRole('button', { name: 'Retry task capture' }));
   await waitFor(() =>
-    expect(
-      screen.getByRole('button', { name: 'Open Book a fictional appointment' }),
-    ).toBeOnTheScreen(),
+    expect(screen.getByRole('button', { name: 'Book a fictional appointment' })).toBeOnTheScreen(),
   );
   const commands = request.mock.calls.filter((call) => call[1]);
   expect(commands[1]?.[1]).toEqual(commands[0]?.[1]);
@@ -125,8 +123,9 @@ it('edits a task with its revision and retains notes after server rejection', as
     return path.endsWith('/history') ? { events: [], nextCursor: null } : { tasks: [task] };
   });
   await render(<Tasks client={clientWith(request)} />);
-  await screen.findByRole('button', { name: 'Open Fictional task' });
-  await fireEvent.press(screen.getByRole('button', { name: 'Open Fictional task' }));
+  await screen.findByRole('button', { name: 'Fictional task' });
+  await fireEvent.press(screen.getByRole('button', { name: 'Fictional task' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Edit task' }));
   await fireEvent.changeText(screen.getByLabelText('Notes'), 'Keep this draft');
   await fireEvent.press(screen.getByRole('button', { name: 'Save task' }));
   await screen.findByText('Task changed. Refresh before trying again.');
@@ -182,8 +181,10 @@ it('builds a weighted routine in pounds while saving canonical kilograms and an 
   await screen.findByText('No routines here yet. Build a plan with exercises, targets and notes.');
   await fireEvent.press(screen.getByRole('button', { name: 'Create routine' }));
   await fireEvent.changeText(screen.getByLabelText('Routine name'), 'Fictional push day');
+  await fireEvent.press(screen.getByRole('button', { name: 'Add exercise' }));
   await screen.findByRole('button', { name: 'Add Fictional press' });
   await fireEvent.press(screen.getByRole('button', { name: 'Add Fictional press' }));
+  await fireEvent.press(screen.getByRole('button', { name: '1. Fictional press' }));
   await fireEvent.changeText(screen.getByLabelText('Load (lb) for set 1'), '100');
   await fireEvent.press(screen.getByRole('button', { name: 'Save routine' }));
   await waitFor(() => {
@@ -218,11 +219,17 @@ it('keeps invalid numeric input visible and prevents saving an older valid targe
   await render(<Workouts client={clientWith(request)} preferences={defaultPreferences} />);
   await fireEvent.press(screen.getByRole('button', { name: 'Create routine' }));
   await fireEvent.changeText(screen.getByLabelText('Routine name'), 'Invalid target plan');
+  await fireEvent.press(screen.getByRole('button', { name: 'Add exercise' }));
   await screen.findByRole('button', { name: 'Add Fictional press' });
   await fireEvent.press(screen.getByRole('button', { name: 'Add Fictional press' }));
+  await fireEvent.press(screen.getByRole('button', { name: '1. Fictional press' }));
   await fireEvent.changeText(screen.getByLabelText('Repetitions for set 1'), 'eight');
   expect(screen.getByLabelText('Repetitions for set 1').props.value).toBe('eight');
   expect(screen.getByRole('button', { name: 'Save routine' })).toBeDisabled();
+  await fireEvent.press(screen.getByRole('button', { name: '1. Fictional press' }));
+  expect(screen.getByRole('button', { name: 'Save routine' })).toBeDisabled();
+  await fireEvent.press(screen.getByRole('button', { name: '1. Fictional press' }));
+  expect(screen.getByLabelText('Repetitions for set 1').props.value).toBe('eight');
   await fireEvent.changeText(screen.getByLabelText('Repetitions for set 1'), '0');
   expect(screen.getByRole('button', { name: 'Save routine' })).toBeEnabled();
 });
@@ -252,8 +259,9 @@ it('a late task query cannot replace a newly selected completed-history view', a
   });
   await render(<Tasks client={clientWith(request)} />);
   await waitFor(() => expect(resolveOpen).toBeDefined());
+  await fireEvent.press(screen.getByRole('button', { name: 'More' }));
   await fireEvent.press(screen.getByRole('radio', { name: 'Completed' }));
-  await screen.findByRole('button', { name: 'Open Completed fictional task' });
+  await screen.findByRole('button', { name: 'Completed fictional task' });
   await act(async () => resolveOpen({ tasks: [] }));
-  expect(screen.getByRole('button', { name: 'Open Completed fictional task' })).toBeOnTheScreen();
+  expect(screen.getByRole('button', { name: 'Completed fictional task' })).toBeOnTheScreen();
 });

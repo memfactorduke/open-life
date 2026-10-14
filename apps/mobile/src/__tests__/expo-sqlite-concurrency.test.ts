@@ -571,3 +571,97 @@ test('late rejection or reviewed-dispatch failure cannot revive discarded comman
   expect((await store.outbox())[0].state).toBe('discarded');
   await store.db.close();
 });
+
+test('compact sync summary counts only this partition pending and review states without decoding archived data', async () => {
+  const store = await openOfflineStore(partition);
+  await store.db.transaction(async (tx) => {
+    const states = [
+      'never-sent',
+      'attempted',
+      'uncertain',
+      'conflict',
+      'review',
+      'synced',
+      'discarded',
+    ];
+    for (let n = 0; n < states.length; n++)
+      await tx.run(
+        'INSERT INTO offline_outbox(partition,operation_id,aggregate,payload,local_at,dependencies,state) VALUES(?,?,?,?,?,?,?)',
+        store.partitionKey,
+        uuid(n + 100),
+        'food:fixture',
+        'malformed payload not needed by counts',
+        'fixture',
+        '[]',
+        states[n],
+      );
+    const photos = ['draft', 'pending', 'needs-attention', 'synced', 'discarded'];
+    for (let n = 0; n < photos.length; n++)
+      await tx.run(
+        'INSERT INTO offline_photos(partition,id,entry_id,value,status) VALUES(?,?,?,?,?)',
+        store.partitionKey,
+        uuid(n + 200),
+        'fixture',
+        JSON.stringify({ id: uuid(n + 200) }),
+        photos[n],
+      );
+    await tx.run(
+      "INSERT INTO offline_photos(partition,id,entry_id,value,status) VALUES('foreign',?,'fixture','{}','needs-attention')",
+      uuid(300),
+    );
+    await tx.run(
+      "INSERT INTO offline_outbox(partition,operation_id,aggregate,payload,local_at,dependencies,state) VALUES('foreign',?,'food:fixture','{}','fixture','[]','review')",
+      uuid(301),
+    );
+    for (let n = 0; n < 6000; n++) {
+      await tx.run(
+        "INSERT INTO offline_outbox(partition,operation_id,aggregate,payload,local_at,dependencies,state) VALUES(?,?,'food:fixture','not JSON','fixture','[]','synced')",
+        store.partitionKey,
+        uuid(n + 1000),
+      );
+      await tx.run(
+        "INSERT INTO offline_photos(partition,id,entry_id,value,status) VALUES(?,?,'fixture','not JSON','synced')",
+        store.partitionKey,
+        uuid(n + 10000),
+      );
+    }
+  });
+  const queries: string[] = [];
+  const transaction = store.db.transaction.bind(store.db);
+  jest.spyOn(store.db, 'transaction').mockImplementation((work) =>
+    transaction((tx) =>
+      work({
+        ...tx,
+        all: async <T>(sql: string, ...params: (string | number | null)[]) => {
+          queries.push(sql);
+          return tx.all<T>(sql, ...params);
+        },
+      }),
+    ),
+  );
+  const started = performance.now();
+  expect(await store.syncSummary()).toEqual({
+    pendingChangeCount: 5,
+    pendingPhotoCount: 3,
+    reviewChangeCount: 2,
+    reviewPhotoCount: 1,
+  });
+  console.info(
+    `Compact sync summary with 6000 archived receipts/photos: ${(performance.now() - started).toFixed(1)} ms`,
+  );
+  expect(queries).toHaveLength(2);
+  expect(queries.every((sql) => sql.startsWith('SELECT COUNT(*)'))).toBe(true);
+  expect((await store.pendingEntries()).map((entry) => entry.state)).toEqual([
+    'never-sent',
+    'attempted',
+    'uncertain',
+    'conflict',
+    'review',
+  ]);
+  expect((await store.pendingPhotos()).map((photo) => photo.status).sort()).toEqual([
+    'draft',
+    'needs-attention',
+    'pending',
+  ]);
+  await store.db.close();
+});

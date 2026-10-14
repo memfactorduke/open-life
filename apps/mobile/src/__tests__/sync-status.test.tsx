@@ -186,7 +186,7 @@ test('orphan photo recovery shows retained text and requires separate acknowledg
   await waitFor(() =>
     expect(screen.getByText(/Retained diary details: Fictional retained meal/)).toBeTruthy(),
   );
-  expect(screen.getByText(/40 bytes · SHA-256/)).toBeTruthy();
+  expect(screen.queryByText(/bytes · SHA-256/)).toBeNull();
   fireEvent.press(screen.getByText('Create new diary entry from retained details'));
   await waitFor(() =>
     expect(offline.recoverPhoto).toHaveBeenCalledWith('orphan-photo', proof, false, true),
@@ -309,3 +309,52 @@ test('later schedule and workout commands compare their immutable target values'
     changed: true,
   });
 });
+
+test('healthy compact status stays quiet without hydrating local history', async () => {
+  const instance = client({ epoch: 'fictional', replayPaused: false }, []);
+  const store = instance.offline!.store;
+  store.syncSummary = jest.fn().mockResolvedValue({
+    pendingChangeCount: 0,
+    pendingPhotoCount: 0,
+    reviewChangeCount: 0,
+    reviewPhotoCount: 0,
+  });
+  store.outbox = jest.fn();
+  store.records = jest.fn();
+  store.photos = jest.fn();
+  await render(<SyncStatus client={instance} compact onOpen={jest.fn()} />);
+  await waitFor(() => expect(store.syncSummary).toHaveBeenCalled());
+  expect(screen.queryByRole('button')).toBeNull();
+  expect(store.outbox).not.toHaveBeenCalled();
+  expect(store.records).not.toHaveBeenCalled();
+  expect(store.photos).not.toHaveBeenCalled();
+});
+test.each([
+  {
+    pendingChangeCount: 2,
+    pendingPhotoCount: 1,
+    reviewChangeCount: 0,
+    reviewPhotoCount: 0,
+    title: '3 items waiting to sync',
+  },
+  {
+    pendingChangeCount: 0,
+    pendingPhotoCount: 1,
+    reviewChangeCount: 0,
+    reviewPhotoCount: 1,
+    title: 'Saved changes need review',
+  },
+])(
+  'compact status keeps unsent work and photo recovery reachable: $title',
+  async ({ title, ...counts }) => {
+    const instance = client({ epoch: 'fictional', replayPaused: false }, []);
+    instance.offline!.store.syncSummary = jest.fn().mockResolvedValue(counts);
+    const open = jest.fn();
+    await render(<SyncStatus client={instance} compact onOpen={open} />);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: `${title}. Open sync and recovery` })).toBeTruthy(),
+    );
+    await fireEvent.press(screen.getByRole('button', { name: `${title}. Open sync and recovery` }));
+    expect(open).toHaveBeenCalledTimes(1);
+  },
+);

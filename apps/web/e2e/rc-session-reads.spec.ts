@@ -145,7 +145,8 @@ test('delayed older performance and audit reads stay with their selected workout
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.locator('#today-heading')).toBeVisible();
   await page.getByRole('link', { name: 'Workouts', exact: false }).click();
-  await page.getByRole('button', { name: 'Train', exact: true }).click();
+  await page.getByRole('button', { name: 'Workout', exact: true }).click();
+  await page.getByText('Previous sets', { exact: true }).click();
   await page.getByRole('button', { name: 'Load older exercise performance', exact: true }).click();
   await expect.poll(() => performanceStarted).toBe(true);
   await page
@@ -156,7 +157,7 @@ test('delayed older performance and audit reads stay with their selected workout
   await earlierResponse;
   await page.evaluate(() => new Promise(requestAnimationFrame));
   await expect(page.locator('.previous-performance')).not.toContainText('777');
-  await page.getByText('Workout notes and history', { exact: true }).click();
+  await page.getByText('Notes and history', { exact: true }).click();
   await page.getByRole('button', { name: 'Show correction history', exact: true }).click();
   await expect.poll(() => auditStarted).toBe(true);
   await page.getByRole('button', { name: 'Workout history', exact: true }).click();
@@ -167,7 +168,7 @@ test('delayed older performance and audit reads stay with their selected workout
   const auditResponse = page.waitForResponse((response) => response.url().endsWith('/history'));
   releaseAudit();
   await auditResponse;
-  await page.getByText('Workout notes and history', { exact: true }).click();
+  await page.getByText('Notes and history', { exact: true }).click();
   await expect(
     page.getByText('Old audit must stay with its workout', { exact: false }),
   ).toHaveCount(0);

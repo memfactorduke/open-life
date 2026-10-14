@@ -88,3 +88,62 @@
     margin: 4px 0;
   }
 }
+/* Status and results stay in the reading flow; configuration is disclosed separately. */
+.agent-workflow > h3 {
+  font-size: 1.1rem;
+  margin: 0 0 12px;
+}
+.workflow-steps {
+  gap: 0;
+}
+.workflow-steps > article {
+  border: 0;
+  border-radius: 0;
+  padding: 16px 0;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+}
+.workflow-run {
+  margin: 0;
+}
+.workflow-result {
+  background: var(--surface);
+  margin: 8px 0;
+  padding: 12px 16px;
+}
+.workflow-result > summary {
+  font-weight: 600;
+}
+.workflow-result > summary h5 {
+  margin: 0;
+}
+.workflow-result > p {
+  margin: 8px 0;
+}
+.agent-workflow .workflow-configuration,
+.agent-workflow > details {
+  border-bottom: 1px solid var(--line);
+  padding: 4px 0;
+}
+.agent-workflow details > summary {
+  gap: 8px;
+  line-height: 1.4;
+}
+.agent-workflow details > summary::before {
+  content: '›';
+  font-size: 1.25rem;
+  width: 12px;
+  flex-shrink: 0;
+}
+.agent-workflow details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.agent-workflow details > summary:focus-visible {
+  outline: 2px solid var(--accent, #2865b2);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.agent-workflow .result-provenance {
+  font-size: 0.9rem;
+  color: var(--muted, #5e6671);
+}

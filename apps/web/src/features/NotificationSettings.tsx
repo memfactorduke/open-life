@@ -105,38 +105,36 @@ export function NotificationSettings({ onSaved }: { onSaved?: (record: Record) =
   return (
     <section className="notification-settings" aria-labelledby="notifications-heading">
       <h2 id="notifications-heading">Notifications</h2>
-      <p>
-        Today always shows what needs you, even when notifications are off. Ordinary agent success
-        does not send an alert.
-      </p>
+      <p>Remind me when something needs me.</p>
       {!record && !error && <p role="status">Loading notification choices…</p>}
       {record && (
         <>
           <fieldset disabled={busy || !!pending.current}>
             <legend>Choose useful alerts</legend>
-            {choices.map((choice) => (
-              <label key={choice.key} className="notification-choice">
-                <input
-                  type="checkbox"
-                  checked={draft[choice.key]}
-                  onChange={(e) => {
-                    pending.current = null;
-                    setDraft({ ...draft, [choice.key]: e.target.checked });
-                    setMessage('');
-                  }}
-                />
-                <span>
-                  <strong>{choice.label}</strong>
-                  <small>{choice.description}</small>
-                </span>
-              </label>
-            ))}
+            {choices
+              .filter((choice) => choice.key === 'enabled' || draft.enabled)
+              .map((choice) => (
+                <label key={choice.key} className="notification-choice">
+                  <input
+                    type="checkbox"
+                    checked={draft[choice.key]}
+                    onChange={(e) => {
+                      pending.current = null;
+                      setDraft({ ...draft, [choice.key]: e.target.checked });
+                      setMessage('');
+                    }}
+                  />
+                  <span>
+                    <strong>{choice.label}</strong>
+                    <small>{choice.description}</small>
+                  </span>
+                </label>
+              ))}
           </fieldset>
           <p className="notification-note">
             {provider
-              ? 'Remote alerts are available. Enable device alerts in the iPhone or iPad app after saving your choices.'
-              : 'Remote alerts are not configured. Native local due reminders and workout timers can still work.'}{' '}
-            Device permission is managed in the native app.
+              ? 'Enable device alerts in the iPhone or iPad app.'
+              : 'Remote alerts are unavailable. Local reminders and timers remain available in the app.'}{' '}
           </p>
           {conflict && (
             <div role="alert">

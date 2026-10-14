@@ -17,11 +17,11 @@ import {
 } from '@mems-life/domain';
 import type { InstallationClient } from '../client';
 import { useOfflineRevision } from '../offline-client';
-import { Action, Body, Card, Heading, usePalette } from '../ui';
+import { Action, Body, Disclosure, usePalette } from '../ui';
 
 export type TodayTarget =
   | { kind: 'task'; id?: string; action?: 'create' }
-  | { kind: 'session'; id?: string; action?: 'create' }
+  | { kind: 'session'; id?: string; routineId?: string; action?: 'create' }
   | { kind: 'food'; id?: string; action?: 'capture' };
 const labels: Record<AttentionItem['kind'], string> = {
   due: 'Due now',
@@ -33,27 +33,26 @@ const labels: Record<AttentionItem['kind'], string> = {
   review: 'Review needed',
 };
 const reasons: Record<string, string> = {
-  not_released: 'This work has not been released.',
-  paused: 'This work is paused.',
+  not_released: 'Not released',
+  paused: 'Paused',
   agent: 'Waiting for an agent.',
   dependencies: 'Waiting for earlier steps.',
   dependency: 'Waiting for an earlier step.',
-  agent_failed: 'The latest agent attempt failed. Open the task to review what happened.',
-  reconcile_agent_outcome: 'The agent outcome is uncertain. Check the task before retrying.',
-  review_result: 'An agent result is ready for your review.',
-  final_review: 'The finished work needs your final review.',
+  agent_failed: 'Review the failed attempt.',
+  reconcile_agent_outcome: 'Check the outcome before retrying.',
+  review_result: 'Review the agent result.',
+  final_review: 'Final review',
 };
 function reason(item: AttentionItem) {
   return item.waitingReason
     ? (reasons[item.waitingReason] ?? item.waitingReason.replace(/_/g, ' '))
     : item.step
-      ? 'This step is ready for you.'
-      : 'Open this task to continue.';
+      ? item.task.content.title
+      : '';
 }
 
 export function Today({
   client,
-  preferences,
   onOpen,
   active = true,
 }: {
@@ -63,12 +62,12 @@ export function Today({
   active?: boolean;
 }) {
   const palette = usePalette();
-  const { width, fontScale } = useWindowDimensions();
-  const wide = width >= 760 && fontScale < 1.5;
+  const { fontScale } = useWindowDimensions();
+  const [contentWidth, setContentWidth] = useState(0);
+  const wide = contentWidth >= 720 && fontScale < 1.5;
   const [data, setData] = useState<AttentionResponse | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<string | null>(null);
   const generation = useRef(0);
   const offlineRevision = useOfflineRevision(client);
   const refresh = useCallback(async () => {
@@ -98,258 +97,205 @@ export function Today({
       listener.remove();
     };
   }, [active, refresh, offlineRevision]);
-  const chosen = data?.items.find((i) => i.id === selected) ?? data?.items[0];
-  const ready = data?.items.filter((i) => i.kind !== 'waiting').length ?? 0;
-  const nextAction = data?.items.find((i) => i.kind !== 'waiting');
-  const detail = chosen && (
-    <View style={[s.detail, { backgroundColor: palette.background }]}>
-      <Text style={[s.tag, { color: palette.accent }]}>{labels[chosen.kind]}</Text>
-      <Text accessibilityRole="header" style={[s.itemTitle, { color: palette.text }]}>
-        {chosen.step?.content.title ?? chosen.task.content.title}
+  const ready = data?.items.filter((item) => item.kind !== 'waiting') ?? [];
+  const waiting = data?.items.filter((item) => item.kind === 'waiting') ?? [];
+  const attentionRow = (item: AttentionItem) => (
+    <Pressable
+      key={item.id}
+      accessibilityRole="button"
+      accessibilityLabel={`${labels[item.kind]}: ${item.step?.content.title ?? item.task.content.title}`}
+      onPress={() => onOpen({ kind: 'task', id: item.task.id })}
+      style={[s.row, { borderColor: palette.line }]}
+    >
+      <View style={s.rowContent}>
+        <Text style={[s.itemTitle, { color: palette.text }]}>
+          {item.step?.content.title ?? item.task.content.title}
+        </Text>
+        {!!reason(item) && <Text style={[s.meta, { color: palette.muted }]}>{reason(item)}</Text>}
+      </View>
+      <Text
+        style={[
+          s.status,
+          {
+            color: ['failure', 'outcome-unknown'].includes(item.kind)
+              ? palette.error
+              : palette.accent,
+          },
+        ]}
+      >
+        {labels[item.kind]}
       </Text>
-      <Body>{reason(chosen)}</Body>
-      {chosen.task.schedule.dueAt && (
-        <Body>
-          Due{' '}
-          {new Intl.DateTimeFormat('en', {
-            timeZone: preferences.timeZone,
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          }).format(new Date(chosen.task.schedule.dueAt))}
-        </Body>
-      )}
-      <Action title="Open task" onPress={() => onOpen({ kind: 'task', id: chosen.task.id })} />
-    </View>
+    </Pressable>
+  );
+  const quickAction = (title: string, onPress: () => void) => (
+    <Action title={title} onPress={onPress} compact variant="secondary" />
   );
   return (
     <ScrollView
       contentContainerStyle={[s.page, { backgroundColor: palette.background }]}
       keyboardShouldPersistTaps="handled"
     >
-      <View>
-        <Heading eyebrow="Your daily focus">Today</Heading>
-        <Text style={[s.greeting, { color: palette.text }]} numberOfLines={2} ellipsizeMode="tail">
-          Hello, {preferences.displayName}.
-        </Text>
-        <Body>
-          {data
-            ? new Intl.DateTimeFormat('en', {
+      <View style={s.header}>
+        <View style={s.rowContent}>
+          <Text accessibilityRole="header" style={[s.title, { color: palette.text }]}>
+            Today
+          </Text>
+          {data && (
+            <Text style={[s.meta, { color: palette.muted }]}>
+              {new Intl.DateTimeFormat('en', {
                 timeZone: data.timezone,
                 weekday: 'long',
                 month: 'long',
                 day: 'numeric',
-              }).format(new Date(data.now))
-            : 'A little space to see what comes next.'}
-        </Body>
-      </View>
-      {loading && !data && (
-        <View accessibilityLabel="Loading your day" style={s.loading}>
-          <ActivityIndicator color={palette.accent} />
-          <Body>Loading your day…</Body>
+              }).format(new Date(data.now))}
+            </Text>
+          )}
         </View>
-      )}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Refresh Today"
+          accessibilityState={{ disabled: loading, busy: loading }}
+          disabled={loading}
+          onPress={() => void refresh()}
+          style={s.quick}
+        >
+          {loading ? (
+            <ActivityIndicator color={palette.accent} />
+          ) : (
+            <Text style={[s.quickText, { color: palette.accent }]}>Refresh</Text>
+          )}
+        </Pressable>
+      </View>
+      {loading && !data && <Body>Loading your day…</Body>}
       {error && (
-        <Card>
+        <View style={s.notice}>
           <Body error>{error}</Body>
           {data && <Body>Showing your last confirmed view. It may have changed.</Body>}
           <Action title="Retry Today" onPress={() => void refresh()} busy={loading} secondary />
-        </Card>
+        </View>
       )}
       {client.offline?.attentionFromDevice && (
-        <Body>
-          Device view · server freshness is unverified. Pending changes stay on this device until
-          sync confirms them.
-        </Body>
+        <Body>Device view · server freshness unverified.</Body>
+      )}
+      {data?.activeSession && (
+        <View style={[s.workout, { backgroundColor: palette.surface, borderColor: palette.line }]}>
+          <View style={s.rowContent}>
+            <Text style={[s.itemTitle, { color: palette.text }]}>{data.activeSession.name}</Text>
+            <Text style={[s.meta, { color: palette.muted }]}>
+              {data.activeSession.items.reduce(
+                (count, exercise) =>
+                  count + exercise.results.filter((result) => !result.removedAt).length,
+                0,
+              )}{' '}
+              sets recorded
+            </Text>
+          </View>
+          {quickAction('Resume workout', () =>
+            onOpen({ kind: 'session', id: data.activeSession!.id }),
+          )}
+        </View>
       )}
       <View style={s.capture}>
-        <View style={s.captureAction}>
-          <Action
-            title="Capture a task"
-            onPress={() => onOpen({ kind: 'task', action: 'create' })}
-          />
-        </View>
-        <View style={s.captureAction}>
-          <Action
-            title="Log food"
-            onPress={() => onOpen({ kind: 'food', action: 'capture' })}
-            secondary
-          />
-        </View>
+        {quickAction('Capture a task', () => onOpen({ kind: 'task', action: 'create' }))}
+        {quickAction('Log food', () => onOpen({ kind: 'food', action: 'capture' }))}
+        {!data?.activeSession && quickAction('Start workout', () => onOpen({ kind: 'session' }))}
       </View>
-      {data?.activeSession && (
-        <Action
-          title="Resume workout"
-          onPress={() => onOpen({ kind: 'session', id: data.activeSession!.id })}
-        />
-      )}
-      {nextAction && (
-        <Card>
-          <Text style={[s.tag, { color: palette.accent }]}>{labels[nextAction.kind]}</Text>
-          <Text style={[s.itemTitle, { color: palette.text }]} numberOfLines={2}>
-            {nextAction.step?.content.title ?? nextAction.task.content.title}
-          </Text>
-          <Action
-            title="Continue task"
-            onPress={() => onOpen({ kind: 'task', id: nextAction.task.id })}
-          />
-        </Card>
-      )}
       {data && (
-        <View style={[s.columns, wide && s.wide]}>
+        <View
+          testID="today-content"
+          onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}
+          style={[s.columns, wide && s.wide]}
+        >
           <View style={s.focus}>
-            <Card>
-              <Text accessibilityRole="header" style={[s.sectionTitle, { color: palette.text }]}>
-                What needs you
-              </Text>
-              {data.items.length === 0 ? (
-                <>
-                  <Text style={[s.itemTitle, { color: palette.text }]}>A clear place to start</Text>
-                  <Body>
-                    Capture a task, log a meal, or open Workouts to plan your next session.
-                  </Body>
-                </>
-              ) : (
-                <>
-                  <Body>
-                    {ready} {ready === 1 ? 'action needs' : 'actions need'} your attention ·{' '}
-                    {data.items.length - ready} waiting
-                  </Body>
-                  {!wide && detail}
-                  <View style={s.list}>
-                    {data.items.map((item) => (
-                      <Pressable
-                        key={item.id}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${labels[item.kind]}: ${item.step?.content.title ?? item.task.content.title}`}
-                        accessibilityState={{ selected: chosen?.id === item.id }}
-                        onPress={() => setSelected(item.id)}
-                        style={[
-                          s.row,
-                          {
-                            borderColor: chosen?.id === item.id ? palette.accent : palette.line,
-                            backgroundColor: palette.surface,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            s.tag,
-                            {
-                              color:
-                                item.kind === 'failure' || item.kind === 'outcome-unknown'
-                                  ? palette.error
-                                  : palette.accent,
-                            },
-                          ]}
-                        >
-                          {labels[item.kind]}
-                        </Text>
-                        <Text style={[s.itemTitle, { color: palette.text }]}>
-                          {item.step?.content.title ?? item.task.content.title}
-                        </Text>
-                        {item.step && <Body>{item.task.content.title}</Body>}
-                        <Body>{reason(item)}</Body>
-                      </Pressable>
-                    ))}
-                  </View>
-                </>
-              )}
-            </Card>
+            <Text accessibilityRole="header" style={[s.sectionTitle, { color: palette.text }]}>
+              Needs you{ready.length ? ` · ${ready.length}` : ''}
+            </Text>
+            {ready.length ? ready.map(attentionRow) : <Body>Nothing needs your attention.</Body>}
+            {!!waiting.length && (
+              <Disclosure title={`Waiting · ${waiting.length}`}>
+                {waiting.map(attentionRow)}
+              </Disclosure>
+            )}
           </View>
-          <View style={[s.side, wide && s.wideSide]}>
-            {wide && detail}
-            <Card>
-              <Text style={[s.tag, { color: palette.muted }]}>TRAINING</Text>
+          <View style={s.food}>
+            <View style={s.header}>
               <Text accessibilityRole="header" style={[s.sectionTitle, { color: palette.text }]}>
-                {data.activeSession ? 'Workout in progress' : 'Room for movement'}
+                Food today · {data.food.count}
               </Text>
-              {data.activeSession ? (
-                <>
-                  <Body>{data.activeSession.name}</Body>
-                  <Body>
-                    {data.activeSession.items.reduce(
-                      (count, exercise) =>
-                        count + exercise.results.filter((result) => !result.removedAt).length,
-                      0,
-                    )}{' '}
-                    sets recorded
-                  </Body>
-                  <Action
-                    title={`Resume ${data.activeSession.name}`}
-                    onPress={() => onOpen({ kind: 'session', id: data.activeSession!.id })}
-                  />
-                </>
-              ) : (
-                <>
-                  <Body>No active workout.</Body>
-                  <Action
-                    title="Open Workouts"
-                    onPress={() => onOpen({ kind: 'session' })}
-                    secondary
-                  />
-                </>
-              )}
-            </Card>
-            <Card>
-              <Text style={[s.tag, { color: palette.muted }]}>FOOD DIARY</Text>
-              <Text accessibilityRole="header" style={[s.sectionTitle, { color: palette.text }]}>
-                Food today
-              </Text>
-              <Body>
-                {data.food.count === 0
-                  ? 'Your diary is ready for your first entry.'
-                  : `${data.food.count} ${data.food.count === 1 ? 'entry' : 'entries'} recorded`}
-              </Body>
-              {data.food.entries.map((entry) => (
-                <Pressable
-                  key={entry.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open food: ${entry.content.text.trim() || 'Photo entry'}`}
-                  onPress={() => onOpen({ kind: 'food', id: entry.id })}
-                  style={[s.row, { borderColor: palette.line }]}
-                >
-                  <Text style={[s.itemTitle, { color: palette.text }]}>
-                    {entry.content.text.trim() || 'Photo entry'}
-                  </Text>
-                  <Body>
-                    {new Intl.DateTimeFormat('en', {
-                      timeZone: data.timezone,
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    }).format(new Date(entry.content.occurredAt))}
-                  </Body>
-                </Pressable>
-              ))}
-              <Action
-                title="Add a food entry"
-                onPress={() => onOpen({ kind: 'food', action: 'capture' })}
-                secondary
-              />
-            </Card>
+              {quickAction('Add food entry', () => onOpen({ kind: 'food', action: 'capture' }))}
+            </View>
+            {!data.food.count && <Body>No entries yet.</Body>}
+            {data.food.entries.slice(0, 3).map((entry) => (
+              <Pressable
+                key={entry.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Open food: ${entry.content.text.trim() || 'Photo entry'}`}
+                onPress={() => onOpen({ kind: 'food', id: entry.id })}
+                style={[s.row, { borderColor: palette.line }]}
+              >
+                <Text style={[s.itemTitle, s.rowContent, { color: palette.text }]}>
+                  {entry.content.text.trim() || 'Photo entry'}
+                </Text>
+                <Text style={[s.meta, { color: palette.muted }]}>
+                  {new Intl.DateTimeFormat('en', {
+                    timeZone: data.timezone,
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  }).format(new Date(entry.content.occurredAt))}
+                </Text>
+              </Pressable>
+            ))}
+            {data.food.count > 3 && quickAction('View food diary', () => onOpen({ kind: 'food' }))}
           </View>
         </View>
       )}
-      <Action title="Refresh Today" onPress={() => void refresh()} busy={loading} secondary />
     </ScrollView>
   );
 }
 const s = StyleSheet.create({
   page: { padding: 20, gap: 20, paddingBottom: 40 },
-  greeting: { fontSize: 22, lineHeight: 30, fontWeight: '600', flexShrink: 1, marginBottom: 8 },
-  loading: { flexDirection: 'row', gap: 12 },
-  capture: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
-  captureAction: { flex: 1, minWidth: 140 },
-  columns: { gap: 20 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  title: { fontSize: 32, fontWeight: '700' },
+  sectionTitle: { fontSize: 20, lineHeight: 28, fontWeight: '600' },
+  itemTitle: { fontSize: 17, lineHeight: 24, fontWeight: '500' },
+  meta: { fontSize: 14, lineHeight: 21 },
+  status: { fontSize: 13, lineHeight: 19, maxWidth: 130, flexShrink: 1 },
+  quick: {
+    minHeight: 44,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    justifyContent: 'center',
+  },
+  quickText: { fontSize: 15, fontWeight: '600' },
+  capture: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  workout: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 12,
+  },
+  row: {
+    minHeight: 60,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rowContent: { flex: 1, minWidth: 0 },
+  notice: { gap: 8 },
+  columns: { gap: 24 },
   wide: { flexDirection: 'row', alignItems: 'flex-start' },
   focus: { flex: 1, minWidth: 0 },
-  side: { gap: 20 },
-  wideSide: { flex: 1, minWidth: 0 },
-  sectionTitle: { fontSize: 22, lineHeight: 28, fontWeight: '700' },
-  itemTitle: { fontSize: 17, lineHeight: 25, fontWeight: '600', flexShrink: 1 },
-  tag: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
-  list: { gap: 12 },
-  row: { minHeight: 60, borderWidth: 1, borderRadius: 14, padding: 14, gap: 8 },
-  detail: { borderRadius: 16, padding: 18, gap: 12 },
+  food: { flex: 1, minWidth: 0 },
 });

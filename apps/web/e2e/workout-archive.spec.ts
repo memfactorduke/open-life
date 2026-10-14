@@ -82,10 +82,12 @@ test('recover archived exercises and routines after reload, preserving zero reps
   });
   records.push({ kind: 'routine', id: routine.id });
   await page.goto('/#workouts');
+  await page.getByRole('button', { name: 'Routines', exact: true }).first().click();
   const routineCard = page
     .getByRole('article')
     .filter({ has: page.getByRole('heading', { name: routine.name, exact: true }) });
   await routineCard.getByRole('button', { name: 'Edit routine', exact: true }).click();
+  await page.locator('.routine-item > summary').click();
   await expect(page.getByLabel('Repetitions', { exact: true })).toHaveValue('0');
   expect(
     await page
@@ -95,6 +97,7 @@ test('recover archived exercises and routines after reload, preserving zero reps
   await page.getByLabel('Notes', { exact: true }).fill('Zero reps retained in web editing.');
   await page.getByRole('button', { name: 'Save routine', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
+  await routineCard.getByLabel(`More options for ${routine.name}`).click();
   await routineCard.getByRole('button', { name: 'Archive', exact: true }).click();
   await expect(routineCard).toHaveCount(0);
   await page.getByRole('button', { name: 'Exercise library', exact: true }).click();
@@ -104,6 +107,7 @@ test('recover archived exercises and routines after reload, preserving zero reps
   await exerciseCard.getByRole('button', { name: 'Archive', exact: true }).click();
   await expect(exerciseCard).toHaveCount(0);
   await page.reload();
+  await page.getByRole('button', { name: 'Routines', exact: true }).first().click();
   await page.getByRole('button', { name: 'Exercise library', exact: true }).click();
   await page.getByLabel('Show archived exercises').check();
   await expect(exerciseCard).toBeVisible();
@@ -111,14 +115,19 @@ test('recover archived exercises and routines after reload, preserving zero reps
   await expect(exerciseCard).toHaveCount(0);
   await page.getByLabel('Show archived exercises').uncheck();
   await expect(exerciseCard).toBeVisible();
-  await page.getByRole('button', { name: 'Routines', exact: true }).click();
+  await page
+    .locator('.workout-library')
+    .getByRole('button', { name: 'Routines', exact: true })
+    .click();
   await page.getByLabel('Show archived routines').check();
   await expect(routineCard).toBeVisible();
+  await routineCard.getByLabel(`More options for ${routine.name}`).click();
   await routineCard.getByRole('button', { name: 'Unarchive', exact: true }).click();
   await expect(routineCard).toHaveCount(0);
   await page.getByLabel('Show archived routines').uncheck();
   await expect(routineCard).toBeVisible();
   await page.reload();
+  await page.getByRole('button', { name: 'Routines', exact: true }).first().click();
   await expect(routineCard).toBeVisible();
   const persisted = (await (await page.request.get(`/api/routines/${routine.id}`)).json()).routine;
   expect(persisted.revision).toBe(4);
