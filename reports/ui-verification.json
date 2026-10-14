@@ -1,10 +1,10 @@
 {
-  "checkedAt": "2026-10-14T04:19:41.453242+00:00",
-  "status": "final-native-and-integrated-browser-verification-pending",
+  "checkedAt": "2026-10-14T05:16:08.872504+00:00",
+  "status": "corrected-native-candidate-awaiting-actual-acceptance",
   "baseCommit": "09ccc041dbbf63f9aceae76310eabb9055ea9145",
   "nativeAutomated": {
-    "tests": 211,
-    "suites": 33,
+    "tests": 224,
+    "suites": 34,
     "result": "passed"
   },
   "workspaceTypecheck": "passed",
@@ -34,5 +34,22 @@
     "connections-verification.json",
     "workflow-verification.json"
   ],
-  "format": "passed"
+  "format": "passed",
+  "domainAutomated": {
+    "tests": 68,
+    "suites": 13,
+    "result": "passed"
+  },
+  "nativeFindings": {
+    "foodFormatter": "source-fix-awaiting-native-retest",
+    "cacheFreshness": "source-fix-with-bound-acknowledgements-awaiting-native-retest",
+    "dynamicType": "source-fix-preserves-drafts-awaiting-live-font-change-retest",
+    "recentFoodOrdering": "fixed-with-unordered-entry-regression"
+  },
+  "previousFullBrowserRun": {
+    "passed": 134,
+    "failed": 1,
+    "skipped": 0,
+    "reason": "Today showed oldest three instead of newest three; source corrected"
+  }
 }

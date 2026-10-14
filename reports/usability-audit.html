@@ -370,12 +370,13 @@
 
   <section id="open">
     <h2>Remaining acceptance</h2>
+    <p>Actual native testing found a Food formatter crash, stale cache revisions after online timer changes, and large-text clipping. Source fixes now have regression coverage and await a corrected immutable build. The formatter failure matches <a href="https://github.com/js-temporal/temporal-polyfill/issues/344">the documented Hermes/polyfill issue</a>; direct native date formatting preserves the diary day. The complete browser run found one further defect: Today chose the oldest three meals. Both clients now select the newest three independent of response ordering.</p>
     <p>A fresh native Release build must prove these redesigned flows on iPhone and iPad simulators. Physical camera and offline journeys remain gated by the iPad's availability after 03:00 America/New_York on October 14. Live WHOOP consent requires a configured account; remote push is currently disabled. Deployment and Apple distribution remain separate acceptance steps.</p>
   </section>
   <section id="verification">
     <h2>Verification</h2>
     <table><thead><tr><th>Check</th><th>Verified result</th><th>Limit</th></tr></thead><tbody>
-      <tr><td>Native automated regression</td><td>211 tests / 33 suites passed.</td><td>Does not establish real-device presentation or OS permission behavior.</td></tr>
+      <tr><td>Native automated regression</td><td>224 tests / 34 suites passed.</td><td>Does not establish real-device presentation or OS permission behavior.</td></tr>
       <tr><td>Source and builds</td><td>All workspace types, lint, and production builds passed; formatting checked.</td><td>Fresh native binary acceptance follows separately.</td></tr>
       <tr><td>Today</td><td>6 browser cases, including live PostgreSQL tasks/workout/food navigation, across three engines. Five widths; no overflow.</td><td>Fictional fixtures, cleaned up after verification.</td></tr>
       <tr><td>Food</td><td>12 browser cases across three engines: photo retry, edit, detach/delete, private media, Tokyo dates, DST gaps/folds. Phone/tablet/desktop visuals inspected.</td><td>Physical camera permission still pending.</td></tr>
