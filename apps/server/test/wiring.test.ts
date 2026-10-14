@@ -41,6 +41,20 @@ test('actual application preserves bounded upload and session errors and origin 
     });
     assert.equal(login.statusCode, 200);
     const cookie = login.cookies.map((item) => `${item.name}=${item.value}`).join('; ');
+    const unsupported = await service.app.inject({
+      method: 'POST',
+      url: '/api/tasks/commands',
+      headers: { origin: config.WEB_ORIGIN, cookie, 'content-type': 'application/xml' },
+      payload: '<test/>',
+    });
+    assert.equal(unsupported.statusCode, 415);
+    assert.deepEqual(unsupported.json(), {
+      error: {
+        code: 'UNSUPPORTED_MEDIA_TYPE',
+        message: 'This request content type is not supported.',
+      },
+    });
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM tasks')).rows[0].n, 0);
     const session = await service.app.inject({
       method: 'POST',
       url: '/api/sessions/commands',

@@ -450,21 +450,52 @@ export function Sessions({
         )
       : session.timer.remainingSeconds
     : null;
+  const currentReadSelection = useRef('');
+  currentReadSelection.current = `${session?.id}:${session?.revision}:${item?.exerciseId}`;
+  const performanceLoading = useRef(false);
+  const auditGeneration = useRef(0);
   async function loadPerformance(more = false) {
-    if (!item) return;
+    if (!item || performanceLoading.current) return;
+    performanceLoading.current = true;
+    const selection = currentReadSelection.current;
     try {
       const data = await request(
         `/api/exercises/${item.exerciseId}/performance${more && performanceCursor ? `?cursor=${performanceCursor}` : ''}`,
         ExercisePerformanceResponseSchema,
       );
+      if (selection !== currentReadSelection.current) return;
       setPerformances((values) => (more ? [...values, ...data.performances] : data.performances));
       setPerformanceCursor(data.nextCursor);
     } catch (error) {
-      setNotice(
-        error instanceof Error ? error.message : 'Previous performance could not be loaded.',
-      );
+      if (selection === currentReadSelection.current)
+        setNotice(
+          error instanceof Error ? error.message : 'Previous performance could not be loaded.',
+        );
+    } finally {
+      performanceLoading.current = false;
     }
   }
+  async function showAudit(more = false) {
+    if (!session) return;
+    const selection = currentReadSelection.current;
+    const generation = ++auditGeneration.current;
+    try {
+      const data = await readAudit(session.id, more ? (audit?.nextCursor ?? undefined) : undefined);
+      if (selection !== currentReadSelection.current || generation !== auditGeneration.current)
+        return;
+      setAudit({
+        ...data,
+        events: more && audit ? [...audit.events, ...data.events] : data.events,
+      });
+    } catch (error) {
+      if (selection === currentReadSelection.current && generation === auditGeneration.current)
+        setNotice(errorText(error, 'Workout history could not load.'));
+    }
+  }
+  useEffect(() => {
+    setAudit(null);
+    auditGeneration.current++;
+  }, [session?.id, session?.revision]);
   const performanceVersion = item?.results
     .map((set) => `${set.id}:${set.correctedAt}:${set.removedAt}`)
     .join('|');
@@ -495,6 +526,7 @@ export function Sessions({
           value.items
             .filter(
               (old) =>
+                old.exerciseId === item.exerciseId &&
                 old.snapshot.mode === item.snapshot.mode &&
                 old.snapshot.supportsLoad === item.snapshot.supportsLoad,
             )
@@ -1267,14 +1299,7 @@ export function Sessions({
               removed results and planned targets. Missing measurements are not treated as performed
               volume.
             </p>
-            <button
-              className="secondary"
-              onClick={() =>
-                void readAudit(session.id)
-                  .then(setAudit)
-                  .catch((error) => setNotice(error.message))
-              }
-            >
+            <button className="secondary" onClick={() => void showAudit()}>
               Show correction history
             </button>
             {audit?.events.map((event) => (
@@ -1300,17 +1325,7 @@ export function Sessions({
               </details>
             ))}
             {audit?.nextCursor && (
-              <button
-                onClick={() =>
-                  void readAudit(session.id, audit.nextCursor!)
-                    .then((data) =>
-                      setAudit({ ...data, events: [...audit.events, ...data.events] }),
-                    )
-                    .catch((error) => setNotice(error.message))
-                }
-              >
-                Load older changes
-              </button>
+              <button onClick={() => void showAudit(true)}>Load older changes</button>
             )}
           </details>
           {session.sourceRoutineId && (

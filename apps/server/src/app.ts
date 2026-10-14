@@ -101,6 +101,23 @@ export async function createApp(
       typeof error === 'object' &&
       error !== null &&
       'statusCode' in error &&
+      error.statusCode === 415
+    )
+      return reply
+        .status(415)
+        .send(
+          errorBody(
+            new ApplicationError(
+              415,
+              'UNSUPPORTED_MEDIA_TYPE',
+              'This request content type is not supported.',
+            ),
+          ),
+        );
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'statusCode' in error &&
       error.statusCode === 400
     )
       return reply
