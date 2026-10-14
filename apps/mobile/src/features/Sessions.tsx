@@ -25,6 +25,7 @@ import {
   RoutineResponseSchema,
   MeasurementsSchema,
   measuredWorkingVolume,
+  timerRemaining,
   weightToKg,
   weightFromKg,
   distanceToMeters,
@@ -212,6 +213,7 @@ export function Sessions({
     [autoRest, setAutoRest] = useState(false);
   const [seconds, setSeconds] = useState(0),
     [clockReady, setClockReady] = useState(false);
+  const [timerRefresh, setTimerRefresh] = useState(0);
   const clock = useRef<{ server: number; monotonic: number } | null>(null);
   const pendingAction = useRef<{ type: string; extra: Record<string, unknown> } | null>(null);
   const sessionIdentity = useRef<string | null>(null);
@@ -227,7 +229,7 @@ export function Sessions({
   const [libraryLoaded, setLibraryLoaded] = useState(false);
   const handledStart = useRef<typeof focusTarget>(undefined);
   const [deviceTimer, setDeviceTimer] = useState<DeviceTimer | null>(null);
-  const [deviceSeconds, setDeviceSeconds] = useState(0);
+  const [, setDeviceSeconds] = useState(0);
   const [draftReady, setDraftReady] = useState(!client.offline);
   const locked = command.busy || command.pending || !draftReady;
   useEffect(() => {
@@ -271,12 +273,17 @@ export function Sessions({
       .catch((e) => setError(`Draft could not be saved on this device: ${messageOf(e)}`));
   }, [client, draftReady, drafts, selected, notes, name, rest, autoRest, deviceTimer]);
   useEffect(() => {
-    const tick = () =>
-      setDeviceSeconds(deviceTimer ? deviceTimerRemaining(deviceTimer, Date.now()) : 0);
-    tick();
-    const interval = setInterval(tick, 1000);
+    const tick = () => {
+      const next = deviceTimer ? deviceTimerRemaining(deviceTimer, Date.now()) : 0;
+      setDeviceSeconds(next);
+      return next;
+    };
+    if (tick() === 0 || deviceTimer?.status !== 'running') return;
+    const interval = setInterval(() => {
+      if (tick() === 0) clearInterval(interval);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [deviceTimer]);
+  }, [deviceTimer, timerRefresh]);
   async function deviceTimerAction(
     action: 'start' | 'pause' | 'resume' | 'reset' | 'cancel',
     kind: 'rest' | 'exercise' = 'rest',
@@ -363,6 +370,7 @@ export function Sessions({
         throw new Error('Server clock unavailable.');
       clock.current = { server: Date.parse(raw.now), monotonic: performance.now() };
       setClockReady(true);
+      setTimerRefresh((value) => value + 1);
     } catch {
       setClockReady(false);
     }
@@ -440,6 +448,7 @@ export function Sessions({
       });
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active' && active) {
+        setTimerRefresh((value) => value + 1);
         void syncClock();
         void load();
         void Notifications.getPermissionsAsync()
@@ -467,24 +476,29 @@ export function Sessions({
     if (client.offline) void load();
   }, [offlineRevision]);
   useEffect(() => {
+    const timer = session?.timer;
     const tick = () => {
-      const timer = session?.timer,
-        basis = clock.current;
-      if (!timer || !basis) {
+      const basis = clock.current;
+      if (!timer || !basis || !clockReady) {
         setSeconds(0);
-        return;
+        return null;
       }
-      const now = basis.server + performance.now() - basis.monotonic;
-      setSeconds(
-        timer.state === 'running' && timer.deadline
-          ? Math.max(0, Math.ceil((Date.parse(timer.deadline) - now) / 1000))
-          : Math.ceil(timer.remainingSeconds),
+      const next = Math.ceil(
+        timerRemaining(
+          timer,
+          new Date(basis.server + performance.now() - basis.monotonic).toISOString(),
+        ),
       );
+      setSeconds(next);
+      return next;
     };
-    tick();
-    const interval = setInterval(tick, 1000);
+    const next = tick();
+    if (timer?.state !== 'running' || next === null || next === 0) return;
+    const interval = setInterval(() => {
+      if (tick() === 0) clearInterval(interval);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [session?.timer, clockReady]);
+  }, [session?.timer, clockReady, timerRefresh]);
   useEffect(() => {
     if (!alertsReady || !deviceId || !sessionLoaded || !draftReady) return;
     let active = true;
@@ -965,27 +979,80 @@ export function Sessions({
   );
   const active = session?.status === 'active';
   const usingDeviceTimer = !!client.offline && !clockReady;
+  const savedTimer = session?.timer;
+  const verifiedNow =
+    clockReady && clock.current
+      ? clock.current.server + performance.now() - clock.current.monotonic
+      : null;
+  const serverRemaining = savedTimer
+    ? verifiedNow !== null
+      ? Math.ceil(timerRemaining(savedTimer, new Date(verifiedNow).toISOString()))
+      : savedTimer.state === 'running'
+        ? null
+        : Math.ceil(savedTimer.remainingSeconds)
+    : null;
+  const serverFinished = !!savedTimer && (savedTimer.state === 'finished' || serverRemaining === 0);
+  const serverKind = savedTimer?.kind === 'exercise' ? 'Exercise' : 'Rest';
+  const retainedDeviceTimer = deviceTimer?.sessionId === session?.id ? deviceTimer : null;
+  const deviceRemaining = retainedDeviceTimer
+    ? deviceTimerRemaining(retainedDeviceTimer, Date.now())
+    : 0;
+  const deviceFinished = !!retainedDeviceTimer && deviceRemaining === 0;
+  const deviceKind = retainedDeviceTimer?.kind === 'exercise' ? 'Exercise' : 'Rest';
+  const deviceLabel = deviceFinished
+    ? `${deviceKind} finished`
+    : `${deviceKind} · ${deviceRemaining}s · ${retainedDeviceTimer?.status}`;
+  const retainedTimerView = retainedDeviceTimer && (
+    <View style={styles.timerRow}>
+      <Body>{deviceLabel}</Body>
+      {!deviceFinished && (
+        <Action
+          title={
+            retainedDeviceTimer.status === 'running' ? 'Pause device timer' : 'Resume device timer'
+          }
+          compact
+          secondary
+          disabled={locked}
+          onPress={() =>
+            void deviceTimerAction(retainedDeviceTimer.status === 'running' ? 'pause' : 'resume')
+          }
+        />
+      )}
+      <Action
+        title="Cancel device timer"
+        compact
+        variant="quiet"
+        disabled={locked}
+        onPress={() => void deviceTimerAction('cancel')}
+      />
+    </View>
+  );
   const timerView = active && session && (
     <Card>
-      <Heading compact>Rest timer</Heading>
-      {session.timer && (
+      <Heading compact>
+        {savedTimer?.kind === 'exercise' ||
+        (!savedTimer && retainedDeviceTimer?.kind === 'exercise')
+          ? 'Exercise timer'
+          : 'Rest timer'}
+      </Heading>
+      {savedTimer && (
         <View style={styles.timerRow}>
           <Body>
-            {session.timer.kind === 'rest' ? 'Rest' : 'Exercise'} ·{' '}
-            {clockReady
-              ? `${seconds}s`
-              : `${Math.ceil(session.timer.remainingSeconds)}s · needs connection`}{' '}
-            · {session.timer.state}
+            {serverFinished
+              ? `${serverKind} finished`
+              : serverRemaining === null
+                ? `${serverKind} · Connect to refresh timer`
+                : `${serverKind} · ${serverRemaining}s · ${savedTimer.state}`}
           </Body>
-          <Action
-            title={session.timer.state === 'running' ? 'Pause timer' : 'Resume timer'}
-            compact
-            secondary
-            disabled={locked}
-            onPress={() =>
-              void timerAction(session.timer!.state === 'running' ? 'pause' : 'resume')
-            }
-          />
+          {!serverFinished && (
+            <Action
+              title={savedTimer.state === 'running' ? 'Pause timer' : 'Resume timer'}
+              compact
+              secondary
+              disabled={locked}
+              onPress={() => void timerAction(savedTimer.state === 'running' ? 'pause' : 'resume')}
+            />
+          )}
           <Action
             title="Cancel timer"
             compact
@@ -995,29 +1062,14 @@ export function Sessions({
           />
         </View>
       )}
-      {deviceTimer?.sessionId === session.id && (
-        <View style={styles.timerRow}>
-          <Body>
-            Device {deviceTimer.kind} · {deviceSeconds}s · {deviceTimer.status}
-          </Body>
-          <Action
-            title={deviceTimer.status === 'running' ? 'Pause device timer' : 'Resume device timer'}
-            compact
-            secondary
-            disabled={locked}
-            onPress={() =>
-              void deviceTimerAction(deviceTimer.status === 'running' ? 'pause' : 'resume')
-            }
-          />
-          <Action
-            title="Cancel device timer"
-            compact
-            variant="quiet"
-            disabled={locked}
-            onPress={() => void deviceTimerAction('cancel')}
-          />
-        </View>
-      )}
+      {retainedTimerView &&
+        (savedTimer ? (
+          <Disclosure title={`Timer started offline · ${deviceLabel}`}>
+            {retainedTimerView}
+          </Disclosure>
+        ) : (
+          retainedTimerView
+        ))}
       <Action
         title="Start rest timer"
         compact

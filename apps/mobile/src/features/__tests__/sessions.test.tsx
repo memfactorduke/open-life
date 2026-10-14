@@ -9,6 +9,7 @@ import {
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   SessionCommandSchema,
+  SessionTimerSchema,
   defaultPreferences,
   type WorkoutSession,
   type SessionCommand,
@@ -33,6 +34,7 @@ const render = (element: React.ReactElement) =>
 jest.mock('better-auth/react', () => ({ createAuthClient: jest.fn() }));
 jest.mock('@better-auth/expo/client', () => ({ expoClient: jest.fn() }));
 jest.mock('../../timers', () => ({
+  deviceTimerRemaining: jest.requireActual('../../timers').deviceTimerRemaining,
   deviceIdentity: async () => 'test-device',
   reconcileTimerAlert: async () => '',
   readTimerPreferences: async () => ({ alerts: false, sound: false, haptics: false }),
@@ -621,4 +623,162 @@ it('opens a completed session without placing a new-workout form above its resul
   expect(screen.queryByRole('button', { name: 'Start workout' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Log set' })).toBeNull();
   expect(screen.getByRole('button', { name: 'Start another workout' })).toBeTruthy();
+});
+
+describe('timer display without timer mutations', () => {
+  const timer = (overrides = {}) =>
+    SessionTimerSchema.parse({
+      id: id(75),
+      kind: 'rest' as const,
+      state: 'running' as const,
+      durationSeconds: 90,
+      remainingSeconds: 90,
+      deadline: '2026-10-12T12:01:30Z',
+      updatedAt: instant,
+      clockBasis: 'server' as const,
+      initiatingDeviceId: 'test-device',
+      itemId: null,
+      ...overrides,
+    });
+  it.each([
+    ['rest expiry', { deadline: '2026-10-12T11:59:59Z' }, true, 'Rest finished', false],
+    [
+      'exercise expiry',
+      { kind: 'exercise', deadline: '2026-10-12T11:59:59Z' },
+      true,
+      'Exercise finished',
+      false,
+    ],
+    [
+      'unknown clock and saved zero',
+      { remainingSeconds: 0 },
+      false,
+      'Rest · Connect to refresh timer',
+      true,
+    ],
+    [
+      'paused without clock',
+      { state: 'paused', deadline: null, remainingSeconds: 35 },
+      false,
+      'Rest · 35s · paused',
+      true,
+    ],
+    [
+      'paused zero without clock',
+      { state: 'paused', deadline: null, remainingSeconds: 0 },
+      false,
+      'Rest finished',
+      false,
+    ],
+    ['live countdown', {}, true, 'Rest · 90s · running', true],
+  ])(
+    '%s uses countdown meaning without sending a command',
+    async (_name, overrides, known, label, controls) => {
+      const { client, request, commands } = fake();
+      const original = request.getMockImplementation()!;
+      const session = { ...fixture(), timer: timer(overrides) };
+      const before = JSON.stringify(session);
+      request.mockImplementation(async (path, body) => {
+        if (path === '/api/sessions/clock') {
+          if (!known) throw new Error('No clock connection');
+          return { now: instant };
+        }
+        if (path === '/api/sessions' && !body) return { sessions: [session], nextCursor: null };
+        return original(path, body);
+      });
+      await render(<Sessions client={client} preferences={defaultPreferences()} />);
+      await waitFor(() => expect(screen.getByText(label as string)).toBeTruthy());
+      expect(
+        screen.getByText(session.timer.kind === 'exercise' ? 'Exercise timer' : 'Rest timer'),
+      ).toBeTruthy();
+      expect(
+        !!screen.queryByRole('button', {
+          name: session.timer.state === 'paused' ? 'Resume timer' : 'Pause timer',
+        }),
+      ).toBe(controls);
+      expect(screen.getByRole('button', { name: 'Cancel timer' })).toBeTruthy();
+      await fireEvent.press(screen.getByRole('button', { name: 'Timer options' }));
+      expect(screen.getByRole('button', { name: 'Reset timer' })).toBeTruthy();
+      expect(commands).toEqual([]);
+      expect(JSON.stringify(session)).toBe(before);
+    },
+  );
+  it('updates a live countdown through expiry without timer commands', async () => {
+    const { client, request, commands } = fake();
+    const original = request.getMockImplementation()!;
+    const session = {
+      ...fixture(),
+      timer: timer({ remainingSeconds: 2, deadline: '2026-10-12T12:00:02Z' }),
+    };
+    request.mockImplementation(async (path, body) =>
+      path === '/api/sessions' && !body
+        ? { sessions: [session], nextCursor: null }
+        : original(path, body),
+    );
+    await render(<Sessions client={client} preferences={defaultPreferences()} />);
+    await waitFor(() => expect(screen.getByText('Rest · 2s · running')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Rest finished')).toBeTruthy(), { timeout: 4000 });
+    expect(screen.queryByRole('button', { name: 'Pause timer' })).toBeNull();
+    expect(commands).toEqual([]);
+    expect(session.timer.state).toBe('running');
+    expect(session.timer.deadline).toBe('2026-10-12T12:00:02Z');
+  });
+  it.each([false, true])(
+    'restores an offline timer, elapsed=%s, with discoverable retained status',
+    async (elapsed) => {
+      const { client, request, commands } = fake();
+      const original = request.getMockImplementation()!;
+      const session = { ...fixture(), timer: timer() };
+      const deviceTimer = {
+        id: id(76),
+        sessionId: session.id,
+        kind: 'rest',
+        duration: 90,
+        remaining: 90,
+        deadline: Date.now() + (elapsed ? -5000 : 60000),
+        status: 'running',
+      };
+      const setDraft = jest.fn(async (key: string, value: Record<string, unknown>) => {
+        void key;
+        void value;
+      });
+      Object.assign(client, {
+        offline: {
+          subscribe: () => () => {},
+          snapshot: () => 0,
+          store: {
+            getDraft: async () => ({
+              drafts: {},
+              selected: id(2),
+              notes: null,
+              name: '',
+              rest: '90',
+              autoRest: false,
+              deviceTimer,
+            }),
+            setDraft,
+          },
+        },
+      });
+      request.mockImplementation(async (path, body) => {
+        if (path === '/api/sessions' && !body) return { sessions: [session], nextCursor: null };
+        return original(path, body);
+      });
+      await render(<Sessions client={client} preferences={defaultPreferences()} />);
+      const label = elapsed
+        ? 'Timer started offline · Rest finished'
+        : /Timer started offline · Rest · (59|60)s · running/;
+      await waitFor(() => expect(screen.getByRole('button', { name: label })).toBeTruthy());
+      expect(screen.getByText('Rest · 90s · running')).toBeTruthy();
+      await fireEvent.press(screen.getByRole('button', { name: label }));
+      expect(!!screen.queryByRole('button', { name: 'Pause device timer' })).toBe(!elapsed);
+      expect(screen.getByRole('button', { name: 'Cancel device timer' })).toBeTruthy();
+      expect(commands).toEqual([]);
+      expect(
+        setDraft.mock.calls.every(
+          (call) => JSON.stringify(call[1].deviceTimer) === JSON.stringify(deviceTimer),
+        ),
+      ).toBe(true);
+    },
+  );
 });

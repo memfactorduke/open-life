@@ -113,6 +113,10 @@ export function Sessions({
   const [session, setSession] = useState<WorkoutSession | null>(null),
     [selected, setSelected] = useState(''),
     [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [clockError, setClockError] = useState('');
+  const mounted = useRef(true);
+  const loadSequence = useRef(0);
+  const clockSequence = useRef(0);
   const [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false),
     [loaded, setLoaded] = useState(false),
@@ -124,6 +128,7 @@ export function Sessions({
   const [rest, setRest] = useState('90'),
     [autoRest, setAutoRest] = useState(false),
     [now, setNow] = useState(0),
+    [clockRevision, setClockRevision] = useState(0),
     [groups, setGroups] = useState<string[]>([]),
     [future, setFuture] = useState<string[]>([]),
     [notes, setNotes] = useState('');
@@ -214,14 +219,22 @@ export function Sessions({
     );
   }
   async function load(more = false) {
+    const sequence = ++loadSequence.current;
     try {
       const response = await fetch(`/api/sessions${more && cursor ? `?cursor=${cursor}` : ''}`, {
         credentials: 'include',
       });
       if (!response.ok)
         throw new RequestError(response.status, 'Workout history could not be loaded.');
-      await syncClock();
+      if (!mounted.current || sequence !== loadSequence.current) return;
+      void syncClock().catch(() => {});
       const data = SessionListSchema.parse(await response.json());
+      const [rs, es, activeData] = await Promise.all([
+        request('/api/routines', RoutineListResponseSchema),
+        request('/api/exercises', ExerciseListResponseSchema),
+        request('/api/sessions?status=active', SessionListSchema),
+      ]);
+      if (!mounted.current || sequence !== loadSequence.current) return;
       setSessions((previous) =>
         more
           ? [
@@ -231,11 +244,6 @@ export function Sessions({
           : data.sessions,
       );
       setCursor(data.nextCursor);
-      const [rs, es, activeData] = await Promise.all([
-        request('/api/routines', RoutineListResponseSchema),
-        request('/api/exercises', ExerciseListResponseSchema),
-        request('/api/sessions?status=active', SessionListSchema),
-      ]);
       setRoutines(rs.routines);
       setExercises(es.exercises);
       setLoaded(true);
@@ -253,6 +261,7 @@ export function Sessions({
         }
       }
     } catch (error) {
+      if (!mounted.current || sequence !== loadSequence.current) return;
       setNotice(error instanceof Error ? error.message : 'Unable to open workouts.');
     }
   }
@@ -269,12 +278,23 @@ export function Sessions({
     }
   }
   async function syncClock() {
+    const sequence = ++clockSequence.current;
     const started = performance.now();
-    const data = await request('/api/sessions/clock', z.object({ now: z.iso.datetime() }));
-    clock.current = { server: Date.parse(data.now), local: (started + performance.now()) / 2 };
-    setNow(performance.now());
+    try {
+      const data = await request('/api/sessions/clock', z.object({ now: z.iso.datetime() }));
+      if (!mounted.current || sequence !== clockSequence.current) return;
+      clock.current = { server: Date.parse(data.now), local: (started + performance.now()) / 2 };
+      setNow(performance.now());
+      setClockRevision((value) => value + 1);
+      setClockError('');
+    } catch (error) {
+      if (mounted.current && sequence === clockSequence.current)
+        setClockError('Timer time could not be refreshed. Check your connection and retry.');
+      throw error;
+    }
   }
   useEffect(() => {
+    mounted.current = true;
     device.current = crypto.randomUUID();
     try {
       device.current = localStorage.getItem('workout-device') || device.current;
@@ -286,15 +306,27 @@ export function Sessions({
     const wake = () => void syncClock().catch(() => {});
     window.addEventListener('focus', wake);
     return () => {
+      mounted.current = false;
+      loadSequence.current += 1;
+      clockSequence.current += 1;
       window.removeEventListener('focus', wake);
     };
   }, []);
   useEffect(() => {
-    if (!active || session?.timer?.state !== 'running') return;
-    setNow(performance.now());
-    const id = window.setInterval(() => setNow(performance.now()), 500);
+    const timer = session?.timer;
+    if (!active || timer?.state !== 'running' || !clock.current) return;
+    const tick = () => {
+      const current = performance.now();
+      setNow(current);
+      const basis = clock.current!;
+      return timerRemaining(timer, new Date(basis.server + current - basis.local).toISOString());
+    };
+    if (tick() === 0) return;
+    const id = window.setInterval(() => {
+      if (tick() === 0) clearInterval(id);
+    }, 500);
     return () => clearInterval(id);
-  }, [active, session?.timer?.state]);
+  }, [active, session?.timer, clockRevision]);
   const command = (change: Record<string, unknown>) =>
     SessionCommandSchema.parse({
       operationId: crypto.randomUUID(),
@@ -486,6 +518,10 @@ export function Sessions({
         )
       : session.timer.remainingSeconds
     : null;
+  const timerFinished =
+    !!session?.timer &&
+    (session.timer.state === 'finished' ||
+      ((!!clock.current || session.timer.state === 'paused') && remaining === 0));
   const currentReadSelection = useRef('');
   currentReadSelection.current = `${session?.id}:${session?.revision}:${item?.exerciseId}`;
   const performanceLoading = useRef(false);
@@ -998,24 +1034,39 @@ export function Sessions({
                 {session.timer && (
                   <section className="session-timer" aria-label="Workout timer">
                     <strong>
-                      {session.timer.kind === 'rest' ? 'Rest' : 'Exercise'} ·{' '}
-                      {Math.ceil(remaining || 0)} seconds
+                      {session.timer.kind === 'rest' ? 'Rest' : 'Exercise'}
+                      {timerFinished
+                        ? ' finished'
+                        : session.timer.state === 'running' && !clock.current
+                          ? ' · Connect to refresh timer'
+                          : ` · ${Math.ceil(remaining || 0)} seconds`}
                     </strong>
-                    <span>
-                      {remaining === 0 ? 'Time elapsed' : session.timer.state}
-                      {!clock.current ? ' · sync to refresh server time' : ''}
-                    </span>
+                    {!timerFinished && !(session.timer.state === 'running' && !clock.current) && (
+                      <span>{session.timer.state}</span>
+                    )}
+                    {clockError && (
+                      <div role="status">
+                        <p>{clockError}</p>
+                        <button
+                          className="secondary"
+                          onClick={() => void syncClock().catch(() => {})}
+                        >
+                          Refresh timer time
+                        </button>
+                      </div>
+                    )}
                     {editable && (
                       <div className="session-actions">
-                        {session.timer.state === 'running' ? (
-                          <button disabled={disabled} onClick={() => timer('pause')}>
-                            Pause timer
-                          </button>
-                        ) : (
-                          <button disabled={disabled} onClick={() => timer('resume')}>
-                            Resume timer
-                          </button>
-                        )}
+                        {!timerFinished &&
+                          (session.timer.state === 'running' ? (
+                            <button disabled={disabled} onClick={() => timer('pause')}>
+                              Pause timer
+                            </button>
+                          ) : (
+                            <button disabled={disabled} onClick={() => timer('resume')}>
+                              Resume timer
+                            </button>
+                          ))}
                         <button disabled={disabled} onClick={() => timer('reset')}>
                           Reset timer
                         </button>
