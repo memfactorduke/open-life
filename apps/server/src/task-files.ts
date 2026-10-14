@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { mkdir, open, lstat, realpath, link, unlink, opendir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';

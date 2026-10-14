@@ -25,7 +25,7 @@ export async function inspectFileBytes(
     : null;
   for await (const chunk of stream) {
     if (chunk.length > size - received) throw mismatch();
-    imageBytes && chunk.copy(imageBytes, received);
+    if (imageBytes) chunk.copy(imageBytes, received);
     received += chunk.length;
     hash.update(chunk);
     if (prefix.length < 32) prefix = Buffer.concat([prefix, chunk.subarray(0, 32 - prefix.length)]);
