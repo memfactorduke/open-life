@@ -5,6 +5,12 @@
 node_modules/
 dist/
 build/
+# Preserve only the pinned upstream native-library build helpers.
+!scripts/licenses/sharp-libvips-1.3.4/build-provenance/build/
+scripts/licenses/sharp-libvips-1.3.4/build-provenance/build/*
+!scripts/licenses/sharp-libvips-1.3.4/build-provenance/build/posix.sh
+!scripts/licenses/sharp-libvips-1.3.4/build-provenance/build/wasm.sh
+!scripts/licenses/sharp-libvips-1.3.4/build-provenance/build/win.sh
 coverage/
 .expo/
 .vite/
