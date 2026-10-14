@@ -13,7 +13,12 @@ import {
   type TaskStep,
 } from '@mems-life/domain';
 import { taskFromRow } from './tasks.js';
-import { readPreferences, requireOwner, type OwnerPrincipal } from './operations.js';
+import {
+  readPreferences,
+  requireOwner,
+  assertOperationIdAvailable,
+  type OwnerPrincipal,
+} from './operations.js';
 import { transaction } from './database.js';
 import { ApplicationError } from './errors.js';
 import { beginMaintenanceWrite, withMaintenanceWrite } from './portability.js';
@@ -30,11 +35,26 @@ export async function readAttention(
       "SELECT * FROM tasks WHERE owner_id=$1 AND deleted_at IS NULL AND archived_at IS NULL AND phase<>'completed'",
       [actor.userId],
     ),
-    pool.query('SELECT value FROM task_steps WHERE owner_id=$1 AND deleted_at IS NULL', [
-      actor.userId,
-    ]),
-    pool.query('SELECT value FROM agent_attempts WHERE owner_id=$1', [actor.userId]),
-    pool.query('SELECT value FROM agent_results WHERE owner_id=$1', [actor.userId]),
+    pool.query(
+      "SELECT s.value FROM task_steps s JOIN tasks t ON t.id=s.task_id AND t.owner_id=s.owner_id WHERE s.owner_id=$1 AND s.deleted_at IS NULL AND t.deleted_at IS NULL AND t.archived_at IS NULL AND t.phase<>'completed'",
+      [actor.userId],
+    ),
+    pool.query(
+      `SELECT a.value FROM tasks t JOIN task_steps s ON s.task_id=t.id AND s.owner_id=t.owner_id
+      JOIN LATERAL (SELECT value,id FROM agent_attempts WHERE owner_id=s.owner_id AND step_id=s.id ORDER BY value->>'createdAt' DESC,id DESC LIMIT 1) a ON true
+      WHERE t.owner_id=$1 AND t.deleted_at IS NULL AND t.archived_at IS NULL AND t.phase<>'completed' AND s.deleted_at IS NULL
+      UNION SELECT a.value FROM tasks t JOIN task_steps s ON s.task_id=t.id AND s.owner_id=t.owner_id
+      JOIN LATERAL (SELECT attempt_id FROM agent_results WHERE owner_id=s.owner_id AND step_id=s.id ORDER BY version DESC LIMIT 1) r ON true
+      JOIN agent_attempts a ON a.id=r.attempt_id AND a.owner_id=t.owner_id
+      WHERE t.owner_id=$1 AND t.deleted_at IS NULL AND t.archived_at IS NULL AND t.phase<>'completed' AND s.deleted_at IS NULL`,
+      [actor.userId],
+    ),
+    pool.query(
+      `SELECT r.value FROM tasks t JOIN task_steps s ON s.task_id=t.id AND s.owner_id=t.owner_id
+      JOIN LATERAL (SELECT value FROM agent_results WHERE owner_id=s.owner_id AND step_id=s.id ORDER BY version DESC LIMIT 1) r ON true
+      WHERE t.owner_id=$1 AND t.deleted_at IS NULL AND t.archived_at IS NULL AND t.phase<>'completed' AND s.deleted_at IS NULL`,
+      [actor.userId],
+    ),
     pool.query("SELECT value FROM workout_sessions WHERE owner_id=$1 AND status='active'", [
       actor.userId,
     ]),
@@ -79,6 +99,7 @@ export async function updateNotificationPreferences(
     await client.query('SELECT id FROM installation WHERE owner_id=$1 FOR UPDATE', [actor.userId]);
     await requireOwner(client, actor.userId);
     await authorize(client);
+    await requireOwner(client, actor.userId, actor.expectedEpoch);
     const request = { type: 'notifications.preferences', command };
     const receipt = (
       await client.query(
@@ -95,6 +116,7 @@ export async function updateNotificationPreferences(
         );
       return receipt.response;
     }
+    await assertOperationIdAvailable(client, actor.userId, command.operationId);
     await client.query(
       'INSERT INTO notification_preferences(owner_id) VALUES($1) ON CONFLICT DO NOTHING',
       [actor.userId],
@@ -144,6 +166,7 @@ export async function registerNotificationDevice(
     await client.query('SELECT id FROM installation WHERE owner_id=$1 FOR UPDATE', [actor.userId]);
     await requireOwner(client, actor.userId);
     await authorize(client);
+    await requireOwner(client, actor.userId, actor.expectedEpoch);
     const session = (
       await client.query(
         'SELECT id FROM session WHERE id=$1 AND "userId"=$2 AND "expiresAt">now() FOR SHARE',
@@ -208,6 +231,7 @@ export async function deactivateNotificationDevice(
     await beginMaintenanceWrite(client);
     await requireOwner(client, actor.userId);
     await authorize(client);
+    await requireOwner(client, actor.userId, actor.expectedEpoch);
     await client.query('UPDATE notification_devices SET active=false WHERE owner_id=$1 AND id=$2', [
       actor.userId,
       id,

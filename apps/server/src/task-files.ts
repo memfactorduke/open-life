@@ -224,6 +224,7 @@ export async function receiveTaskFile(
     return await transaction(pool, async (client) => {
       await requireOwner(client, actor.userId);
       await authorize(client);
+      await requireOwner(client, actor.userId, actor.expectedEpoch);
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [id]);
       const r = await row(client, actor, id, true),
         p = await paths(directory, id);
@@ -246,6 +247,7 @@ export async function receiveTaskFile(
         await validate(temporary, r);
         // Auth and parent state can change during a slow upload; validate again before publishing bytes.
         await authorize(client);
+        await requireOwner(client, actor.userId, actor.expectedEpoch);
         await row(client, actor, id);
         if (r.status === 'finalized') {
           await validate(p.final, r);

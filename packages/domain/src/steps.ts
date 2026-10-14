@@ -50,6 +50,10 @@ export const StepCommandSchema = z.discriminatedUnion('type', [
 export type TaskStep = z.infer<typeof TaskStepSchema>;
 export type StepCommand = z.infer<typeof StepCommandSchema>;
 export function validateStepGraph(steps: TaskStep[]): void {
+  if (new Set(steps.map((step) => step.id)).size !== steps.length)
+    throw new Error('Step identities must be unique.');
+  if (new Set(steps.map((step) => step.taskId)).size > 1)
+    throw new Error('Dependencies must belong to this parent task.');
   const byId = new Map(steps.map((s) => [s.id, s]));
   const visiting = new Set<string>(),
     visited = new Set<string>();
@@ -57,19 +61,21 @@ export function validateStepGraph(steps: TaskStep[]): void {
     if (visiting.has(id)) throw new Error('Dependencies must not form a cycle.');
     if (visited.has(id)) return;
     const step = byId.get(id);
-    if (!step) throw new Error('Dependencies must belong to this parent task.');
+    if (!step || step.deletedAt)
+      throw new Error('Dependencies must belong to a live step in this parent task.');
     visiting.add(id);
     for (const dependency of step.content.dependencies) visit(dependency);
     visiting.delete(id);
     visited.add(id);
   }
-  for (const step of steps) {
+  for (const step of steps.filter((step) => !step.deletedAt)) {
     if (new Set(step.content.dependencies).size !== step.content.dependencies.length)
       throw new Error('Dependencies must be unique.');
     visit(step.id);
   }
 }
 export function stepRollup(task: Task, steps: TaskStep[]) {
+  steps = steps.filter((step) => step.taskId === task.id && !step.deletedAt);
   const satisfied = (id: string) => {
     const step = steps.find((s) => s.id === id);
     return (

@@ -8,7 +8,7 @@ import {
   type WhoopResource,
 } from '@mems-life/domain';
 import { transaction } from './database.js';
-import { requireOwner, type OwnerPrincipal } from './operations.js';
+import { assertOperationIdAvailable, requireOwner, type OwnerPrincipal } from './operations.js';
 import { ApplicationError } from './errors.js';
 export type WhoopConfig = {
   WHOOP_CLIENT_ID?: string | undefined;
@@ -313,8 +313,8 @@ export class WhoopService {
           } catch (e) {
             if (e instanceof ProviderError && e.status === 404)
               await client.query(
-                'UPDATE whoop_observations SET available=false,linked_session_id=null,revision=revision+1 WHERE owner_id=$1 AND account_id=$2 AND resource=$3 AND provider_id=$4',
-                [row.owner_id, row.account_id, item.resource, item.provider_id],
+                'UPDATE whoop_observations SET available=false,linked_session_id=null,revision=revision+1,retrieved_at=$5 WHERE owner_id=$1 AND account_id=$2 AND resource=$3 AND provider_id=$4',
+                [row.owner_id, row.account_id, item.resource, item.provider_id, this.now()],
               );
             else throw e;
           }
@@ -375,6 +375,7 @@ export class WhoopService {
     return transaction(this.pool, async (client) => {
       await requireOwner(client, actor.userId);
       await authorize(client);
+      await requireOwner(client, actor.userId, actor.expectedEpoch);
       const receipt = (
         await client.query(
           'SELECT response,request=$3::jsonb AS matches FROM operation_receipts WHERE actor_id=$1 AND operation_id=$2',
@@ -390,6 +391,7 @@ export class WhoopService {
           );
         return receipt.response;
       }
+      await assertOperationIdAvailable(client, actor.userId, command.operationId);
       if (
         !(
           await client.query('SELECT owner_id FROM whoop_connection WHERE owner_id=$1', [
@@ -553,6 +555,7 @@ export class WhoopService {
     await transaction(this.pool, async (client) => {
       await requireOwner(client, actor.userId);
       await authorize(client);
+      await requireOwner(client, actor.userId, actor.expectedEpoch);
       const valid = await client.query(
         'DELETE FROM whoop_states WHERE state_hash=$1 AND owner_id=$2 AND session_id=$3 AND expires_at>$4 RETURNING owner_id',
         [createHash('sha256').update(state).digest('hex'), actor.userId, sessionId, this.now()],
@@ -567,6 +570,7 @@ export class WhoopService {
     return transaction(this.pool, async (client) => {
       await requireOwner(client, actor.userId);
       await authorize(client);
+      await requireOwner(client, actor.userId, actor.expectedEpoch);
       const pending = (
         await client.query(
           'SELECT pending_state FROM whoop_connection WHERE owner_id=$1 FOR UPDATE SKIP LOCKED',
@@ -586,6 +590,10 @@ export class WhoopService {
       });
       const profile = await this.request('user/profile/basic', t.access_token);
       if (!profile || typeof profile.user_id !== 'number') throw new ProviderError(502);
+      // Consent can outlive the session while the provider responds. Recheck before
+      // replacing the connected account or storing the newly issued credentials.
+      await authorize(client);
+      await requireOwner(client, actor.userId, actor.expectedEpoch);
       await client.query(
         "UPDATE whoop_connection SET revision=revision+1,status='connected',pending_state=null,account_id=$2,provider_account_id=$3,connected_at=$4,tokens=$5,expires_at=$6,last_success_at=null,last_attempt_at=null,next_refresh_at=null,error=null WHERE owner_id=$1",
         [

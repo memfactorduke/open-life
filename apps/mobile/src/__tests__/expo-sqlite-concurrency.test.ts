@@ -4,9 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as SQLite from 'expo-sqlite';
 import { openOfflineStore } from '../offline/expo';
+import { OfflineCoordinator, type OfflineTransport } from '../offline';
 
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
 
+let receiptRowsRead = 0;
 // This is an adapter regression, not a native Expo test. Use real independent
 // SQLite connections, matching installed Expo's exclusive transaction boundary.
 function connection(path: string, limitPages = false): SQLite.SQLiteDatabase {
@@ -19,8 +21,11 @@ function connection(path: string, limitPages = false): SQLite.SQLiteDatabase {
     execAsync: async (sql: string) => native.exec(sql),
     runAsync: async (sql: string, ...params: (string | number | null)[]) =>
       native.prepare(sql).run(...params),
-    getAllAsync: async (sql: string, ...params: (string | number | null)[]) =>
-      native.prepare(sql).all(...params),
+    getAllAsync: async (sql: string, ...params: (string | number | null)[]) => {
+      const rows = native.prepare(sql).all(...params);
+      if (sql.includes('offline_outbox')) receiptRowsRead += rows.length;
+      return rows;
+    },
     closeAsync: async () => native.close(),
     withExclusiveTransactionAsync: async (work: (tx: SQLite.SQLiteDatabase) => Promise<void>) => {
       const tx = connection(path, limitPages);
@@ -205,5 +210,364 @@ test('an error after a successful callback is returned unchanged', async () => {
     throw commitFailure;
   };
   await expect(store.db.transaction(async () => 'callback completed')).rejects.toBe(commitFailure);
+  await store.db.close();
+});
+
+const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+async function replayFixture() {
+  const store = await openOfflineStore(partition);
+  const now = '2026-10-13T12:00:00Z';
+  await store.stageSnapshot({
+    ...partition,
+    schemaVersion: 1,
+    epoch: 'epoch',
+    watermark: '0',
+    snapshotId: uuid(10),
+    records: [],
+    nextCursor: null,
+  });
+  const saved = await store.save({
+    type: 'food.create',
+    operationId: uuid(1),
+    entryId: uuid(2),
+    expectedRevision: 0,
+    content: { text: 'Lunch', occurredAt: now, timezone: 'UTC' },
+  });
+  const transport: OfflineTransport = {
+    snapshot: async () => {
+      throw new Error('Unexpected snapshot');
+    },
+    changes: async () => ({
+      ...partition,
+      schemaVersion: 1,
+      epoch: 'epoch',
+      watermark: '0',
+      records: [],
+      cursor: '0',
+      hasMore: false,
+    }),
+    send: jest.fn(async () => [{ ...saved, value: saved.value }]),
+  };
+  return { store, saved, transport };
+}
+test('a server acknowledgement that conflicts the next edit prevents its stale replay dispatch', async () => {
+  const { store, saved, transport } = await replayFixture();
+  await store.save({
+    type: 'food.edit',
+    operationId: uuid(3),
+    entryId: uuid(2),
+    expectedRevision: 1,
+    content: { text: 'Retained local edit', occurredAt: '2026-10-13T12:00:00Z', timezone: 'UTC' },
+  });
+  jest
+    .mocked(transport.send)
+    .mockResolvedValue([
+      { ...saved, revision: 2, value: { ...(saved.value as object), revision: 2 } },
+    ]);
+  await new OfflineCoordinator(store, transport, () => uuid(10)).sync();
+  expect(transport.send).toHaveBeenCalledTimes(1);
+  expect((await store.outbox())[1]).toMatchObject({ state: 'conflict', attempts: 0 });
+  await store.db.close();
+});
+test('competing coordinators atomically claim one persisted command before dispatch', async () => {
+  const { store, saved, transport } = await replayFixture();
+  const entered = deferred(),
+    release = deferred();
+  jest.mocked(transport.send).mockImplementation(async () => {
+    entered.resolve();
+    await release.promise;
+    return [saved];
+  });
+  const first = new OfflineCoordinator(store, transport, () => uuid(10)).sync();
+  await entered.promise;
+  await new OfflineCoordinator(store, transport, () => uuid(11)).sync();
+  release.resolve();
+  await first;
+  expect(transport.send).toHaveBeenCalledTimes(1);
+  expect((await store.outbox())[0]).toMatchObject({ state: 'synced', attempts: 1 });
+  await store.db.close();
+});
+test('a late interrupted response cannot revive owner-discarded pending work', async () => {
+  const { store } = await replayFixture();
+  await store.markAttempt(uuid(1));
+  await store.discardPending();
+  await store.markUncertain(uuid(1), 1);
+  expect((await store.outbox())[0].state).toBe('discarded');
+  await store.db.close();
+});
+
+test('concurrent attempts claim a persisted command only once and respect sign-out', async () => {
+  const { store } = await replayFixture();
+  expect(await Promise.all([store.markAttempt(uuid(1)), store.markAttempt(uuid(1))])).toEqual([
+    true,
+    false,
+  ]);
+  await store.markUncertain(uuid(1), 1);
+  await store.signOut(true);
+  expect(await store.markAttempt(uuid(1))).toBe(false);
+  await store.db.close();
+});
+test('a stale upload progress update cannot overwrite restore review or discarded retention', async () => {
+  const { store } = await replayFixture();
+  const photo = {
+    id: uuid(5),
+    operationId: uuid(6),
+    entryId: uuid(2),
+    uri: 'file:///fictional/Documents/lunch.jpg',
+    size: 10,
+    sha256: 'a'.repeat(64),
+  };
+  await store.retainPhoto(photo);
+  await store.observeEpoch('restored-epoch');
+  await expect(store.updatePhoto({ ...photo, attempts: 1 }, 'pending')).rejects.toMatchObject({
+    code: 'PHOTO_REVIEW_REQUIRED',
+  });
+  expect((await store.photos())[0].status).toBe('needs-attention');
+  await store.discardPending();
+  await expect(store.updatePhoto(photo, 'pending')).rejects.toMatchObject({
+    code: 'PHOTO_REVIEW_REQUIRED',
+  });
+  expect((await store.photos())[0].status).toBe('discarded');
+  await store.db.close();
+});
+
+test('an acknowledgement omitting the edited record cannot erase a durable pending edit', async () => {
+  const { store, saved } = await replayFixture();
+  await store.markAttempt(uuid(1));
+  await store.accept(uuid(1), [saved]);
+  await store.save({
+    type: 'food.edit',
+    operationId: uuid(3),
+    entryId: uuid(2),
+    expectedRevision: 1,
+    content: { text: 'Must remain retained', occurredAt: '2026-10-13T12:00:00Z', timezone: 'UTC' },
+  });
+  await store.markAttempt(uuid(3));
+  await expect(store.accept(uuid(3), [])).rejects.toMatchObject({ code: 'INVALID_ACK' });
+  expect((await store.outbox())[1].state).toBe('attempted');
+  expect((await store.records('food'))[0].value).toMatchObject({
+    content: { text: 'Must remain retained' },
+  });
+  await store.db.close();
+});
+
+test('recovery export reads outbox and projection from one consistent SQLite transaction', async () => {
+  const { store } = await replayFixture();
+  const original = store.outbox.bind(store);
+  let edit: Promise<unknown> | undefined;
+  jest.spyOn(store, 'outbox').mockImplementationOnce(async (tx) => {
+    const entries = await original(tx);
+    edit = store.save({
+      type: 'food.edit',
+      operationId: uuid(3),
+      entryId: uuid(2),
+      expectedRevision: 1,
+      content: {
+        text: 'Concurrent later edit',
+        occurredAt: '2026-10-13T12:00:00Z',
+        timezone: 'UTC',
+      },
+    });
+    return entries;
+  });
+  const exported = JSON.parse(await store.exportPending());
+  await edit;
+  expect(exported.outbox).toHaveLength(1);
+  expect(exported.records[0].value).toMatchObject({ revision: 1, content: { text: 'Lunch' } });
+  expect((await store.records('food'))[0].revision).toBe(2);
+  await store.db.close();
+});
+
+test('six months of retained receipts do not get reread for every pending dispatch', async () => {
+  const { store, saved, transport } = await replayFixture();
+  await store.markAttempt(uuid(1));
+  await store.accept(uuid(1), [saved]);
+  // Six months: roughly 4 workouts/week * 40 events plus 3 food entries/day * 2 events.
+  // Keep immutable receipts as the product requires; another offline week adds 60 captures.
+  await store.db.transaction(async (tx) => {
+    for (let n = 100; n < 6100; n++)
+      await tx.run(
+        "INSERT INTO offline_outbox(partition,operation_id,aggregate,payload,local_at,dependencies,state) VALUES(?,?,?,?,?,?,'synced')",
+        store.partitionKey,
+        uuid(n),
+        `food:${uuid(n + 10000)}`,
+        '{}',
+        '2026-10-13T12:00:00Z',
+        '[]',
+      );
+  });
+  for (let n = 7000; n < 7060; n++)
+    await store.save({
+      type: 'food.create',
+      operationId: uuid(n),
+      entryId: uuid(n + 10000),
+      expectedRevision: 0,
+      content: {
+        text: 'Fictional retained meal',
+        occurredAt: '2026-10-13T12:00:00Z',
+        timezone: 'UTC',
+      },
+    });
+  jest.mocked(transport.send).mockImplementation(async (command) => {
+    const record = (await store.records('food')).find(
+      (row) => row.id === (command as { entryId: string }).entryId,
+    )!;
+    return [record];
+  });
+  receiptRowsRead = 0;
+  const started = performance.now();
+  await new OfflineCoordinator(store, transport, () => uuid(10)).sync();
+  const elapsed = performance.now() - started;
+  console.info(
+    `Offline six-month replay: ${elapsed.toFixed(1)} ms; ${receiptRowsRead} receipts materialized; 60 pending dispatches`,
+  );
+  expect(transport.send).toHaveBeenCalledTimes(60);
+  expect(receiptRowsRead).toBeLessThan(15000);
+  await store.db.close();
+}, 30000);
+
+test.each(['restore', 'sign-out', 'discard'] as const)(
+  'a late photo finalization after %s cannot silently clear retained state',
+  async (invalidation) => {
+    const { store } = await replayFixture();
+    const photo = {
+      id: uuid(5),
+      operationId: uuid(6),
+      entryId: uuid(2),
+      uri: 'file:///fictional/Documents/lunch.jpg',
+      size: 10,
+      sha256: 'a'.repeat(64),
+      attemptEpoch: 'epoch',
+      attempts: 1,
+    };
+    await store.retainPhoto(photo);
+    await store.save(
+      {
+        type: 'food.edit',
+        operationId: uuid(3),
+        entryId: uuid(2),
+        expectedRevision: 1,
+        content: { text: 'Saved capture', occurredAt: '2026-10-13T12:00:00Z', timezone: 'UTC' },
+      },
+      { foodSave: { photoUris: [photo.uri], draftKey: 'food-editor' } },
+    );
+    if (invalidation === 'restore') await store.observeEpoch('new-epoch');
+    if (invalidation === 'sign-out') await store.signOut(true);
+    if (invalidation === 'discard') await store.discardPending();
+    const before = (await store.photos())[0];
+    await expect(
+      store.updatePhoto({ ...before, delivery: 'synced' }, 'synced', {
+        confirmedRecords: [
+          {
+            recordType: 'food',
+            id: uuid(2),
+            revision: 99,
+            value: { staleFinalization: true, revision: 99 },
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'PHOTO_REVIEW_REQUIRED' });
+    expect((await store.photos())[0]).toEqual(before);
+    expect((await store.records('food')).some((record) => record.revision === 99)).toBe(false);
+    await store.db.close();
+  },
+);
+
+test('explicit matching-image review can confirm an old upload only against the checked current epoch', async () => {
+  const { store } = await replayFixture();
+  const photo = {
+    id: uuid(5),
+    operationId: uuid(6),
+    entryId: uuid(2),
+    uri: 'file:///fictional/Documents/lunch.jpg',
+    size: 10,
+    sha256: 'a'.repeat(64),
+    attemptEpoch: 'epoch',
+    attempts: 1,
+  };
+  await store.retainPhoto(photo);
+  await store.observeEpoch('new-epoch');
+  await store.stageSnapshot({
+    ...partition,
+    schemaVersion: 1,
+    epoch: 'new-epoch',
+    watermark: '0',
+    snapshotId: uuid(20),
+    records: [],
+    nextCursor: null,
+  });
+  await expect(
+    store.updatePhoto({ ...photo, recoveredMediaId: uuid(30), delivery: 'synced' }, 'synced', {
+      reviewedEpoch: 'epoch',
+    }),
+  ).rejects.toMatchObject({ code: 'PHOTO_REVIEW_REQUIRED' });
+  await store.updatePhoto({ ...photo, recoveredMediaId: uuid(30), delivery: 'synced' }, 'synced', {
+    reviewedEpoch: 'new-epoch',
+  });
+  expect((await store.photos())[0]).toMatchObject({
+    status: 'synced',
+    attemptEpoch: 'epoch',
+    recoveredMediaId: uuid(30),
+  });
+  await store.db.close();
+});
+
+test.each(['restore', 'sign-out', 'reauth', 'discard'] as const)(
+  'a late command acknowledgement after %s cannot revive or confirm retained work',
+  async (invalidation) => {
+    const { store, saved } = await replayFixture();
+    await store.markAttempt(uuid(1));
+    if (invalidation === 'restore') {
+      await store.observeEpoch('new-epoch');
+      await store.stageSnapshot({
+        ...partition,
+        schemaVersion: 1,
+        epoch: 'new-epoch',
+        watermark: '0',
+        snapshotId: uuid(20),
+        records: [],
+        nextCursor: null,
+      });
+    }
+    if (invalidation === 'sign-out' || invalidation === 'reauth') await store.signOut(true);
+    if (invalidation === 'reauth') await store.signIn();
+    if (invalidation === 'discard') await store.discardPending();
+    const before = await store.exportPending();
+    await expect(store.accept(uuid(1), [saved])).rejects.toMatchObject({
+      code: 'ACK_REVIEW_REQUIRED',
+    });
+    expect(await store.exportPending()).toBe(before);
+    await store.db.close();
+  },
+);
+
+test('explicit reviewed receipt confirmation uses the current checked epoch', async () => {
+  const { store, saved } = await replayFixture();
+  await store.markAttempt(uuid(1));
+  await store.observeEpoch('new-epoch');
+  await store.stageSnapshot({
+    ...partition,
+    schemaVersion: 1,
+    epoch: 'new-epoch',
+    watermark: '0',
+    snapshotId: uuid(20),
+    records: [saved],
+    nextCursor: null,
+  });
+  await expect(store.accept(uuid(1), [saved], { reviewedEpoch: 'epoch' })).rejects.toMatchObject({
+    code: 'ACK_REVIEW_REQUIRED',
+  });
+  await store.reconcileAttempted(uuid(1), 'already-applied', [saved]);
+  expect((await store.outbox())[0].state).toBe('synced');
+  expect((await store.records('food'))[0].confirmed).toEqual(saved.value);
+  await store.db.close();
+});
+test('late rejection or reviewed-dispatch failure cannot revive discarded commands', async () => {
+  const { store } = await replayFixture();
+  await store.markAttempt(uuid(1));
+  await store.discardPending();
+  await store.reject(uuid(1), 'Late rejected response');
+  await store.requireAttemptReview(uuid(1), 'Late reviewed response');
+  expect((await store.outbox())[0].state).toBe('discarded');
   await store.db.close();
 });

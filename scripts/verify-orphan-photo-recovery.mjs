@@ -113,9 +113,12 @@ try {
     /earlier recovery/,
   );
   // Apply a protocol acknowledgement to the actual SQLite state (not a live server proof).
-  await store.markAttempt(newOp);
+  if (!(await store.markAttempt(newOp, true)))
+    throw new Error('Paused reviewed photo fork was not attempted.');
   const recovered = { ...makeEntry(newId), content: command.content };
-  await store.accept(newOp, [{ recordType: 'food', id: newId, revision: 1, value: recovered }]);
+  await store.accept(newOp, [{ recordType: 'food', id: newId, revision: 1, value: recovered }], {
+    expectedEpoch: restoredEpoch,
+  });
   await reopen();
   const newPhotoId = randomUUID();
   await store.requeueReviewedPhoto(photo.id, newPhotoId, randomUUID(), newId);

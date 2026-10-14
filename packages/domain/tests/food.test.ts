@@ -1,4 +1,8 @@
-import { FoodCommandSchema, FoodUploadSchema } from '../src/food';
+import { FoodCommandSchema, FoodUploadSchema, FoodTimezoneSchema } from '../src/food';
+test('food preserves named time zones rather than accepting fixed UTC offsets', () => {
+  expect(FoodTimezoneSchema.safeParse('+01:00').success).toBe(false);
+  expect(FoodTimezoneSchema.parse('America/New_York')).toBe('America/New_York');
+});
 test('food rejects invalid timezone and unbounded uploads', () => {
   expect(
     FoodCommandSchema.safeParse({

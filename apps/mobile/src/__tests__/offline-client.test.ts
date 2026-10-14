@@ -92,3 +92,21 @@ test('agent-sensitive actions use authenticated online transport and never enque
 test('malformed server success cannot pass the strict server acknowledgement parser', () => {
   expect(() => parseFoodAcknowledgement({ operationId: id(2), entry })).toThrow();
 });
+
+test('a local save during an active sync requests another pass before the returned sync settles', async () => {
+  const { client } = fixture();
+  jest.mocked(client.sync).mockRestore();
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const coordinator = jest
+    .spyOn(client.coordinator, 'sync')
+    .mockImplementationOnce(() => held)
+    .mockResolvedValue();
+  const sync = client.sync();
+  await client.save(create);
+  release();
+  await sync;
+  expect(coordinator).toHaveBeenCalledTimes(2);
+});

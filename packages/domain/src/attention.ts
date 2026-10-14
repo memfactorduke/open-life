@@ -125,11 +125,14 @@ export function buildTaskAttention(
         add('waiting', step.id, step.revision, step, entry.waitingReason);
         continue;
       }
-      const agentOwned = attempts.some(
-        (a) =>
-          a.stepId === step.id &&
-          ['running', 'cancel-requested', 'outcome-unknown', 'submitted'].includes(a.status),
-      );
+      const latestAttempt = attempts
+        .filter((attempt) => attempt.taskId === task.id && attempt.stepId === step.id)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+      const agentOwned =
+        !!latestAttempt &&
+        ['running', 'cancel-requested', 'outcome-unknown', 'submitted'].includes(
+          latestAttempt.status,
+        );
       if (step.content.responsibility === 'agent' || agentOwned) {
         add('waiting', step.id, step.revision, step, 'agent');
         continue;

@@ -158,6 +158,7 @@ test('actual Food Save atomically queues selected retained photo; text acknowled
       revision: 2,
       content: { ...f.entry.content, text: 'Selected lunch' },
     };
+    await f.store.markAttempt(operation.operationId);
     await f.store.accept(operation.operationId, [
       { recordType: 'food', id: confirmed.id, revision: 2, value: confirmed },
     ]);

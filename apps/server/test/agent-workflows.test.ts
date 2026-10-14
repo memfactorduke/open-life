@@ -176,27 +176,28 @@ for (const mode of ['rejected edit', 'lost upload'] as const)
       const scriptCurrent = (await readSteps(pool, actor.userId, parent.id)).find(
         (s) => s.id === script.id,
       )!;
-      const ownershipToken = token();
+      const claimTokens = [token(), token()];
       const claims = await Promise.allSettled([
         invoke({
           type: 'attempt.claim',
           taskId: parent.id,
           stepId: script.id,
           expectedStepRevision: scriptCurrent.revision,
-          ownershipToken,
+          ownershipToken: claimTokens[0]!,
         }),
         invoke({
           type: 'attempt.claim',
           taskId: parent.id,
           stepId: script.id,
           expectedStepRevision: scriptCurrent.revision,
-          ownershipToken: token(),
+          ownershipToken: claimTokens[1]!,
         }),
       ]);
       assert.equal(claims.filter((v) => v.status === 'fulfilled').length, 1);
       const claim = claims.find((v) => v.status === 'fulfilled')!;
       assert.equal(claim.status, 'fulfilled');
       if (claim.status !== 'fulfilled') throw new Error('No winner');
+      const ownershipToken = claimTokens[claims.indexOf(claim)]!;
       const attempt = claim.value.attempt!;
       assert.equal(claim.value.task!.phase, 'active');
       await invoke({

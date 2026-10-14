@@ -24,8 +24,11 @@ export async function exportRecoveryFiles(store: OfflineStore): Promise<string> 
     Crypto.randomUUID(),
   );
   directory.create({ intermediates: true, idempotent: true });
+  const data = JSON.parse(await store.exportPending()) as {
+    photos: (DurablePhoto & { status: string })[];
+  };
   const images = [];
-  for (const photo of await store.photos()) {
+  for (const photo of data.photos) {
     if (['synced', 'discarded'].includes(photo.status)) continue;
     const file = new File(directory, `${photo.id}.jpg`);
     await new File(photo.uri).copy(file);
@@ -46,9 +49,7 @@ export async function exportRecoveryFiles(store: OfflineStore): Promise<string> 
       sha256,
     });
   }
-  new File(directory, 'manifest.json').write(
-    JSON.stringify({ data: JSON.parse(await store.exportPending()), images }, null, 2),
-  );
+  new File(directory, 'manifest.json').write(JSON.stringify({ data, images }, null, 2));
   return directory.uri;
 }
 

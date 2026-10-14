@@ -107,3 +107,13 @@ it('keeps incomplete local drafts editable and preserves the documented DST poli
   expect(localInstant('2026-11-01', '01:30', 'America/New_York')).toBe('2026-11-01T05:30:00Z');
   expect(localParts(at, 'Pacific/Honolulu')).toEqual({ date: '2026-10-12', time: '08:30' });
 });
+
+it('an invalid configured timezone keeps the date editor open for recovery without crashing', async () => {
+  const change = jest.fn();
+  await render(<DateTimeField label="Due" value={at} timezone="Invalid/Zone" onChange={change} />);
+  await fireEvent.press(screen.getByRole('button', { name: 'Choose due' }));
+  expect(screen.getByLabelText('Due timestamp')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Apply due' }));
+  expect(change).not.toHaveBeenCalled();
+  expect(screen.getByText(/Your saved value is unchanged/)).toBeTruthy();
+});

@@ -41,6 +41,20 @@ test('actual application preserves bounded upload and session errors and origin 
     });
     assert.equal(login.statusCode, 200);
     const cookie = login.cookies.map((item) => `${item.name}=${item.value}`).join('; ');
+    const unsupported = await service.app.inject({
+      method: 'POST',
+      url: '/api/tasks/commands',
+      headers: { origin: config.WEB_ORIGIN, cookie, 'content-type': 'application/xml' },
+      payload: '<test/>',
+    });
+    assert.equal(unsupported.statusCode, 415);
+    assert.deepEqual(unsupported.json(), {
+      error: {
+        code: 'UNSUPPORTED_MEDIA_TYPE',
+        message: 'This request content type is not supported.',
+      },
+    });
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM tasks')).rows[0].n, 0);
     const session = await service.app.inject({
       method: 'POST',
       url: '/api/sessions/commands',
@@ -77,8 +91,19 @@ test('actual application preserves bounded upload and session errors and origin 
       (await pool.query('SELECT version FROM application_migrations ORDER BY version')).rows.map(
         (row) => row.version,
       ),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
     );
+    const hardeningIndexes = (
+      await pool.query(
+        "SELECT indexname,indexdef FROM pg_indexes WHERE schemaname='public' AND indexname IN ('audit_events_operation','agent_attempts_latest') ORDER BY indexname",
+      )
+    ).rows;
+    assert.deepEqual(
+      hardeningIndexes.map((row) => row.indexname),
+      ['agent_attempts_latest', 'audit_events_operation'],
+    );
+    assert.match(hardeningIndexes[0].indexdef, /owner_id, step_id.*createdAt.*DESC, id DESC/);
+    assert.match(hardeningIndexes[1].indexdef, /actor_id, operation_id/);
   } finally {
     await service?.app.close();
     await pool.end();

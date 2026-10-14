@@ -17,6 +17,14 @@ test.beforeEach(async ({ page }) => {
       if (command.type === 'food.create') owned.add(command.entryId);
     }
   });
+  await page.route('**/api/preferences', async (route) => {
+    const response = await route.fetch();
+    const record = await response.json();
+    await route.fulfill({
+      response,
+      json: { ...record, value: { ...record.value, timeZone: 'America/New_York' } },
+    });
+  });
   await page.goto('/');
   await page.getByLabel('Email address').fill(email!);
   await page.getByLabel('Password', { exact: true }).fill(password!);
@@ -138,7 +146,7 @@ test('private two-photo diary persists and exact retries recover committed alloc
   expect(new Set(entry.photoIds).size).toBe(2);
   expect(entry.revision).toBe(3);
   expect(entry.content.timezone).toBe('America/New_York');
-  expect(entry.content.occurredAt).toBe('2026-09-15T16:30:00.000Z');
+  expect(new Date(entry.content.occurredAt).toISOString()).toBe('2026-09-15T16:30:00.000Z');
   const [firstId, secondId] = entry.photoIds;
   const photo = await page.request.get(`/api/media/${firstId}`);
   expect(photo.status()).toBe(200);
@@ -146,7 +154,10 @@ test('private two-photo diary persists and exact retries recover committed alloc
   expect(photo.headers()['cache-control']).toContain('no-store');
   expect(photo.headers()['content-type']).toContain('image/png');
   expect(await (await page.request.get(`/api/media/${secondId}`)).body()).toEqual(jpeg);
-  const anonymous = await playwright.request.newContext({ baseURL: origin });
+  const anonymous = await playwright.request.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: process.env.WEB_TEST_IGNORE_HTTPS_ERRORS === '1',
+  });
   expect((await anonymous.get(`/api/media/${firstId}`)).status()).toBe(401);
   const copied = await anonymous.get(`/media/files/${firstId}`);
   expect(copied.headers()['content-type'] ?? '').not.toContain('image/');
@@ -204,7 +215,9 @@ test('private two-photo diary persists and exact retries recover committed alloc
   ]);
   expect(history.events[0].entry.id).toBe(entry.id);
   expect(history.events[0].entry.revision).toBe(5);
-  expect(history.events[0].entry.content.occurredAt).toBe('2026-09-15T17:45:00.000Z');
+  expect(new Date(history.events[0].entry.content.occurredAt).toISOString()).toBe(
+    '2026-09-15T17:45:00.000Z',
+  );
   expect(
     history.events.every(
       (event: { actorType: string; actorId: string }) =>

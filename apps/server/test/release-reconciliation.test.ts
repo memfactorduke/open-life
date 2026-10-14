@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { Pool } from 'pg';
 import { migrate } from '../src/database.js';
 import { readConfig } from '../src/config.js';
+import { migrateRcHardening } from '../src/rc-hardening-migrations.js';
 import { migrateReleaseReconciliation } from '../src/release-reconciliation-migrations.js';
 
 const databaseUrl =
@@ -113,8 +114,20 @@ test('forward repair preserves an earlier installed schema and records, cipherte
       ALTER TABLE agent_grants DROP CONSTRAINT valid_agent_scopes;
       ALTER TABLE operation_receipts ADD CONSTRAINT operation_receipts_actor_id_fkey FOREIGN KEY(actor_id) REFERENCES "user"(id);
       ALTER TABLE audit_events ADD CONSTRAINT audit_events_actor_id_fkey FOREIGN KEY(actor_id) REFERENCES "user"(id);`);
+    await pool.query(
+      'DROP INDEX audit_events_operation; DROP INDEX agent_attempts_latest; DELETE FROM application_migrations WHERE version=15',
+    );
     const before = await snapshot(pool);
     await migrateReleaseReconciliation(pool);
+    await migrateRcHardening(pool);
+    assert.equal(
+      (
+        await pool.query(
+          "SELECT count(*)::int AS n FROM pg_indexes WHERE schemaname='public' AND indexname IN ('audit_events_operation','agent_attempts_latest')",
+        )
+      ).rows[0].n,
+      2,
+    );
     for (const row of before)
       assert.equal((await pool.query(row.sql)).rows[0].digest, row.digest, row.table_name);
     assert.equal(

@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { AgentGrantCreateSchema, type AgentScope } from '@mems-life/domain';
 import { transaction } from './database.js';
 import { ApplicationError } from './errors.js';
-import { requireOwner, type OwnerPrincipal } from './operations.js';
+import { requireOwner, assertOperationIdAvailable, type OwnerPrincipal } from './operations.js';
 export type AgentPrincipal = OwnerPrincipal & {
   actorId: string;
   actorType: 'agent';
@@ -27,7 +27,12 @@ export async function authenticateAgent(
   scope?: AgentScope,
   lock = false,
 ): Promise<AgentPrincipal> {
-  if (typeof header !== 'string' || !/^Bearer ml_[0-9a-f-]{36}\.[A-Za-z0-9_-]{43}$/.test(header))
+  if (
+    typeof header !== 'string' ||
+    !/^Bearer ml_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[A-Za-z0-9_-]{43}$/.test(
+      header,
+    )
+  )
     throw denied();
   const credential = header.slice(7),
     id = credential.slice(3, 39);
@@ -81,6 +86,7 @@ export async function issueAgentGrant(
     await client.query('SELECT id FROM installation WHERE owner_id=$1 FOR UPDATE', [owner.userId]);
     await requireOwner(client, owner.userId);
     await authorize(client);
+    await requireOwner(client, owner.userId, owner.expectedEpoch);
     if (
       (
         await client.query(
@@ -94,6 +100,17 @@ export async function issueAgentGrant(
         'GRANT_SECRET_ALREADY_ISSUED',
         'This grant was issued already. Its secret cannot be retrieved. Revoke it and issue a new grant.',
       );
+    const receipt = await client.query(
+      'SELECT 1 FROM operation_receipts WHERE actor_id=$1 AND operation_id=$2',
+      [owner.userId, command.operationId],
+    );
+    if (receipt.rowCount)
+      throw new ApplicationError(
+        409,
+        'OPERATION_ID_REUSED',
+        'This operation ID was already used for another operation.',
+      );
+    await assertOperationIdAvailable(client, owner.userId, command.operationId);
     const id = randomUUID(),
       secret = `ml_${id}.${randomBytes(32).toString('base64url')}`;
     await client.query(
@@ -134,6 +151,7 @@ export async function revokeAgentGrant(
     await client.query('SELECT id FROM installation WHERE owner_id=$1 FOR UPDATE', [owner.userId]);
     await requireOwner(client, owner.userId);
     await authorize(client);
+    await requireOwner(client, owner.userId, owner.expectedEpoch);
     const request = { type: 'agent-grant.revoke', grantId, operationId };
     const receipt = await client.query(
       'SELECT response,request=$3::jsonb AS matches FROM operation_receipts WHERE actor_id=$1 AND operation_id=$2',

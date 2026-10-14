@@ -25,7 +25,9 @@ type Draft = { title: string; description: string; notes: string };
 export function Tasks({
   preferences,
   focusTarget,
+  active = true,
 }: {
+  active?: boolean;
   preferences?: Preferences;
   focusTarget?: { kind?: 'task' | 'session' | 'food'; id?: string; action?: 'create' | 'capture' };
 } = {}) {
@@ -94,48 +96,61 @@ export function Tasks({
   const [undo, setUndo] = useState<TaskCommand | null>(null);
   const pending = useRef<TaskCommand | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const queryGeneration = useRef(0);
   const selectedId = useRef<string | null>(null);
   const reload = async (currentView = viewRef.current) => {
+    const generation = ++queryGeneration.current;
+    const filterSnapshot = appliedRef.current;
     const result = await request(queryUrl(currentView), QueryResponse);
-    if (viewRef.current === currentView) {
+    if (
+      generation === queryGeneration.current &&
+      viewRef.current === currentView &&
+      appliedRef.current === filterSnapshot
+    ) {
       setTasks(result.tasks);
       setNextCursor(result.nextCursor);
       setFailed(false);
+      setLoading(false);
     }
   };
   useEffect(() => {
     let active = true;
+    const generation = ++queryGeneration.current;
     setLoading(true);
     request(queryUrl(view), QueryResponse)
       .then((result) => {
-        if (active) {
+        if (active && generation === queryGeneration.current) {
           setTasks(result.tasks);
           setNextCursor(result.nextCursor);
           setFailed(false);
         }
       })
       .catch((error) => {
-        if (active) {
+        if (active && generation === queryGeneration.current) {
           setNotice(error.message);
           setFailed(true);
         }
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && generation === queryGeneration.current) setLoading(false);
       });
     return () => {
       active = false;
     };
   }, [view, applied]);
   useEffect(() => {
+    if (!active) {
+      dialog.current?.close();
+      return;
+    }
     if (selected && !dialog.current?.open) dialog.current?.showModal();
-  }, [selected]);
+  }, [selected, active]);
   const close = () => {
     if (workflowBlocked) {
       setNotice('Resolve the pending agent or file change before closing this task.');
       return;
     }
-    if (productivityBusy) return;
+    if (productivityBusy || busy || pending.current) return;
     dialog.current?.close();
     selectedId.current = null;
     setSelected(null);
@@ -155,6 +170,14 @@ export function Tasks({
       });
       pending.current = null;
       const task = result.task;
+      if (command.type === 'task.delete' && selectedId.current === task.id) {
+        dialog.current?.close();
+        selectedId.current = null;
+        setSelected(null);
+        setDraft(null);
+        setLatest(null);
+        setHistory([]);
+      }
       if (command.type === 'task.create') setTitle('');
       if (['task.archive', 'task.delete', 'task.complete'].includes(command.type)) {
         const type =
@@ -291,7 +314,7 @@ export function Tasks({
   }, [focusTarget]);
   const cards = (items: Task[]) =>
     items.length ? (
-      items.map((task) => (
+      items.map((task, index) => (
         <article
           className="task-card"
           key={task.id}
@@ -397,14 +420,14 @@ export function Tasks({
                 >
                   Complete
                 </button>
-                {items.indexOf(task) > 0 && (
+                {index > 0 && (
                   <button
                     className="secondary"
                     disabled={busy || productivityBusy || workflowBlocked || !!pending.current}
                     onClick={() =>
                       action(task, 'task.move', {
                         phase: task.phase,
-                        beforeTaskId: items[items.indexOf(task) - 1]!.id,
+                        beforeTaskId: items[index - 1]!.id,
                       })
                     }
                   >
@@ -694,17 +717,33 @@ export function Tasks({
       {nextCursor && (
         <button
           className="secondary"
-          onClick={() =>
+          disabled={loading}
+          onClick={() => {
+            const generation = queryGeneration.current;
+            const filterSnapshot = appliedRef.current;
+            const requestedView = view;
+            setLoading(true);
             void request(queryUrl(view, nextCursor), QueryResponse)
               .then((result) => {
+                if (
+                  generation !== queryGeneration.current ||
+                  filterSnapshot !== appliedRef.current ||
+                  requestedView !== viewRef.current
+                )
+                  return;
                 setTasks((current) => [
                   ...current,
                   ...result.tasks.filter((task) => !current.some((item) => item.id === task.id)),
                 ]);
                 setNextCursor(result.nextCursor);
               })
-              .catch((error) => setNotice(error.message))
-          }
+              .catch((error) => {
+                if (generation === queryGeneration.current) setNotice(error.message);
+              })
+              .finally(() => {
+                if (generation === queryGeneration.current) setLoading(false);
+              });
+          }}
         >
           Load more tasks
         </button>
@@ -713,11 +752,12 @@ export function Tasks({
         ref={dialog}
         className="feature-dialog"
         onCancel={(event) => {
-          if (productivityBusy) event.preventDefault();
+          if (productivityBusy || workflowBlocked || busy || pending.current)
+            event.preventDefault();
           else close();
         }}
         onClose={() => {
-          if (!dialog.current?.open) close();
+          if (active && !dialog.current?.open) close();
         }}
         aria-labelledby="task-detail-title"
       >
@@ -725,7 +765,11 @@ export function Tasks({
           <>
             <div className="detail-heading">
               <h2 id="task-detail-title">Task details</h2>
-              <button className="secondary" disabled={productivityBusy} onClick={close}>
+              <button
+                className="secondary"
+                disabled={productivityBusy || workflowBlocked || busy || !!pending.current}
+                onClick={close}
+              >
                 Close
               </button>
             </div>
@@ -821,11 +865,13 @@ export function Tasks({
               refresh={reload}
               onBusyChange={setProductivityBusy}
               onTask={(task) => {
+                if (selectedId.current !== task.id) return;
                 setSelected(task);
                 void loadHistory(task.id).catch((error) => setNotice(error.message));
               }}
             />
             <AgentWorkflow
+              key={`workflow:${selected.id}`}
               taskId={selected.id}
               onBlockedChange={setWorkflowBlocked}
               onChanged={() => {
@@ -834,6 +880,7 @@ export function Tasks({
                   z.object({ task: TaskListResponseSchema.shape.tasks.element }),
                 )
                   .then(({ task }) => {
+                    if (selectedId.current !== task.id) return;
                     setSelected(task);
                     void reload();
                     void loadHistory(task.id);

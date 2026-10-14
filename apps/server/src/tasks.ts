@@ -114,6 +114,39 @@ export async function saveTask(client: PoolClient, ownerId: string, task: Task) 
     ],
   );
 }
+/** Keep automatic execution transitions in the same board lane model as explicit moves. */
+export async function activateReleasedTask(
+  client: PoolClient,
+  ownerId: string,
+  task: Task,
+): Promise<Task> {
+  if (task.phase !== 'next') return task;
+  let columnId = task.organization.columnId;
+  if (task.organization.boardId) {
+    const board = (
+      await client.query('SELECT value FROM boards WHERE owner_id=$1 AND id=$2', [
+        ownerId,
+        task.organization.boardId,
+      ])
+    ).rows[0]?.value;
+    columnId =
+      board?.content.columns.find((column: { phase: string }) => column.phase === 'active')?.id ??
+      null;
+  }
+  const active = {
+    ...task,
+    phase: 'active' as const,
+    organization: { ...task.organization, columnId },
+  };
+  await validateOrganization(client, ownerId, active);
+  const order = (
+    await client.query(
+      "SELECT COALESCE(MAX(sort_order),-1)+1 AS ordinal FROM tasks WHERE owner_id=$1 AND phase='active' AND board_id IS NOT DISTINCT FROM $2::uuid AND organization->>'columnId' IS NOT DISTINCT FROM $3::text AND archived_at IS NULL AND deleted_at IS NULL",
+      [ownerId, active.organization.boardId, columnId],
+    )
+  ).rows[0].ordinal;
+  return { ...active, order: Number(order) };
+}
 export async function executeTaskCommand(
   pool: Pool,
   actor: OwnerPrincipal,
@@ -218,9 +251,12 @@ export async function executeTaskCommand(
         ].includes(command.type) &&
         old &&
         sameLane(old, task)
-      )
-        peers.splice(Math.min(task.order, peers.length), 0, task);
-      else peers.push(task);
+      ) {
+        const after = peers.findIndex(
+          (peer) => peer.order > task.order || (peer.order === task.order && peer.id > task.id),
+        );
+        peers.splice(after < 0 ? peers.length : after, 0, task);
+      } else peers.push(task);
     }
     const changed = new Map<string, Task>([[task.id, task]]);
     if (visible)

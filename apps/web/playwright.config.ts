@@ -6,6 +6,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
+    ignoreHTTPSErrors: process.env.WEB_TEST_IGNORE_HTTPS_ERRORS === '1',
     baseURL: process.env.WEB_TEST_URL ?? 'http://127.0.0.1:5173',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

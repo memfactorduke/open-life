@@ -46,7 +46,13 @@ const routineContent = (record: Routine): RoutineContent => ({
 });
 const numberValue = (value: number | null) => (value === null ? '' : Number(value.toFixed(5)));
 
-export function Workouts({ preferences }: { preferences: Preferences }) {
+export function Workouts({
+  preferences,
+  active = true,
+}: {
+  preferences: Preferences;
+  active?: boolean;
+}) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [tab, setTab] = useState<'routines' | 'exercises'>('routines');
@@ -98,12 +104,17 @@ export function Workouts({ preferences }: { preferences: Preferences }) {
     };
   }, []);
   useEffect(() => {
+    if (!active) {
+      dialog.current?.close();
+      return;
+    }
     if (editing && !dialog.current?.open) {
       setNotice('');
       dialog.current?.showModal();
     }
-  }, [editing]);
-  const close = () => {
+  }, [editing, active]);
+  const close = (confirmed = false) => {
+    if (!confirmed && (busy || pending.current)) return;
     dialog.current?.close();
     setEditing(null);
     setLatest(null);
@@ -125,7 +136,7 @@ export function Workouts({ preferences }: { preferences: Preferences }) {
           body: JSON.stringify(operation.command),
         });
       pending.current = null;
-      close();
+      close(true);
       await load();
       setNotice('Saved. Your routines are plans. They do not record a workout as performed.');
     } catch (error) {
@@ -166,28 +177,32 @@ export function Workouts({ preferences }: { preferences: Preferences }) {
   };
   const save = () => {
     if (!editing) return;
-    if (editing.kind === 'exercise')
-      void run({
-        kind: 'exercise',
-        command: ExerciseCommandSchema.parse({
-          type: editing.record ? 'exercise.edit' : 'exercise.create',
-          operationId: crypto.randomUUID(),
-          exerciseId: editing.record?.id ?? crypto.randomUUID(),
-          expectedRevision: editing.record?.revision ?? 0,
-          content: editing.content,
-        }),
-      });
-    else
-      void run({
-        kind: 'routine',
-        command: RoutineCommandSchema.parse({
-          type: editing.record ? 'routine.edit' : 'routine.create',
-          operationId: crypto.randomUUID(),
-          routineId: editing.record?.id ?? crypto.randomUUID(),
-          expectedRevision: editing.record?.revision ?? 0,
-          content: editing.content,
-        }),
-      });
+    try {
+      if (editing.kind === 'exercise')
+        void run({
+          kind: 'exercise',
+          command: ExerciseCommandSchema.parse({
+            type: editing.record ? 'exercise.edit' : 'exercise.create',
+            operationId: crypto.randomUUID(),
+            exerciseId: editing.record?.id ?? crypto.randomUUID(),
+            expectedRevision: editing.record?.revision ?? 0,
+            content: editing.content,
+          }),
+        });
+      else
+        void run({
+          kind: 'routine',
+          command: RoutineCommandSchema.parse({
+            type: editing.record ? 'routine.edit' : 'routine.create',
+            operationId: crypto.randomUUID(),
+            routineId: editing.record?.id ?? crypto.randomUUID(),
+            expectedRevision: editing.record?.revision ?? 0,
+            content: editing.content,
+          }),
+        });
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Check your workout plan.');
+    }
   };
   const exerciseAction = (exercise: Exercise) =>
     void run({
@@ -454,8 +469,13 @@ export function Workouts({ preferences }: { preferences: Preferences }) {
         className="feature-dialog routine-dialog"
         ref={dialog}
         aria-labelledby="workout-editor-title"
-        onCancel={close}
-        onClose={close}
+        onCancel={(event) => {
+          if (busy || pending.current) event.preventDefault();
+          else close();
+        }}
+        onClose={() => {
+          if (active) close();
+        }}
       >
         {editing && (
           <>
@@ -463,7 +483,7 @@ export function Workouts({ preferences }: { preferences: Preferences }) {
               <h2 id="workout-editor-title">
                 {editing.record ? 'Edit' : 'New'} {editing.kind}
               </h2>
-              <button className="secondary" onClick={close}>
+              <button className="secondary" onClick={() => close()}>
                 Close
               </button>
             </div>

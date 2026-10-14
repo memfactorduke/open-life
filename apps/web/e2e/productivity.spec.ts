@@ -137,7 +137,7 @@ test('configuration, organization, dates and parallel steps preserve one outcome
   await page.reload();
   await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Active', exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     .toBeTruthy();

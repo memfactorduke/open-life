@@ -1,15 +1,148 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import {
+  Component,
+  Suspense,
+  lazy,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ComponentType,
+  type ComponentProps,
+} from 'react';
 import { MeSchema, PreferencesSchema, PreferencesRecordSchema } from '@mems-life/domain';
 import type { z } from 'zod';
 import { auth, request, RequestError } from './api';
-import { Tasks } from './features/Tasks';
-import { Workouts } from './features/Workouts';
-import { Sessions } from './features/Sessions';
-import { Food } from './features/Food';
-import { Whoop } from './features/Whoop';
-import { AgentAccess } from './features/AgentAccess';
-import { NotificationSettings } from './features/NotificationSettings';
-import { Today, type TodayTarget } from './features/Today';
+import type { TodayTarget } from './features/Today';
+const Tasks = retryableFeature<ComponentProps<typeof import('./features/Tasks').Tasks> & object>(
+  'Tasks',
+  () => import('./features/Tasks').then((module) => ({ default: module.Tasks })),
+);
+const Workouts = retryableFeature<
+  ComponentProps<typeof import('./features/Workouts').Workouts> & object
+>('Workouts', () => import('./features/Workouts').then((module) => ({ default: module.Workouts })));
+const Sessions = retryableFeature<
+  ComponentProps<typeof import('./features/Sessions').Sessions> & object
+>('Sessions', () => import('./features/Sessions').then((module) => ({ default: module.Sessions })));
+const Food = retryableFeature<ComponentProps<typeof import('./features/Food').Food> & object>(
+  'Food',
+  () => import('./features/Food').then((module) => ({ default: module.Food })),
+);
+const Whoop = retryableFeature<ComponentProps<typeof import('./features/Whoop').Whoop> & object>(
+  'Whoop',
+  () => import('./features/Whoop').then((module) => ({ default: module.Whoop })),
+);
+const AgentAccess = retryableFeature<
+  ComponentProps<typeof import('./features/AgentAccess').AgentAccess> & object
+>('AgentAccess', () =>
+  import('./features/AgentAccess').then((module) => ({ default: module.AgentAccess })),
+);
+const NotificationSettings = retryableFeature<
+  ComponentProps<typeof import('./features/NotificationSettings').NotificationSettings> & object
+>('NotificationSettings', () =>
+  import('./features/NotificationSettings').then((module) => ({
+    default: module.NotificationSettings,
+  })),
+);
+const Today = retryableFeature<ComponentProps<typeof import('./features/Today').Today> & object>(
+  'Today',
+  () => import('./features/Today').then((module) => ({ default: module.Today })),
+);
+
+class FeatureBoundary extends Component<
+  { children: React.ReactNode; onRetry?: () => void },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? (
+      <section role="alert">
+        <p>This view could not open. Your other open views are still available.</p>
+        <button
+          onClick={() => {
+            this.props.onRetry?.();
+            this.setState({ failed: false });
+          }}
+        >
+          Retry opening view
+        </button>
+      </section>
+    ) : (
+      <Suspense fallback={<p role="status">Opening view…</p>}>{this.props.children}</Suspense>
+    );
+  }
+}
+
+function retryableFeature<P extends object>(
+  name: string,
+  loader: () => Promise<{ default: ComponentType<P> }>,
+) {
+  return function Feature(props: P) {
+    const [attempt, setAttempt] = useState(0);
+    const View = useMemo(
+      () =>
+        lazy(async () => {
+          if (!attempt) return loader();
+          await Promise.all(
+            Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'))
+              .filter((link) => {
+                if (new URL(link.href).origin !== window.location.origin) return false;
+                try {
+                  return !link.sheet?.cssRules.length;
+                } catch {
+                  return true;
+                }
+              })
+              .map(
+                (link) =>
+                  new Promise<void>((resolve, reject) => {
+                    const replacement = document.createElement('link');
+                    replacement.rel = 'stylesheet';
+                    const url = new URL(link.href);
+                    url.searchParams.set('retry', crypto.randomUUID());
+                    replacement.href = url.href;
+                    replacement.onload = () => {
+                      link.remove();
+                      resolve();
+                    };
+                    replacement.onerror = () => {
+                      replacement.remove();
+                      reject(new Error('View styles could not load.'));
+                    };
+                    document.head.append(replacement);
+                  }),
+              ),
+          );
+
+          // Browsers cache a rejected module URL, separately from React.lazy's promise.
+          // Vite records its compiled chunk URL in a same-origin modulepreload link.
+          const href = Array.from(
+            document.querySelectorAll<HTMLLinkElement>('link[rel="modulepreload"]'),
+          )
+            .map((link) => link.href)
+            .find(
+              (href) =>
+                new URL(href).origin === window.location.origin &&
+                new URL(href).pathname.split('/').at(-1)?.startsWith(`${name}-`),
+            );
+          if (!href) return loader();
+          const url = new URL(href);
+          url.searchParams.set('retry', crypto.randomUUID());
+          const module = await import(/* @vite-ignore */ url.href);
+          return { default: module[name] as ComponentType<P> };
+        }),
+      [attempt],
+    );
+    return (
+      <FeatureBoundary key={attempt} onRetry={() => setAttempt((value) => value + 1)}>
+        <View {...props} />
+      </FeatureBoundary>
+    );
+  };
+}
 
 type Me = z.infer<typeof MeSchema>;
 type Preferences = z.infer<typeof PreferencesSchema>;
@@ -36,6 +169,10 @@ const messageOf = (error: unknown) =>
 export function App() {
   const [session, setSession] = useState<Session>({ kind: 'loading' });
   const [page, setPage] = useState<Page>(currentPage);
+  const [visited, setVisited] = useState<Set<Page>>(() => new Set([currentPage()]));
+  useEffect(() => {
+    setVisited((previous) => (previous.has(page) ? previous : new Set([...previous, page])));
+  }, [page]);
   const [workoutView, setWorkoutView] = useState<'library' | 'train' | 'whoop'>('library');
   const [focusTarget, setFocusTarget] = useState<TodayTarget>();
   const taskFocusTarget: { id?: string; action?: 'create' } | undefined = useMemo(
@@ -471,8 +608,12 @@ export function App() {
                 </button>
               )}
             </form>
-            <NotificationSettings />
-            <AgentAccess />
+            <FeatureBoundary>
+              <NotificationSettings />
+            </FeatureBoundary>
+            <FeatureBoundary>
+              <AgentAccess />
+            </FeatureBoundary>
             <section className="session-card">
               <div>
                 <h3>Your session</h3>
@@ -506,8 +647,6 @@ export function App() {
               </div>
             </section>
           </>
-        ) : page === 'tasks' ? (
-          <Tasks preferences={record?.value} focusTarget={taskFocusTarget} />
         ) : page === 'workouts' ? (
           <nav aria-label="Workout views">
             <button
@@ -523,42 +662,80 @@ export function App() {
               WHOOP
             </button>
           </nav>
-        ) : page === 'food' ? (
-          <Food
-            preferences={record?.value}
-            focusTarget={focusTarget?.kind === 'food' ? focusTarget : undefined}
-          />
         ) : null}
+        {(page === 'tasks' || visited.has('tasks')) && (
+          <div hidden={page !== 'tasks'}>
+            <FeatureBoundary>
+              <Tasks
+                active={page === 'tasks'}
+                preferences={record?.value}
+                focusTarget={page === 'tasks' ? taskFocusTarget : undefined}
+              />
+            </FeatureBoundary>
+          </div>
+        )}
+        {(page === 'food' || visited.has('food')) && (
+          <div hidden={page !== 'food'}>
+            <FeatureBoundary>
+              <Food
+                preferences={record?.value}
+                focusTarget={
+                  page === 'food' && focusTarget?.kind === 'food' ? focusTarget : undefined
+                }
+              />
+            </FeatureBoundary>
+          </div>
+        )}
         {record && (
           <>
             <div hidden={page !== 'today'}>
-              <Today
-                preferences={record.value}
-                active={page === 'today'}
-                onOpen={(target) => {
-                  setFocusTarget(target);
-                  if (target.kind === 'session') setWorkoutView('train');
-                  window.location.hash =
-                    target.kind === 'task'
-                      ? 'tasks'
-                      : target.kind === 'session'
-                        ? 'workouts'
-                        : 'food';
-                }}
-              />
+              <FeatureBoundary>
+                <Today
+                  preferences={record.value}
+                  active={page === 'today'}
+                  onOpen={(target) => {
+                    setFocusTarget(target);
+                    if (target.kind === 'session') setWorkoutView('train');
+                    window.location.hash =
+                      target.kind === 'task'
+                        ? 'tasks'
+                        : target.kind === 'session'
+                          ? 'workouts'
+                          : 'food';
+                  }}
+                />
+              </FeatureBoundary>
             </div>
-            <div hidden={page !== 'workouts' || workoutView !== 'library'}>
-              <Workouts preferences={record.value} />
-            </div>
-            <div hidden={page !== 'workouts' || workoutView !== 'train'}>
-              <Sessions
-                preferences={record.value}
-                focusTarget={focusTarget?.kind === 'session' ? focusTarget : undefined}
-              />
-            </div>
-            <div hidden={page !== 'workouts' || workoutView !== 'whoop'}>
-              <Whoop />
-            </div>
+            {(page === 'workouts' || visited.has('workouts')) && (
+              <>
+                <div hidden={page !== 'workouts' || workoutView !== 'library'}>
+                  <FeatureBoundary>
+                    <Workouts
+                      active={page === 'workouts' && workoutView === 'library'}
+                      preferences={record.value}
+                    />
+                  </FeatureBoundary>
+                </div>
+                <div hidden={page !== 'workouts' || workoutView !== 'train'}>
+                  <FeatureBoundary>
+                    <Sessions
+                      active={page === 'workouts' && workoutView === 'train'}
+                      preferences={record.value}
+                      focusTarget={
+                        page === 'workouts' && focusTarget?.kind === 'session'
+                          ? focusTarget
+                          : undefined
+                      }
+                    />
+                  </FeatureBoundary>
+                </div>
+                <div hidden={page !== 'workouts' || workoutView !== 'whoop'}>
+                  <FeatureBoundary>
+                    <Whoop />
+                  </FeatureBoundary>
+                </div>
+              </>
+            )}
           </>
         )}
         <footer className="workspace-footer">

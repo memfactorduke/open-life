@@ -108,3 +108,22 @@ test('checksum failure prevents a shareable export and preserves original bytes'
   expect(mockFiles.get('file:///original.jpg')).toEqual(bytes);
   expect([...mockFiles.keys()].some((path) => path.endsWith('/recovery.json'))).toBe(false);
 });
+
+test('image copies use the exact frozen recovery manifest even when a capture changes the live photo list', async () => {
+  const { store, data, bytes } = photoStore();
+  const later = { ...data.photos[0], id: 'later-photo', uri: 'file:///later.jpg' };
+  data.photos.push(later);
+  jest.mocked(store.exportPending).mockResolvedValue(JSON.stringify(data));
+  mockFiles.set(later.uri, bytes);
+  const uri = await exportRecoveryShareFile(store);
+  const payload = JSON.parse(await new File(uri).text());
+  expect(payload.data.photos.map((photo: { id: string }) => photo.id)).toEqual([
+    'photo-1',
+    'later-photo',
+  ]);
+  expect(payload.images.map((photo: { id: string }) => photo.id)).toEqual([
+    'photo-1',
+    'later-photo',
+  ]);
+  expect(store.photos).not.toHaveBeenCalled();
+});

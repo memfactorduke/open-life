@@ -63,8 +63,8 @@ export function Today({
   active?: boolean;
 }) {
   const palette = usePalette();
-  const { width } = useWindowDimensions();
-  const wide = width >= 760;
+  const { width, fontScale } = useWindowDimensions();
+  const wide = width >= 760 && fontScale < 1.5;
   const [data, setData] = useState<AttentionResponse | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -270,7 +270,8 @@ export function Today({
                   <Body>{data.activeSession.name}</Body>
                   <Body>
                     {data.activeSession.items.reduce(
-                      (count, exercise) => count + exercise.results.length,
+                      (count, exercise) =>
+                        count + exercise.results.filter((result) => !result.removedAt).length,
                       0,
                     )}{' '}
                     sets recorded

@@ -232,3 +232,27 @@ test('timer recovery never prompts; only explicit enable asks permission and rou
   await reconcileTimerAlert({ ...input, enabled: false, timer: null, session: null });
   expect(schedules).toHaveLength(0);
 });
+
+test('revoked OS timer permission cancels an already matching owned schedule', async () => {
+  const input = {
+    installation: 'https://timer-fictional.example',
+    session: { id: id(31), status: 'active' } as WorkoutSession,
+    timer: {
+      id: id(30),
+      deadline: future,
+      state: 'running',
+      initiatingDeviceId: id(99),
+    } as SessionTimer,
+    deviceId: id(99),
+    enabled: true,
+    sound: false,
+    haptics: false,
+    serverNow: Date.parse(now),
+  };
+  await reconcileTimerAlert(input);
+  expect(schedules).toHaveLength(1);
+  jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue({ granted: false } as never);
+  expect(await reconcileTimerAlert(input)).toContain('not allowed');
+  expect(schedules).toHaveLength(0);
+  expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+});

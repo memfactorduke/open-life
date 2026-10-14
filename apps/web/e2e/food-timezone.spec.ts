@@ -53,7 +53,19 @@ for (const scenario of [
     await page.getByLabel('Password', { exact: true }).fill(password!);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page.locator('#today-heading')).toBeVisible();
+    let originalPreferences: { revision: number; value: Record<string, unknown> } | undefined;
     if (scenario.livePreferences) {
+      originalPreferences = await (await page.request.get('/api/preferences')).json();
+      const saved = await page.request.put('/api/preferences', {
+        headers: { Origin: origin },
+        data: {
+          operationId: crypto.randomUUID(),
+          expectedRevision: originalPreferences!.revision,
+          value: { ...originalPreferences!.value, timeZone: scenario.zone },
+        },
+      });
+      expect(saved.ok(), await saved.text()).toBeTruthy();
+      await page.reload();
       const preferences = await (await page.request.get('/api/preferences')).json();
       expect(preferences.value.timeZone).toBe(scenario.zone);
     }
@@ -121,6 +133,18 @@ for (const scenario of [
       }
       const remaining = (await (await page.request.get('/api/food')).json()).entries;
       expect(remaining.filter((entry: { id: string }) => owned.has(entry.id))).toHaveLength(0);
+      if (originalPreferences) {
+        const current = await (await page.request.get('/api/preferences')).json();
+        const restored = await page.request.put('/api/preferences', {
+          headers: { Origin: origin },
+          data: {
+            operationId: crypto.randomUUID(),
+            expectedRevision: current.revision,
+            value: originalPreferences.value,
+          },
+        });
+        expect(restored.ok(), await restored.text()).toBeTruthy();
+      }
     }
   });
 }

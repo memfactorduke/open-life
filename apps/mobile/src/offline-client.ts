@@ -147,9 +147,18 @@ export class NativeOfflineClient {
   }
   snapshot = () => this.revision;
   private syncing: Promise<void> | null = null;
+  private syncRequested = false;
   sync(): Promise<void> {
-    if (this.syncing) return this.syncing;
-    this.syncing = this.performSync().finally(() => {
+    if (this.syncing) {
+      this.syncRequested = true;
+      return this.syncing;
+    }
+    this.syncing = (async () => {
+      do {
+        this.syncRequested = false;
+        await this.performSync();
+      } while (this.syncRequested);
+    })().finally(() => {
       this.syncing = null;
     });
     return this.syncing;
@@ -168,9 +177,9 @@ export class NativeOfflineClient {
     this.notify();
   }
   async syncPhotos() {
-    const state = await this.store.state();
-    if (state.signedOut || state.replayPaused || !state.epoch) return;
     for (const photo of await this.store.photos()) {
+      const state = await this.store.state();
+      if (state.signedOut || state.replayPaused || !state.epoch) return;
       if (photo.status !== 'pending') continue;
       const record = (await this.store.records('food')).find((r) => r.id === photo.entryId);
       if (!record || record.status !== 'synced') continue;
@@ -215,16 +224,17 @@ export class NativeOfflineClient {
             { expectedEpoch: state.epoch },
           ),
         );
-        await this.store.ingestValidatedRecords([
-          {
-            recordType: 'food',
-            id: finalized.entry.id,
-            revision: finalized.entry.revision,
-            value: finalized.entry,
-          },
-        ]);
         photo.delivery = 'synced';
-        await this.store.updatePhoto(photo, 'synced');
+        await this.store.updatePhoto(photo, 'synced', {
+          confirmedRecords: [
+            {
+              recordType: 'food',
+              id: finalized.entry.id,
+              revision: finalized.entry.revision,
+              value: finalized.entry,
+            },
+          ],
+        });
       } catch (error) {
         photo.delivery = 'uncertain';
         await this.store.updatePhoto(photo, 'pending');
@@ -321,10 +331,13 @@ export class NativeOfflineClient {
       (o) => o.operationId === operationId && o.state === 'never-sent' && o.attempts === 0,
     );
     if (newlySaved) {
-      await this.store.markAttempt(newlySaved.operationId);
+      const dispatchEpoch = (await this.store.state()).epoch;
+      if (!(await this.store.markAttempt(newlySaved.operationId, true))) return;
       try {
         const records = await this.coordinator.transport.send(JSON.parse(newlySaved.payload));
-        await this.store.accept(newlySaved.operationId, records);
+        await this.store.accept(newlySaved.operationId, records, {
+          expectedEpoch: dispatchEpoch ?? undefined,
+        });
       } catch (error) {
         await this.store.requireAttemptReview(
           newlySaved.operationId,
@@ -423,6 +436,7 @@ export class NativeOfflineClient {
       await this.store.updatePhoto(
         { ...photo, delivery: 'synced', recoveredMediaId: proof.matchingId },
         'synced',
+        { reviewedEpoch: proof.epoch },
       );
     } else {
       if (!stoppedAndAbsent && (photo.attempts ?? 0) > 0)

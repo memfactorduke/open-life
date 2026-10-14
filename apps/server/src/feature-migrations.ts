@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { transaction } from './database.js';
-import { requireOwner, type OwnerPrincipal } from './operations.js';
+import { requireOwner, assertOperationIdAvailable, type OwnerPrincipal } from './operations.js';
 import { ApplicationError } from './errors.js';
 
 export async function migrateFeatures(pool: Pool): Promise<void> {
@@ -120,6 +120,7 @@ export async function featureOperation<T>(
         );
       return receipt.rows[0].response;
     }
+    await assertOperationIdAvailable(client, actorId, command.operationId);
     const { result, records } = await work(client);
     const feed = await client.query<{ feed_position: string }>(
       'UPDATE installation SET feed_position=feed_position+1 WHERE owner_id=$1 RETURNING feed_position',

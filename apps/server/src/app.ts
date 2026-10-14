@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { readdir } from 'node:fs/promises';
 import { fromNodeHeaders } from 'better-auth/node';
 import { MeSchema, PreferencesCommandSchema } from '@mems-life/domain';
 import { ZodError, z } from 'zod';
@@ -45,14 +46,25 @@ const exposedAuthPaths = new Set([
 export async function createApp(
   config: Config,
   pool = new Pool({ connectionString: config.DATABASE_URL }),
+  options: { webDirectory?: string } = {},
 ) {
   const app = Fastify({ logger: false, bodyLimit: 64 * 1024 });
+  const webDirectory = resolve(
+    options.webDirectory ?? fileURLToPath(new URL('../../web/dist/', import.meta.url)),
+  );
+  const immutableAssets = new Set<string>();
+  if (config.NODE_ENV === 'production') {
+    const assets = resolve(webDirectory, 'assets');
+    for (const entry of await readdir(assets, { withFileTypes: true }))
+      if (entry.isFile() && /-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+$/.test(entry.name))
+        immutableAssets.add(`/assets/${entry.name}`);
+  }
   const auth = createAuth(config, pool);
   const origins = trustedOrigins(config);
   await app.register(cors, {
     origin: origins,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Origin', 'X-Mems-Life-Epoch'],
     maxAge: 600,
   });
@@ -82,6 +94,23 @@ export async function createApp(
               413,
               'REQUEST_TOO_LARGE',
               'This request exceeds the allowed size.',
+            ),
+          ),
+        );
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'statusCode' in error &&
+      error.statusCode === 415
+    )
+      return reply
+        .status(415)
+        .send(
+          errorBody(
+            new ApplicationError(
+              415,
+              'UNSUPPORTED_MEDIA_TYPE',
+              'This request content type is not supported.',
             ),
           ),
         );
@@ -282,7 +311,7 @@ export async function createApp(
   });
   if (config.NODE_ENV === 'production') {
     await app.register(fastifyStatic, {
-      root: fileURLToPath(new URL('../../web/dist/', import.meta.url)),
+      root: webDirectory,
       prefix: '/',
     });
     app.setNotFoundHandler((request, reply) => {
@@ -293,10 +322,17 @@ export async function createApp(
       return reply.sendFile('index.html');
     });
   }
-  app.addHook('onSend', async (_request, reply, payload) => {
+  app.addHook('onSend', async (request, reply, payload) => {
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Referrer-Policy', 'no-referrer');
-    reply.header('Cache-Control', 'no-store');
+    reply.header(
+      'Cache-Control',
+      ['GET', 'HEAD'].includes(request.method) &&
+        reply.statusCode < 400 &&
+        immutableAssets.has(request.url.split('?')[0]!)
+        ? 'public, max-age=31536000, immutable'
+        : 'no-store',
+    );
     if (config.NODE_ENV === 'production')
       reply.header(
         'Content-Security-Policy',

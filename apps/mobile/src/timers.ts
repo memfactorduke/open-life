@@ -78,7 +78,10 @@ async function reconcile({
   }
   if (stored?.signature === signature) {
     const pending = await Notifications.getAllScheduledNotificationsAsync();
-    if (pending.some((n) => n.identifier === stored!.id)) return '';
+    if (pending.some((n) => n.identifier === stored!.id)) {
+      const permission = await Notifications.getPermissionsAsync();
+      if (permission.granted) return '';
+    }
   }
   if (stored) {
     await Notifications.cancelScheduledNotificationAsync(stored.id);
@@ -124,4 +127,14 @@ export async function requestTimerAlertPermission(): Promise<string> {
   return permission.granted
     ? ''
     : 'Notifications are not allowed. The saved timer still works in the app.';
+}
+
+/** Wall-clock restart fallback never expands a device timer beyond its saved interval. */
+export function deviceTimerRemaining(
+  timer: { deadline: number | null; remaining: number },
+  now: number,
+): number {
+  return timer.deadline === null
+    ? Math.max(0, Math.ceil(timer.remaining))
+    : Math.max(0, Math.min(Math.ceil(timer.remaining), Math.ceil((timer.deadline - now) / 1000)));
 }

@@ -20,7 +20,7 @@ import {
 import { featureOperation, checkRevision, type ChangedRecord } from './feature-migrations.js';
 import { requireOwner, type OwnerPrincipal } from './operations.js';
 import { readSteps } from './steps.js';
-import { taskFromRow, saveTask } from './tasks.js';
+import { taskFromRow, saveTask, activateReleasedTask } from './tasks.js';
 import { ApplicationError } from './errors.js';
 import { validateArtifactReferences, invalidateAgentResults } from './artifact-review.js';
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -127,19 +127,53 @@ export async function listAgentSkills(pool: Pool, actor: OwnerPrincipal) {
 }
 export async function listEligibleAgentSteps(pool: Pool, actor: OwnerPrincipal) {
   await requireOwner(pool, actor.userId);
-  const all = await attempts(pool, actor.userId),
+  const all = (
+      await pool.query(
+        "SELECT a.value FROM agent_attempts a JOIN tasks t ON t.id=a.task_id AND t.owner_id=a.owner_id WHERE a.owner_id=$1 AND t.phase IN ('next','active') AND NOT t.paused AND t.archived_at IS NULL AND t.deleted_at IS NULL",
+        [actor.userId],
+      )
+    ).rows.map((row) => row.value as AgentAttempt),
     result: { task: Task; step: TaskStep; binding: SkillBinding }[] = [];
   const rows = await pool.query(
-    "SELECT * FROM tasks WHERE owner_id=$1 AND phase IN ('next','active') AND NOT paused AND archived_at IS NULL AND deleted_at IS NULL ORDER BY sort_order,id LIMIT 100",
+    "SELECT * FROM tasks WHERE owner_id=$1 AND phase IN ('next','active') AND NOT paused AND archived_at IS NULL AND deleted_at IS NULL ORDER BY sort_order,id",
     [actor.userId],
   );
+  const taskIds = rows.rows.map((row) => row.id as string);
+  const [stepRows, bindingRows] = await Promise.all([
+    pool.query(
+      "SELECT value FROM task_steps WHERE owner_id=$1 AND task_id=ANY($2::uuid[]) AND deleted_at IS NULL ORDER BY (value->'content'->>'order')::integer,id",
+      [actor.userId, taskIds],
+    ),
+    pool.query('SELECT value FROM agent_bindings WHERE owner_id=$1 AND task_id=ANY($2::uuid[])', [
+      actor.userId,
+      taskIds,
+    ]),
+  ]);
+  const stepsByTask = new Map<string, TaskStep[]>();
+  for (const row of stepRows.rows) {
+    const step = TaskStepSchema.parse(row.value);
+    const group = stepsByTask.get(step.taskId) ?? [];
+    group.push(step);
+    stepsByTask.set(step.taskId, group);
+  }
+  const bindingsByStep = new Map(
+    bindingRows.rows.map((row) => {
+      const binding = row.value as SkillBinding;
+      return [binding.stepId, binding] as const;
+    }),
+  );
+  const attemptsByStep = new Map<string, AgentAttempt[]>();
+  for (const attempt of all) {
+    const group = attemptsByStep.get(attempt.stepId) ?? [];
+    group.push(attempt);
+    attemptsByStep.set(attempt.stepId, group);
+  }
   for (const row of rows.rows) {
     const task = taskFromRow(row),
-      steps = await readSteps(pool, actor.userId, task.id),
-      bound = await bindings(pool, actor.userId, task.id);
+      steps = stepsByTask.get(task.id) ?? [];
     for (const entry of stepRollup(task, steps).entries) {
-      const binding = bound.find((b) => b.stepId === entry.step.id),
-        past = all.filter((a) => a.stepId === entry.step.id);
+      const binding = bindingsByStep.get(entry.step.id),
+        past = attemptsByStep.get(entry.step.id) ?? [];
       const leaseExpired =
         entry.step.status === 'active' && past.some((a) => effective(a) === 'expired');
       if (
@@ -651,7 +685,7 @@ export async function executeAgentWorkflowCommand(
       );
       step.status = 'active';
       await saveStep(step);
-      if (task.phase === 'next') task.phase = 'active';
+      task = await activateReleasedTask(client, actor.userId, task);
       await saveParent();
       await audit(a.id, a.revision, a);
       return { result: { attempt: a, task }, records };

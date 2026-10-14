@@ -19,6 +19,7 @@ import { migrateTaskFiles } from './task-file-migrations.js';
 import { migrateSync } from './sync-migrations.js';
 import { migratePortability } from './portability-migrations.js';
 import { migrateAttention } from './attention-migrations.js';
+import { migrateRcHardening } from './rc-hardening-migrations.js';
 import { beginMaintenanceWrite, MAINTENANCE_LOCK } from './portability.js';
 
 const migrationContext = new AsyncLocalStorage<boolean>();
@@ -141,6 +142,7 @@ async function migrateInstallation(pool: Pool, config: Config): Promise<void> {
   await migrateSync(pool);
   await migratePortability(pool);
   await migrateAttention(pool);
+  await migrateRcHardening(pool);
 }
 
 export async function bootstrapOwner(

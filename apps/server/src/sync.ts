@@ -57,27 +57,78 @@ async function collect(client: PoolClient, ownerId: string): Promise<SyncRecord[
       );
     records.push(record);
   };
-  const rows = async (table: string) =>
-    (
-      await client.query(`SELECT * FROM ${table} WHERE owner_id=$1 ORDER BY 1 LIMIT $2`, [
-        ownerId,
-        MAX_SNAPSHOT_RECORDS + 1,
-      ])
-    ).rows;
-  for (const r of await rows('owner_preferences'))
+  async function* rows(table: string) {
+    // Keep each PostgreSQL result bounded before add() checks the total snapshot
+    // capacity. Fetching 50,001 valid text-heavy records at once can exhaust the
+    // process before it has a chance to return the intended capacity error.
+    const richField =
+      table === 'routines'
+        ? 'content'
+        : table === 'whoop_observations'
+          ? 'payload'
+          : [
+                'owner_preferences',
+                'workout_sessions',
+                'food_entries',
+                'boards',
+                'projects',
+                'recurrence_series',
+                'task_steps',
+                'agent_skills',
+                'agent_bindings',
+                'agent_attempts',
+                'agent_results',
+              ].includes(table)
+            ? 'value'
+            : null;
+    // Allow twice the compact snapshot capacity for PostgreSQL's token spacing,
+    // and check serialized size rather than compressed TOAST storage size.
+    // Rich aggregates cross the wire one at a time, bounded to 64 MiB; the
+    // existing add() check still enforces the supported 32 MiB whole snapshot.
+    if (
+      richField &&
+      (
+        await client.query(
+          `SELECT 1 FROM ${table} WHERE owner_id=$1 AND octet_length(${richField}::text)>$2 LIMIT 1`,
+          [ownerId, MAX_SNAPSHOT_BYTES * 2],
+        )
+      ).rowCount
+    )
+      throw new ApplicationError(
+        413,
+        'SYNC_SNAPSHOT_TOO_LARGE',
+        'A record exceeds the 64 MiB serialized transfer limit. The offline snapshot supports 32 MiB of usable records.',
+      );
+    await client.query(
+      `DECLARE sync_collection NO SCROLL CURSOR FOR SELECT * FROM ${table} WHERE owner_id=$1 ORDER BY 1`,
+      [ownerId],
+    );
+    try {
+      while (true) {
+        const batch = (
+          await client.query(`FETCH FORWARD ${richField ? 1 : 100} FROM sync_collection`)
+        ).rows;
+        if (!batch.length) return;
+        for (const row of batch) yield row;
+      }
+    } finally {
+      await client.query('CLOSE sync_collection');
+    }
+  }
+  for await (const r of rows('owner_preferences'))
     add({
       recordType: 'preferences',
       id: ownerId,
       revision: r.revision,
       value: { revision: r.revision, value: r.value },
     });
-  for (const r of await rows('tasks'))
+  for await (const r of rows('tasks'))
     add({ recordType: 'task', id: r.id, revision: r.revision, value: taskFromRow(r) });
   for (const [table, kind] of [
     ['exercises', 'exercise'],
     ['routines', 'routine'],
   ] as const) {
-    for (const r of await rows(table))
+    for await (const r of rows(table))
       add({
         recordType: kind,
         id: r.id,
@@ -105,7 +156,7 @@ async function collect(client: PoolClient, ownerId: string): Promise<SyncRecord[
     ['agent_attempts', 'attempt'],
     ['agent_results', 'result'],
   ] as const) {
-    for (const r of await rows(table))
+    for await (const r of rows(table))
       add({
         recordType: kind,
         id: r.id ?? r.step_id,
@@ -113,7 +164,7 @@ async function collect(client: PoolClient, ownerId: string): Promise<SyncRecord[
         value: r.value,
       });
   }
-  for (const r of await rows('food_media'))
+  for await (const r of rows('food_media'))
     add({
       recordType: 'media',
       id: r.id,
@@ -130,7 +181,7 @@ async function collect(client: PoolClient, ownerId: string): Promise<SyncRecord[
       },
     });
   if ((await client.query("SELECT to_regclass('public.task_files') AS name")).rows[0].name)
-    for (const r of await rows('task_files'))
+    for await (const r of rows('task_files'))
       add({
         recordType: 'taskFile',
         id: r.id,
@@ -148,7 +199,7 @@ async function collect(client: PoolClient, ownerId: string): Promise<SyncRecord[
         },
       });
   // Provider credentials, OAuth states, grant verifiers and private storage locations are deliberately absent.
-  for (const r of await rows('whoop_connection'))
+  for await (const r of rows('whoop_connection'))
     add({
       recordType: 'connection',
       id: ownerId,
@@ -160,7 +211,7 @@ async function collect(client: PoolClient, ownerId: string): Promise<SyncRecord[
         lastSuccessAt: iso(r.last_success_at),
       },
     });
-  for (const r of await rows('whoop_observations'))
+  for await (const r of rows('whoop_observations'))
     add({
       recordType: 'provider',
       id: `${r.account_id}:${r.resource}:${r.provider_id}`,

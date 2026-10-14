@@ -40,6 +40,7 @@ import { Action, Body, Card, Choice, Field, Heading, usePalette } from '../ui';
 import { messageOf, numericInput, useCommand } from './helpers';
 import {
   deviceIdentity,
+  deviceTimerRemaining,
   reconcileTimerAlert,
   requestTimerAlertPermission,
   readTimerPreferences,
@@ -66,6 +67,12 @@ type DeviceTimer = {
   status: 'running' | 'paused';
 };
 const emptyDraft = (): Draft => ({ values: {}, kind: 'working', notes: '', round: '', reason: '' });
+function clearSetDraft(previous?: Draft): Draft {
+  const next = emptyDraft();
+  if (previous?.values.exerciseNotes !== undefined)
+    next.values.exerciseNotes = previous.values.exerciseNotes;
+  return next;
+}
 export function describeMeasurements(m: Measurements, p: Preferences): string {
   const parts: string[] = [];
   if ('reps' in m && m.reps !== null) parts.push(`${m.reps} reps`);
@@ -203,7 +210,8 @@ export function Sessions({
   const loadSequence = useRef(0);
   const command = useCommand(client);
 
-  const wide = useWindowDimensions().width >= 850;
+  const { width, fontScale } = useWindowDimensions();
+  const wide = width >= 850 && fontScale < 1.5;
   const [deviceTimer, setDeviceTimer] = useState<DeviceTimer | null>(null);
   const [deviceSeconds, setDeviceSeconds] = useState(0);
   const [draftReady, setDraftReady] = useState(!client.offline);
@@ -250,11 +258,7 @@ export function Sessions({
   }, [client, draftReady, drafts, selected, notes, name, rest, autoRest, deviceTimer]);
   useEffect(() => {
     const tick = () =>
-      setDeviceSeconds(
-        deviceTimer?.deadline
-          ? Math.max(0, Math.ceil((deviceTimer.deadline - Date.now()) / 1000))
-          : (deviceTimer?.remaining ?? 0),
-      );
+      setDeviceSeconds(deviceTimer ? deviceTimerRemaining(deviceTimer, Date.now()) : 0);
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
@@ -266,8 +270,9 @@ export function Sessions({
   ) {
     if (!client.offline || !current) return;
     try {
-      const duration = numericInput(rest, 'Timer seconds');
-      if (!duration || duration > 86400)
+      const duration =
+        action === 'start' ? numericInput(rest, 'Timer seconds') : (deviceTimer?.duration ?? 90);
+      if (action === 'start' && (!duration || duration > 86400))
         throw new Error('Timer seconds must be between 1 and 86400.');
       let next: DeviceTimer | null =
         action === 'cancel'
@@ -277,14 +282,19 @@ export function Sessions({
                 sessionId: current.id,
                 id: Crypto.randomUUID(),
                 kind,
-                duration,
-                remaining: duration,
-                deadline: Date.now() + duration * 1000,
+                duration: duration!,
+                remaining: duration!,
+                deadline: Date.now() + duration! * 1000,
                 status: 'running',
               }
             : deviceTimer;
       if (next && action === 'pause')
-        next = { ...next, remaining: deviceSeconds, deadline: null, status: 'paused' };
+        next = {
+          ...next,
+          remaining: deviceTimerRemaining(next, Date.now()),
+          deadline: null,
+          status: 'paused',
+        };
       if (next && action === 'resume')
         next = { ...next, deadline: Date.now() + next.remaining * 1000, status: 'running' };
       if (next && action === 'reset')
@@ -317,7 +327,7 @@ export function Sessions({
       .then((raw) => {
         if (!active) return;
         const target = SessionResponseSchema.parse(raw).session;
-        if (notes !== null && target.id !== session?.id) {
+        if (notes !== null && notes !== session?.notes && target.id !== session?.id) {
           setError(
             'Your current workout notes are retained. Save or close them before opening another workout.',
           );
@@ -368,7 +378,10 @@ export function Sessions({
         const active = list.sessions.find((s) => s.status === 'active');
         if (active && sessionIdentity.current === openedSession)
           setSession((previous) =>
-            !previous || (previous.status === 'active' && active.revision >= previous.revision)
+            !previous ||
+            (previous.id === active.id &&
+              previous.status === 'active' &&
+              active.revision >= previous.revision)
               ? active
               : previous,
           );
@@ -381,7 +394,9 @@ export function Sessions({
   useEffect(() => {
     void load();
     void syncClock();
-    void deviceIdentity(client.baseURL).then(setDeviceId);
+    void deviceIdentity(client.baseURL)
+      .then(setDeviceId)
+      .catch((e) => setAlertMessage(messageOf(e)));
     void readTimerPreferences(client.baseURL).then((p) => {
       setAlerts(p.alerts);
       setSound(p.sound);
@@ -434,12 +449,17 @@ export function Sessions({
       .catch((e) => setAlertMessage(messageOf(e)));
   }, [session?.timer, session?.status, deviceId, alerts, sound, haptics, clockReady, alertsReady]);
   useEffect(() => {
-    if (alertsReady) void saveTimerPreferences(client.baseURL, { alerts, sound, haptics });
+    if (alertsReady)
+      void saveTimerPreferences(client.baseURL, { alerts, sound, haptics }).catch((e) =>
+        setAlertMessage(`Timer choices could not be saved: ${messageOf(e)}`),
+      );
   }, [alertsReady, alerts, sound, haptics, client]);
   useEffect(() => {
     const timer = session?.timer;
     if (
       haptics &&
+      AppState.currentState === 'active' &&
+      session?.status === 'active' &&
       clockReady &&
       seconds === 0 &&
       timer?.state === 'running' &&
@@ -448,9 +468,9 @@ export function Sessions({
       clock.current !== null &&
       Date.parse(timer.deadline) <=
         clock.current.server + performance.now() - clock.current.monotonic &&
-      !alerted.current.has(timer.id)
+      !alerted.current.has(`${timer.id}:${timer.deadline}`)
     ) {
-      alerted.current.add(timer.id);
+      alerted.current.add(`${timer.id}:${timer.deadline}`);
       void timerHaptic().catch(() =>
         setAlertMessage('Haptic is unavailable; the timer still works.'),
       );
@@ -488,7 +508,11 @@ export function Sessions({
         ['session.record-set', 'session.correct-set', 'session.remove-set'].includes(action.type) &&
         typeof action.extra.itemId === 'string'
       )
-        setDrafts((old) => ({ ...old, [String(action.extra.itemId)]: emptyDraft() }));
+        setDrafts((old) => ({
+          ...old,
+          [String(action.extra.itemId)]: clearSetDraft(old[String(action.extra.itemId)]),
+        }));
+      if (action?.type === 'session.set-notes' && action.extra.itemId === null) setNotes(null);
       if (action && ['session.finish', 'session.abandon'].includes(action.type)) setConfirm(null);
       if (action && ['session.add-exercise', 'session.substitute-exercise'].includes(action.type))
         setPicker(null);
@@ -557,9 +581,8 @@ export function Sessions({
         ...(draft.setId ? { reason: draft.reason } : {}),
       });
       if (next) {
-        setDrafts((old) => ({ ...old, [item.id]: emptyDraft() }));
         const superset = next.supersets.find((g) => g.itemIds.includes(item.id));
-        if (superset) {
+        if (superset && !draft.setId) {
           const i = superset.itemIds.indexOf(item.id);
           const nextId = superset.itemIds[(i + 1) % superset.itemIds.length]!;
           setSelected(nextId);
@@ -587,8 +610,11 @@ export function Sessions({
   ) {
     if (!current || !deviceId) return;
     try {
-      const duration = numericInput(rest, 'Timer seconds');
-      if (!duration || duration > 86400)
+      const duration =
+        action === 'start'
+          ? numericInput(rest, 'Timer seconds')
+          : (current.timer?.durationSeconds ?? 90);
+      if (action === 'start' && (!duration || duration > 86400))
         throw new Error('Timer seconds must be between 1 and 86400.');
       await send(
         'session.timer',
@@ -961,124 +987,121 @@ export function Sessions({
                     )}
                   </View>
                 ))}
-                {item.status !== 'removed' &&
-                  item.status !== 'skipped' &&
-                  (active || draft.setId) && (
-                    <>
-                      <Heading>
-                        {draft.setId ? 'Correct recorded set' : 'Record actual set'}
-                      </Heading>
-                      {performanceView}
-                      <Choice
-                        label="Actual set type"
-                        value={draft.kind}
-                        disabled={locked}
-                        onChange={(kind) => updateDraft({ kind })}
-                        options={[
-                          { value: 'working', label: 'Working' },
-                          { value: 'warmup', label: 'Warm-up' },
-                        ]}
-                      />
-                      {(item.snapshot.mode === 'weighted' || item.snapshot.mode === 'bodyweight'
-                        ? [['reps', 'Repetitions']]
-                        : item.snapshot.mode === 'timed'
-                          ? [['durationSeconds', 'Duration (seconds)']]
-                          : [
-                              ['distanceMeters', `Distance (${draftPreferences.distanceUnit})`],
-                              ['durationSeconds', 'Duration (seconds)'],
+                {(draft.setId ||
+                  (item.status !== 'removed' && item.status !== 'skipped' && active)) && (
+                  <>
+                    <Heading>{draft.setId ? 'Correct recorded set' : 'Record actual set'}</Heading>
+                    {performanceView}
+                    <Choice
+                      label="Actual set type"
+                      value={draft.kind}
+                      disabled={locked}
+                      onChange={(kind) => updateDraft({ kind })}
+                      options={[
+                        { value: 'working', label: 'Working' },
+                        { value: 'warmup', label: 'Warm-up' },
+                      ]}
+                    />
+                    {(item.snapshot.mode === 'weighted' || item.snapshot.mode === 'bodyweight'
+                      ? [['reps', 'Repetitions']]
+                      : item.snapshot.mode === 'timed'
+                        ? [['durationSeconds', 'Duration (seconds)']]
+                        : [
+                            ['distanceMeters', `Distance (${draftPreferences.distanceUnit})`],
+                            ['durationSeconds', 'Duration (seconds)'],
+                          ]
+                    )
+                      .concat(
+                        item.snapshot.supportsLoad
+                          ? [
+                              [
+                                item.snapshot.mode === 'bodyweight' ? 'addedLoadKg' : 'loadKg',
+                                `${item.snapshot.mode === 'bodyweight' ? 'Added load' : 'Load'} (${draftPreferences.weightUnit})`,
+                              ],
                             ]
+                          : [],
                       )
-                        .concat(
-                          item.snapshot.supportsLoad
-                            ? [
-                                [
-                                  item.snapshot.mode === 'bodyweight' ? 'addedLoadKg' : 'loadKg',
-                                  `${item.snapshot.mode === 'bodyweight' ? 'Added load' : 'Load'} (${draftPreferences.weightUnit})`,
-                                ],
-                              ]
-                            : [],
-                        )
-                        .map(([key, label]) => (
-                          <Field
-                            key={key}
-                            label={label!}
-                            keyboardType="decimal-pad"
-                            value={draft.values[key!] ?? ''}
-                            editable={!locked}
-                            onChangeText={(value) =>
-                              updateDraft({ values: { ...draft.values, [key!]: value } })
-                            }
-                          />
-                        ))}
-                      {session.supersets.some((g) => g.itemIds.includes(item.id)) && (
+                      .map(([key, label]) => (
                         <Field
-                          label="Superset round"
-                          keyboardType="number-pad"
+                          key={key}
+                          label={label!}
+                          keyboardType="decimal-pad"
+                          value={draft.values[key!] ?? ''}
                           editable={!locked}
-                          value={draft.round}
-                          onChangeText={(round) => updateDraft({ round })}
+                          onChangeText={(value) =>
+                            updateDraft({ values: { ...draft.values, [key!]: value } })
+                          }
                         />
-                      )}
+                      ))}
+                    {session.supersets.some((g) => g.itemIds.includes(item.id)) && (
                       <Field
-                        label="Actual set notes"
-                        value={draft.notes}
-                        multiline
+                        label="Superset round"
+                        keyboardType="number-pad"
                         editable={!locked}
-                        onChangeText={(notes) => updateDraft({ notes })}
+                        value={draft.round}
+                        onChangeText={(round) => updateDraft({ round })}
                       />
-                      {draft.setId && (
-                        <Field
-                          label="Correction reason"
-                          value={draft.reason}
-                          editable={!locked}
-                          onChangeText={(reason) => updateDraft({ reason })}
-                        />
-                      )}
-                      <Action
-                        title={draft.setId ? 'Save correction' : 'Record set'}
-                        busy={command.busy}
-                        disabled={command.pending || (!!draft.setId && !draft.reason.trim())}
-                        onPress={() => void record()}
+                    )}
+                    <Field
+                      label="Actual set notes"
+                      value={draft.notes}
+                      multiline
+                      editable={!locked}
+                      onChangeText={(notes) => updateDraft({ notes })}
+                    />
+                    {draft.setId && (
+                      <Field
+                        label="Correction reason"
+                        value={draft.reason}
+                        editable={!locked}
+                        onChangeText={(reason) => updateDraft({ reason })}
                       />
-                      {draft.setId && (
-                        <>
-                          <Action
-                            title="Remove recorded set with reason"
-                            secondary
-                            disabled={locked || !draft.reason.trim()}
-                            onPress={() =>
-                              void send('session.remove-set', {
-                                itemId: item.id,
-                                setId: draft.setId,
-                                reason: draft.reason,
-                              }).then((next) => {
-                                if (next) updateDraft(emptyDraft());
-                              })
-                            }
-                          />
-                          <Action
-                            title="Cancel correction"
-                            secondary
-                            disabled={locked}
-                            onPress={() => updateDraft(emptyDraft())}
-                          />
-                        </>
-                      )}
-                      {!draft.setId && item.results.some((r) => !r.removedAt) && (
+                    )}
+                    <Action
+                      title={draft.setId ? 'Save correction' : 'Record set'}
+                      busy={command.busy}
+                      disabled={locked || (!!draft.setId && !draft.reason.trim())}
+                      onPress={() => void record()}
+                    />
+                    {draft.setId && (
+                      <>
                         <Action
-                          title="Copy previous set into inputs"
+                          title="Remove recorded set with reason"
+                          secondary
+                          disabled={locked || !draft.reason.trim()}
+                          onPress={() =>
+                            void send('session.remove-set', {
+                              itemId: item.id,
+                              setId: draft.setId,
+                              reason: draft.reason,
+                            }).then((next) => {
+                              if (next) updateDraft(emptyDraft());
+                            })
+                          }
+                        />
+                        <Action
+                          title="Cancel correction"
                           secondary
                           disabled={locked}
-                          onPress={() => {
-                            const last = item.results.filter((r) => !r.removedAt).at(-1)!;
-                            const copy = toDraft(last, preferences);
-                            delete copy.setId;
-                            updateDraft(copy);
-                          }}
+                          onPress={() => updateDraft(emptyDraft())}
                         />
-                      )}
-                    </>
-                  )}
+                      </>
+                    )}
+                    {!draft.setId && item.results.some((r) => !r.removedAt) && (
+                      <Action
+                        title="Copy previous set into inputs"
+                        secondary
+                        disabled={locked}
+                        onPress={() => {
+                          const last = item.results.filter((r) => !r.removedAt).at(-1)!;
+                          const copy = toDraft(last, preferences);
+                          delete copy.setId;
+                          updateDraft(copy);
+                        }}
+                      />
+                    )}
+                  </>
+                )}
                 {active && (
                   <>
                     <Action

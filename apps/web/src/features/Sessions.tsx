@@ -100,7 +100,9 @@ function activityLabel(item: SessionExercise, session: WorkoutSession) {
 export function Sessions({
   preferences,
   focusTarget,
+  active = true,
 }: {
+  active?: boolean;
   preferences: Preferences;
   focusTarget?: { id?: string; action?: 'create' | 'capture' };
 }) {
@@ -134,10 +136,20 @@ export function Sessions({
     lock = useRef(false);
   const device = useRef('web');
   const handledFocus = useRef<typeof focusTarget>(undefined);
+  const hasDraft = () =>
+    Object.entries(drafts).some(([key, value]) =>
+      key.startsWith('notes:')
+        ? value.notes !== (session?.items.find((item) => `notes:${item.id}` === key)?.notes ?? '')
+        : !!value.setId ||
+          !!value.notes ||
+          !!value.round ||
+          Object.values(value.values).some((v) => v !== ''),
+    ) ||
+    (!!session && notes !== session.notes);
   useEffect(() => {
     if (!focusTarget || !loaded || busy || handledFocus.current === focusTarget) return;
     handledFocus.current = focusTarget;
-    if (pending.current || Object.keys(drafts).length || (session && notes !== session.notes)) {
+    if (pending.current || hasDraft()) {
       setNotice('Save or clear the current workout draft before opening another workout.');
       return;
     }
@@ -227,17 +239,26 @@ export function Sessions({
     setNow(performance.now());
   }
   useEffect(() => {
-    device.current = localStorage.getItem('workout-device') || crypto.randomUUID();
-    localStorage.setItem('workout-device', device.current);
+    device.current = crypto.randomUUID();
+    try {
+      device.current = localStorage.getItem('workout-device') || device.current;
+      localStorage.setItem('workout-device', device.current);
+    } catch {
+      /* Recording remains available when browser storage is blocked. */
+    }
     void load();
-    const id = window.setInterval(() => setNow(performance.now()), 500);
     const wake = () => void syncClock().catch(() => {});
     window.addEventListener('focus', wake);
     return () => {
-      clearInterval(id);
       window.removeEventListener('focus', wake);
     };
   }, []);
+  useEffect(() => {
+    if (!active || session?.timer?.state !== 'running') return;
+    setNow(performance.now());
+    const id = window.setInterval(() => setNow(performance.now()), 500);
+    return () => clearInterval(id);
+  }, [active, session?.timer?.state]);
   const command = (change: Record<string, unknown>) =>
     SessionCommandSchema.parse({
       operationId: crypto.randomUUID(),
@@ -263,6 +284,12 @@ export function Sessions({
         cmd.type === 'session.remove-set'
       )
         setDrafts((values) => ({ ...values, [cmd.itemId]: fresh() }));
+      if (cmd.type === 'session.set-notes' && cmd.itemId !== null)
+        setDrafts((values) => {
+          const next = { ...values };
+          delete next[`notes:${cmd.itemId}`];
+          return next;
+        });
       setSession(response.session);
       if (cmd.type === 'session.start' || (cmd.type === 'session.set-notes' && cmd.itemId === null))
         setNotes(response.session.notes);
@@ -423,21 +450,55 @@ export function Sessions({
         )
       : session.timer.remainingSeconds
     : null;
+  const currentReadSelection = useRef('');
+  currentReadSelection.current = `${session?.id}:${session?.revision}:${item?.exerciseId}`;
+  const performanceLoading = useRef(false);
+  const auditGeneration = useRef(0);
   async function loadPerformance(more = false) {
-    if (!item) return;
+    if (!item || performanceLoading.current) return;
+    performanceLoading.current = true;
+    const selection = currentReadSelection.current;
     try {
       const data = await request(
         `/api/exercises/${item.exerciseId}/performance${more && performanceCursor ? `?cursor=${performanceCursor}` : ''}`,
         ExercisePerformanceResponseSchema,
       );
+      if (selection !== currentReadSelection.current) return;
       setPerformances((values) => (more ? [...values, ...data.performances] : data.performances));
       setPerformanceCursor(data.nextCursor);
     } catch (error) {
-      setNotice(
-        error instanceof Error ? error.message : 'Previous performance could not be loaded.',
-      );
+      if (selection === currentReadSelection.current)
+        setNotice(
+          error instanceof Error ? error.message : 'Previous performance could not be loaded.',
+        );
+    } finally {
+      performanceLoading.current = false;
     }
   }
+  async function showAudit(more = false) {
+    if (!session) return;
+    const selection = currentReadSelection.current;
+    const generation = ++auditGeneration.current;
+    try {
+      const data = await readAudit(session.id, more ? (audit?.nextCursor ?? undefined) : undefined);
+      if (selection !== currentReadSelection.current || generation !== auditGeneration.current)
+        return;
+      setAudit({
+        ...data,
+        events: more && audit ? [...audit.events, ...data.events] : data.events,
+      });
+    } catch (error) {
+      if (selection === currentReadSelection.current && generation === auditGeneration.current)
+        setNotice(errorText(error, 'Workout history could not load.'));
+    }
+  }
+  useEffect(() => {
+    setAudit(null);
+    auditGeneration.current++;
+  }, [session?.id, session?.revision]);
+  const performanceVersion = item?.results
+    .map((set) => `${set.id}:${set.correctedAt}:${set.removedAt}`)
+    .join('|');
   useEffect(() => {
     let cancelled = false;
     setPerformances([]);
@@ -457,7 +518,7 @@ export function Sessions({
     return () => {
       cancelled = true;
     };
-  }, [item?.exerciseId, session?.revision]);
+  }, [item?.exerciseId, session?.status, performanceVersion]);
   const previous = item
     ? performances
         .filter((value) => value.status === 'completed' && value.sessionId !== session?.id)
@@ -465,6 +526,7 @@ export function Sessions({
           value.items
             .filter(
               (old) =>
+                old.exerciseId === item.exerciseId &&
                 old.snapshot.mode === item.snapshot.mode &&
                 old.snapshot.supportsLoad === item.snapshot.supportsLoad,
             )
@@ -511,6 +573,18 @@ export function Sessions({
             </button>
           )}
         </div>
+      )}
+      {hasDraft() && (
+        <button
+          className="secondary"
+          disabled={disabled}
+          onClick={() => {
+            setDrafts({});
+            setNotes(session?.notes ?? '');
+          }}
+        >
+          Discard workout draft
+        </button>
       )}
       {!loaded && <button onClick={() => void load()}>Load workouts</button>}
       {conflict && (
@@ -624,7 +698,15 @@ export function Sessions({
                 <button
                   className="secondary"
                   key={value.id}
+                  disabled={disabled}
                   onClick={() => {
+                    if (hasDraft()) {
+                      setNotice(
+                        'Save or discard your workout draft before opening another session.',
+                      );
+                      return;
+                    }
+                    setDrafts({});
                     setSession(value);
                     setSelected(value.items[0]?.id || '');
                     setNotes(value.notes);
@@ -634,8 +716,10 @@ export function Sessions({
                 >
                   <strong>{value.name}</strong>
                   <span>
-                    {new Date(value.startedAt).toLocaleString()} ·{' '}
-                    {value.status === 'abandoned' ? 'Partial / abandoned' : value.status}
+                    {new Date(value.startedAt).toLocaleString(undefined, {
+                      timeZone: preferences.timeZone,
+                    })}{' '}
+                    · {value.status === 'abandoned' ? 'Partial / abandoned' : value.status}
                   </span>
                 </button>
               ))}
@@ -650,19 +734,26 @@ export function Sessions({
               <h3>{session.name}</h3>
               <p>
                 {session.status === 'abandoned' ? 'Partial / abandoned' : session.status} · revision{' '}
-                {session.revision} · {new Date(session.startedAt).toLocaleString()}
+                {session.revision} ·{' '}
+                {new Date(session.startedAt).toLocaleString(undefined, {
+                  timeZone: preferences.timeZone,
+                })}
               </p>
             </div>
             {editable && (
               <details>
                 <summary>Finish this workout</summary>
                 <p>Only saved actual sets become results. Planned exercises remain unperformed.</p>
-                <button disabled={disabled} onClick={() => safeRun({ type: 'session.finish' })}>
+                {hasDraft() && <p>Save or discard your draft before finishing this workout.</p>}
+                <button
+                  disabled={disabled || hasDraft()}
+                  onClick={() => safeRun({ type: 'session.finish' })}
+                >
                   Finish and save workout
                 </button>
                 <button
                   className="secondary"
-                  disabled={disabled}
+                  disabled={disabled || hasDraft()}
                   onClick={() => safeRun({ type: 'session.abandon' })}
                 >
                   Abandon partial workout
@@ -927,7 +1018,9 @@ export function Sessions({
                             {previous.map((value) => (
                               <tr key={`${value.session.id}-${value.item.id}`}>
                                 <th scope="row">
-                                  {new Date(value.session.startedAt).toLocaleDateString()}
+                                  {new Date(value.session.startedAt).toLocaleDateString(undefined, {
+                                    timeZone: preferences.timeZone,
+                                  })}
                                 </th>
                                 <td>
                                   {value.item.results
@@ -1025,6 +1118,7 @@ export function Sessions({
                       <label>
                         Exercise notes
                         <textarea
+                          disabled={disabled}
                           value={drafts[`notes:${item.id}`]?.notes ?? item.notes}
                           onChange={(event) =>
                             setDrafts((values) => ({
@@ -1187,7 +1281,11 @@ export function Sessions({
             <summary>Workout notes and history</summary>
             <label>
               Workout notes
-              <textarea value={notes} onChange={(event) => setNotes(event.target.value)} />
+              <textarea
+                disabled={disabled}
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+              />
             </label>
             <button
               disabled={disabled}
@@ -1201,21 +1299,16 @@ export function Sessions({
               removed results and planned targets. Missing measurements are not treated as performed
               volume.
             </p>
-            <button
-              className="secondary"
-              onClick={() =>
-                void readAudit(session.id)
-                  .then(setAudit)
-                  .catch((error) => setNotice(error.message))
-              }
-            >
+            <button className="secondary" onClick={() => void showAudit()}>
               Show correction history
             </button>
             {audit?.events.map((event) => (
               <details key={event.id}>
                 <summary>
-                  {new Date(event.createdAt).toLocaleString()} · {event.eventType} · revision{' '}
-                  {event.revision} · {event.actorId}
+                  {new Date(event.createdAt).toLocaleString(undefined, {
+                    timeZone: preferences.timeZone,
+                  })}{' '}
+                  · {event.eventType} · revision {event.revision} · {event.actorId}
                 </summary>
                 {event.reason && <p>Reason: {event.reason}</p>}
                 {event.session.items.map((value) => (
@@ -1232,17 +1325,7 @@ export function Sessions({
               </details>
             ))}
             {audit?.nextCursor && (
-              <button
-                onClick={() =>
-                  void readAudit(session.id, audit.nextCursor!)
-                    .then((data) =>
-                      setAudit({ ...data, events: [...audit.events, ...data.events] }),
-                    )
-                    .catch((error) => setNotice(error.message))
-                }
-              >
-                Load older changes
-              </button>
+              <button onClick={() => void showAudit(true)}>Load older changes</button>
             )}
           </details>
           {session.sourceRoutineId && (
