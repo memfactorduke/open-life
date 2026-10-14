@@ -1,6 +1,6 @@
 {
   "state": "complete-functional-and-installed-npm-verification",
-  "checkedAt": "2026-10-14T07:04:12.735540+00:00",
+  "checkedAt": "2026-10-14T07:27:53.075415+00:00",
   "sourceFreeze": "693c515715a2fc7dd68daf34f89c611719e98486",
   "gitHeadAtBuild": "76c0236022fe85aab4b72d53c471ee5c89d6abbd",
   "sourceManifestSha256": "54f94813aa39bac98eeb5ca8231f64a163f990038a84bddc5fb55813b2d4f570",
@@ -77,7 +77,7 @@
     "finishedAt": "2026-10-14T03:28:56.609167+00:00"
   },
   "osNativeScan": {
-    "result": "raw-matches-under-triage",
+    "result": "historical-baseline-raw-matches-retained; current-scoped-triage-in-finalReleaseCandidate",
     "receipt": ".runtime/ui-audit/container-candidate/os-native-scan-receipt.json",
     "application": {
       "exitCode": 0,
@@ -179,10 +179,167 @@
         }
       }
     },
-    "state": "functional-checks-passed; residual-advisory-triage-and-new-UI-source-integration-pending",
+    "state": "historical-first-hardened-candidate; superseded-by-finalReleaseCandidate",
     "receipt": ".runtime/ui-audit/container-candidate/hardening-candidate/verification-receipt.json"
   },
   "finalReleaseCandidate": {
+    "state": "functional-service-native-notices-and-scoped-advisory-triage-passed; source-checks-and-external-acceptance-recorded-separately",
+    "source": "8092e9075e5c53e86aa40f33b7f0c74d7dc70965",
+    "sourceManifestSha256": "7cc22a4b3fa202bf326cb9e6cea3028679a49e91435f15c3374864b8003f63dc",
+    "images": {
+      "application": "sha256:4d622bb17a45f89913c49435fa48af03caf50ee4e53fad780ae5e03e1eab206e",
+      "operator": "sha256:c3e1804f2094f774ee8bee403ee7fb6c93eb3c51344336924fed31eb3f639095",
+      "database": "sha256:c0f88acba389aceebe466a37ae9305100417630117e67bcfc341d0c4ab889630"
+    },
+    "applicationExitCode": 0,
+    "operatorExitCode": 0,
+    "serviceTests": {
+      "exitCode": 0,
+      "counts": {
+        "tests": 44,
+        "pass": 44,
+        "fail": 0,
+        "skipped": 0,
+        "cancelled": 0
+      }
+    },
+    "databaseExactImageReused": true,
+    "databaseReuseProof": {
+      "unchangedRelevantInputs": true,
+      "relevantManifestSha256": "243d2754f548504d0826013af36ec76ccb00ae28580265d650fd25d303be72fc",
+      "previousExactImageId": "sha256:c0f88acba389aceebe466a37ae9305100417630117e67bcfc341d0c4ab889630",
+      "previousRawScan": "/Users/memfactor/Desktop/misc_repos/open-life/.runtime/ui-audit/container-candidate/hardening-candidate/database-grype.json",
+      "previousSBOM": "/Users/memfactor/Desktop/misc_repos/open-life/.runtime/ui-audit/container-candidate/hardening-candidate/database-sbom.json",
+      "scanReuseRequiresIdenticalImageId": true,
+      "liveImageIdVerified": "sha256:c0f88acba389aceebe466a37ae9305100417630117e67bcfc341d0c4ab889630"
+    },
+    "runtimeAudits": {
+      "application-npm-audit": {
+        "exitCode": 0,
+        "packageCount": 207,
+        "matchingAdvisoryPackages": 0
+      },
+      "operator-npm-audit": {
+        "exitCode": 0,
+        "packageCount": 205,
+        "matchingAdvisoryPackages": 0
+      },
+      "application-grype": {
+        "exitCode": 0,
+        "artifactCount": 321,
+        "matchCount": 222,
+        "uniqueVulnerabilityCount": 94,
+        "severityCounts": {
+          "Critical": 2,
+          "High": 54,
+          "Medium": 72,
+          "Low": 13,
+          "Negligible": 65,
+          "Unknown": 16
+        }
+      },
+      "operator-grype": {
+        "exitCode": 0,
+        "artifactCount": 373,
+        "matchCount": 406,
+        "uniqueVulnerabilityCount": 138,
+        "severityCounts": {
+          "Critical": 6,
+          "High": 84,
+          "Medium": 130,
+          "Low": 45,
+          "Negligible": 125,
+          "Unknown": 16
+        }
+      },
+      "database-grype": {
+        "exitCode": 0,
+        "artifactCount": 148,
+        "matchCount": 466,
+        "uniqueVulnerabilityCount": 198,
+        "severityCounts": {
+          "Critical": 9,
+          "High": 115,
+          "Medium": 151,
+          "Low": 47,
+          "Negligible": 125,
+          "Unknown": 19
+        },
+        "reusedExactImageScan": true,
+        "previousRawScan": "/Users/memfactor/Desktop/misc_repos/open-life/.runtime/ui-audit/container-candidate/hardening-candidate/database-grype.json"
+      }
+    },
+    "nativeNoticeFilesVerified": 1143,
+    "nativeSourceReferences": 390,
+    "changedInputs": [],
+    "vmStopExitCode": 0,
+    "cleanupInspection": {
+      "containers": ["xenodochial_hertz"],
+      "networks": ["bridge", "host", "none"],
+      "volumes": ["407795f1647f24f048387f025d532ead5156ae521942da3f875edaa9e8286127"],
+      "remainingVerificationResources": []
+    },
+    "receipt": ".runtime/ui-audit/container-candidate/lint-final-20261014/verification-receipt.json",
+    "findings": ".runtime/ui-audit/container-candidate/lint-final-20261014/final-findings.json",
+    "scope": "Unfiltered OS advisory matches retained. Conditional reachability assessments and supplemental native versions are not blanket security clearance. Original corresponding-source provenance and recipient delivery remain separate.",
+    "browserScope": "156 cases passed at03219585. Later helpers/docs and two8092 behavior-equivalent lint edits independently reviewed; no exact8092 browser execution claimed.",
+    "packagingReview": "Clean-checkout100755upstream-helper-hashes-and-resolved-imports-passed",
+    "fixedHighCriticalRawMatches": {
+      "application": 0,
+      "operator": 0,
+      "database": 34
+    },
+    "residualAssessments": [
+      {
+        "id": "CVE-2026-5450",
+        "component": "Debian glibc 2.36-9+deb12u14",
+        "status": "retained; no Bookworm fix",
+        "assessment": "Requires scanf %mc with explicit width greater than1024. Debian classifies Bookworm issue minor/no-dsa. No matching application path established; not blanket suppression.",
+        "source": "https://security-tracker.debian.org/tracker/CVE-2026-5450"
+      },
+      {
+        "id": "CVE-2025-7458",
+        "component": "OS SQLite3.40.1",
+        "status": "retained in database/operator; no Bookworm fix",
+        "assessment": "Requires attacker-controlled arbitrary SQLite SQL. Service and maintenance persistence use PostgreSQL; no SQLite execution path identified. Native mobile SQLite is a separate artifact.",
+        "source": "https://security-tracker.debian.org/tracker/CVE-2025-7458"
+      },
+      {
+        "id": "CVE-2026-6653",
+        "component": "OS libxml2 2.9.14",
+        "status": "retained in database/operator",
+        "assessment": "Crafted XML parser path; not the separately bundled libvips libxml2 2.15.4. No OS XML parsing path identified in reviewed service/maintenance source.",
+        "source": "https://security-tracker.debian.org/tracker/CVE-2026-6653"
+      },
+      {
+        "id": "GO-2026-4337, GO-2026-6604, GO-2026-6612",
+        "component": "database gosu1.19 / Go1.24.6",
+        "status": "60 raw Go stdlib matches retained; three Critical",
+        "assessment": "The three Critical cases require TLS session resumption, Windows junction operations, or an HTTP/2 server. Exact artifact is Linux ARM64; reviewed gosu source is a UID/GID switch-and-exec helper, with no TLS/HTTP server path. This is a scoped reachability assessment, not complete binary call-graph proof for all60.",
+        "sources": [
+          "https://raw.githubusercontent.com/tianon/gosu/1.19/main.go",
+          "https://vuln.go.dev/ID/GO-2026-4337.json",
+          "https://vuln.go.dev/ID/GO-2026-6604.json",
+          "https://vuln.go.dev/ID/GO-2026-6612.json"
+        ]
+      },
+      {
+        "id": "Four libheif GHSAs and CVE-2026-46675",
+        "component": "bundled HEIF1.23.5 / PNG1.6.58",
+        "status": "five scoped native inventory assessments",
+        "assessment": "HEIF loader is blocked by process-wide JPEG/PNG buffer-only allowlist; PNG assessment tied to reviewed libvips8.18.7 code not invoking png_read_end. Native versions remain affected by version range; code-path justification is explicit in each inventory."
+      }
+    ],
+    "scopeLimits": [
+      "Latest exact artifact binds frozen committed8092e9075e5c53e86aa40f33b7f0c74d7dc70965;44/44actual service tests0skips rerun. Pure lint fixes preserve prior browser semantic coverage without an exact-source browser claim.",
+      "No blanket vulnerability clearance; unfiltered raw matches retained.",
+      "Standard package-manager SBOM omits embedded native component versions. Exact native inventory supplements it, but five scoped VEX assessments are not a complete native advisory audit.",
+      "Original native-binary corresponding-source provenance and source delivery remain external redistribution gates.",
+      "Permanent deployment, Caddy proxy acceptance, Apple distribution and device/live-account gates are outside this container verification."
+    ]
+  },
+  "evidenceScope": "Top-level693c515 and earlier candidate records are historical; finalReleaseCandidate identifies current verified runtime artifact.",
+  "historicalHelperPackagingCandidate": {
     "state": "functional-native-notices-and-scans-passed; current-PR-CI-and-physical-acceptance-separate",
     "source": "945d6ff",
     "packagingManifestSha256": "35e5f0f998d59f79c851e81570f8bf9b6c7d056a2be42a3e17b1619ca50d072d",
@@ -254,7 +411,7 @@
     "changedInputs": [],
     "vmStopExitCode": 0,
     "receipt": ".runtime/ui-audit/container-candidate/native-helper-packaging-20261014/verification-receipt.json",
-    "scope": "Raw OS advisory matches retained; conditional reachability assessments and supplemental native versions are not blanket security clearance. Corresponding-source provenance and recipient delivery remain separate.",
+    "scope": "Historical945d6ff rebuilt helpers artifact; original image identities retained.",
     "nativeNoticeFilesVerified": 1143,
     "packagingReview": "independent-current-and-clean-checkout-100755-upstream-hashes-and-resolved-imports-passed"
   }

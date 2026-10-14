@@ -356,7 +356,8 @@
       <main>
         <header class="cover" id="verdict">
           <p class="meta">
-            14 October 2026 · America/New_York · original hardening merged; refined UI acceptance continues
+            14 October 2026 · America/New_York · UI source merged; runtime artifacts verified;
+            physical acceptance remains open
           </p>
           <h1>Release candidate audit</h1>
           <p class="lede">
@@ -364,13 +365,20 @@
             across the application, adds regression coverage, and improves the measured daily
             workloads.
           </p>
-          <div class="banner"><strong>The usability source is merged and native/web acceptance passed.</strong> PRs 4–6 are merged. Actual device checks corrected the date-format crash, stale cache revisions, large-text defects, and timer presentation. PR7 hardens runtime images and private image decoding. Physical iPad validation, permanent deployment, and Apple distribution remain separate acceptance steps.</div>
+          <div class="banner">
+            <strong>The usability source is merged and native/web acceptance passed.</strong> PRs
+            4–6 are merged. Actual device checks corrected the date-format crash, stale cache
+            revisions, large-text defects, and timer presentation. PR7 hardens runtime images and
+            private image decoding. Physical iPad validation, permanent deployment, and Apple
+            distribution remain separate acceptance steps.
+          </div>
           <div class="cards">
             <article class="card">
               <span class="status log-passed">355 candidate source tests</span>
               <h2>Application</h2>
               <p>
-                68 shared domain and 243 mobile tests pass. The hardened service candidate passes 44 real service tests, with zero skips.
+                68 shared domain and 243 mobile tests pass. The hardened service candidate passes 44
+                real service tests, with zero skips.
               </p>
             </article>
             <article class="card">
@@ -378,15 +386,16 @@
               <h2>Release builds</h2>
               <p>
                 Native compilation and fresh container verification passed with unchanged inputs.
-                Corrected simulator main journeys, final UI images passed. Physical UI checks and current PR7 CI remain.
+                Corrected simulator main journeys and final UI presentation passed. The runtime
+                artifact is source 8092e90; physical checks remain separate.
               </p>
             </article>
             <article class="card">
               <span class="status gate">Owner/device gates</span>
               <h2>Live acceptance</h2>
               <p>
-                Physical installation and launch passed after 3 a.m. UI automation needs a device setting check. WHOOP still requires
-                registered configuration and consent.
+                Physical installation and launch passed after 3 a.m. UI automation needs a device
+                setting check. WHOOP still requires registered configuration and consent.
               </p>
             </article>
           </div>
@@ -679,7 +688,9 @@
                 </tr>
                 <tr>
                   <td>Server</td>
-                  <td><span class="status log-passed">44 candidate service tests / no skips</span></td>
+                  <td>
+                    <span class="status log-passed">44 candidate service tests / no skips</span>
+                  </td>
                   <td>
                     Actual PostgreSQL, SDK, restore, privacy, claims, migrations and maintenance.
                   </td>
@@ -710,15 +721,18 @@
                   <td>Independent clean checkout</td>
                   <td><span class="status pending">Install passed</span></td>
                   <td>
-                    Historical hardening checkout of commit 6e93c3d: npm ci installed 1,262 packages in six
-                    seconds. Domain, service, web, and iOS bundle builds passed.
+                    Historical hardening checkout of commit 6e93c3d: npm ci installed 1,262 packages
+                    in six seconds. Domain, service, web, and iOS bundle builds passed.
                   </td>
                 </tr>
                 <tr>
                   <td>Native Release</td>
                   <td><span class="status pending">Build and main journeys passed</span></td>
                   <td>
-                    Final display bundle d96f6618…5663485 built with unchanged inputs and passed actual presentation checks. Predecessor bundles separately proved full daily workflows, two offline photos, large text, clipboard, and OS delivery/routing/cancellation. Physical acceptance remains separate.
+                    Final display bundle d96f6618…5663485 built with unchanged inputs and passed
+                    actual presentation checks. Predecessor bundles separately proved full daily
+                    workflows, two offline photos, large text, clipboard, and OS
+                    delivery/routing/cancellation. Physical acceptance remains separate.
                   </td>
                 </tr>
                 <tr>
@@ -739,9 +753,12 @@
           <p>
             Standards and specification reviews ran independently. They reproduced and corrected
             stale offline acknowledgements, clock inflation, lost timestamp corrections, failed CSS
-            recovery and process cancellation races. Both final scoped reviews are merge-ready with
-            no material remaining finding. Cloud CI found a missing build prerequisite; that cause
-            was reproduced and ordering corrected, with both checks passing at report-only head 76c0236. Native fix 7600b1f also passed both checks. A subsequent native review found cold-offline alert cancellation and denied-permission recovery issues; those source fixes and regression tests passed, and their new artifact is undergoing targeted OS acceptance.
+            recovery and process cancellation races. Final scoped reviews found no material
+            remaining finding. Earlier cloud CI exposed a build-order prerequisite, and later lint
+            checks found two behavior-equivalent cleanup lines; both were corrected. Cold-offline
+            alert cancellation and denied-permission recovery passed source regressions and actual
+            scoped OS acceptance. The final runtime artifact passed 44 real service tests and
+            retained the prior browser evidence with its original source identity.
           </p>
         </section>
         <section id="dependencies">
@@ -782,9 +799,14 @@
               <tbody>
                 <tr>
                   <td>Physical iPad camera / airplane recovery</td>
-                  <td>Parallel signed installation and launch passed after 03:00. UI automation failed to initialize; camera and offline journeys remain unverified.</td>
                   <td>
-                    Check Settings → Developer → Enable UI Automation on the iPad. Its state is unknown; enable it if off, or report if already on. Supported Mac tools cannot read or change that switch.
+                    Parallel signed installation and launch passed after 03:00. UI automation failed
+                    to initialize; camera and offline journeys remain unverified.
+                  </td>
+                  <td>
+                    Check Settings → Developer → Enable UI Automation on the iPad. Its state is
+                    unknown; enable it if off, or report if already on. Supported Mac tools cannot
+                    read or change that switch.
                   </td>
                 </tr>
                 <tr>
@@ -829,23 +851,36 @@
             Baseline <code>e29889a14c460bb72f3011cffb5e431749decb59</code>.
             <a href="https://github.com/memfactorduke/open-life/pull/4">PR #4</a> merged at
             <code>6841794693916693a6e6a7a2640456469d359637</code>.
-            <a href="https://github.com/memfactorduke/open-life/pull/5">PR #5</a> merged at <code>09ccc041dbbf63f9aceae76310eabb9055ea9145</code>. <a href="https://github.com/memfactorduke/open-life/pull/6">PR #6</a> merged at <code>2dd64a66c0d884e8fa287b9b8cfd11abb83e6740</code>. <a href="https://github.com/memfactorduke/open-life/pull/7">PR #7</a> is undergoing final runtime verification. Raw
+            <a href="https://github.com/memfactorduke/open-life/pull/5">PR #5</a> merged at
+            <code>09ccc041dbbf63f9aceae76310eabb9055ea9145</code>.
+            <a href="https://github.com/memfactorduke/open-life/pull/6">PR #6</a> merged at
+            <code>2dd64a66c0d884e8fa287b9b8cfd11abb83e6740</code>.
+            <a href="https://github.com/memfactorduke/open-life/pull/7">PR #7</a> records runtime
+            image and decoder hardening. Frozen source <code>8092e90</code> passed exact-artifact
+            runtime verification; GitHub records the source check and merge state. Raw
             <a href="container-verification.json">container verification</a> binds the exact images
             and unchanged input manifest.
           </p>
           <p>
             Raw local evidence: <code>.runtime/rc-audit/</code>, including final source logs,
             independent review diffs, baseline failures, benchmark JSON and browser traces. Fixture
-            credentials stay private and are excluded from source. Final native evidence lives under <code>.scratch/mems-life-v1/evidence/native-gym-food/rc-usability-timers-20261014/</code>, source <code>19b9bf3</code>, JavaScript <code>d96f6618…5663485</code>. Predecessor full-workflow and OS receipts remain bound to their original artifacts. Runtime evidence under <code>.runtime/ui-audit/container-candidate/native-helper-packaging-20261014/</code> records the latest rebuilt application/operator images.
+            credentials stay private and are excluded from source. Final native evidence lives under
+            <code>.scratch/mems-life-v1/evidence/native-gym-food/rc-usability-timers-20261014/</code
+            >, source <code>19b9bf3</code>, JavaScript <code>d96f6618…5663485</code>. Predecessor
+            full-workflow and OS receipts remain bound to their original artifacts. Runtime evidence
+            under <code>.runtime/ui-audit/container-candidate/lint-final-20261014/</code> records
+            the latest rebuilt application/operator images. Earlier packaging artifacts retain their
+            original identities.
           </p>
           <p>
-            The continuation monitor checks independent builds quietly, completes
-            remaining verification, and cancels itself when finished. Source merging, local artifact
-            verification and external acceptance are recorded separately.
+            Source merging, local artifact verification and external acceptance are recorded
+            separately. Once source work is complete, the continuation monitor stops while the
+            device-setting response and external acceptance inputs remain pending.
           </p>
         </section>
         <footer>
-          Prepared from actual source reviews and named fixture executions. Current totals and artifact identities are recorded with their remaining acceptance limits.
+          Prepared from actual source reviews and named fixture executions. Current totals and
+          artifact identities are recorded with their remaining acceptance limits.
         </footer>
       </main>
     </div>

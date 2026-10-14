@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-14T07:08:26.238189+00:00",
+  "checkedAt": "2026-10-14T07:27:53.075415+00:00",
   "applicationMerge": "6841794693916693a6e6a7a2640456469d359637",
   "pullRequest": "https://github.com/memfactorduke/open-life/pull/4",
   "checks": {
@@ -19,11 +19,7 @@
     },
     "browser": {
       "tests": 114,
-      "engines": [
-        "chromium",
-        "firefox",
-        "webkit"
-      ],
+      "engines": ["chromium", "firefox", "webkit"],
       "skipped": 0,
       "passed": true
     },
@@ -44,7 +40,7 @@
     "compilePassed": true,
     "capturedInputsChanged": false,
     "javascriptSha256": "daf9dc6f5aef2fcc6cbb8ebb0f88175c2959c3def454f0f5b5cafa6f9a86d11a",
-    "actualJourneys": "in-progress"
+    "actualJourneys": "historical-artifact-record; current accepted workflows are scoped in uiCandidate and ui-verification.json"
   },
   "externalGates": {
     "physicalCameraAirplane": "parallel-install-launch-passed; UIautomationinitializationblocked; user-setting-statuspending",
@@ -160,7 +156,7 @@
     },
     "nativeAcceptance": "actual final timer presentation passed; predecessor full-workflow and OS proofs scoped and unchanged relevant code inspected",
     "browserAcceptance": "156 passed; zero failed/skipped; production security and live Today; source19b9bf3",
-    "containerAcceptance": "startup-restart-backup-restore-and-installed-npm-advisories-passed; OS-native-library-scan-pending",
+    "containerAcceptance": "HistoricalUI-container functional and npm checks passed; latest runtime image and OS/native assessment recorded in runtimeHardening.",
     "details": "ui-verification.json",
     "githubChecks": {
       "head": "19b9bf3",
@@ -172,8 +168,8 @@
   },
   "runtimeHardening": {
     "pullRequest": "https://github.com/memfactorduke/open-life/pull/7",
-    "state": "packaging-and-changed-server-browser-passed-awaiting-current-CI",
-    "head": "945d6ff",
+    "state": "fresh-exact-artifact-and-service-tests-passed; source-checks-and-external-acceptance-separate",
+    "head": "8092e9075e5c53e86aa40f33b7f0c74d7dc70965",
     "serviceTests": {
       "tests": 44,
       "passed": 44,
@@ -183,8 +179,8 @@
     "helperPackagingFix": "passed-clean-checkout-exact-upstream-hashes; rebuilt-1143noticefiles-390refs-functional-checks",
     "details": "container-verification.json",
     "containerImages": {
-      "application": "sha256:9241ac83164bc4378cc65bb0ba8ebf9432ad556fabd2fd5402cfa4e4ae2fe953",
-      "operator": "sha256:ad2505800068b189347c72cc0b2c941be034ade80449a4f6d664d8c56bd528aa",
+      "application": "sha256:4d622bb17a45f89913c49435fa48af03caf50ee4e53fad780ae5e03e1eab206e",
+      "operator": "sha256:c3e1804f2094f774ee8bee403ee7fb6c93eb3c51344336924fed31eb3f639095",
       "database": "sha256:c0f88acba389aceebe466a37ae9305100417630117e67bcfc341d0c4ab889630"
     },
     "browser": {
@@ -193,9 +189,15 @@
       "failed": 0,
       "skipped": 0,
       "flags": "production-security-and-live-Today",
-      "laterSourceChanges": "Only.gitignore/helpers/docs; relevant server/web/dependency inputs unchanged.",
+      "laterSourceChanges": "Tracked upstream helpers, docs/reports, then two behavior-equivalent lint edits. Independent semantic review found no change in limits/dependencies/execution paths; no exact8092 browser run claimed.",
       "receipt": ".runtime/ui-audit/container-candidate/hardening-browser-final/receipt.json",
       "ownedPortsClosed": true
-    }
+    },
+    "exactArtifactReceipt": ".runtime/ui-audit/container-candidate/lint-final-20261014/verification-receipt.json",
+    "nativeNotices": {
+      "files": 1143,
+      "sourceReferences": 390
+    },
+    "ownedVmStopped": true
   }
 }

@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-14T07:08:26.238189+00:00",
+  "checkedAt": "2026-10-14T07:27:53.075415+00:00",
   "status": "ui-source-merged-physical-human-step-pending",
   "baseCommit": "09ccc041dbbf63f9aceae76310eabb9055ea9145",
   "nativeAutomated": {
@@ -47,8 +47,8 @@
     "cacheFreshness": "passed-routine-and-workout-chain-in-corrected-native-build",
     "dynamicType": "passed-phone-and-tablet-AX1-AX5-with-retained-draft",
     "recentFoodOrdering": "fixed-with-unordered-entry-regression",
-    "coldOfflineTimerCancellation": "fixed-regression-and-independent-review-passed; actual-new-artifact-acceptance-pending",
-    "deniedNotificationSettingsAction": "fixed-regression-and-independent-review-passed; actual-new-artifact-acceptance-pending"
+    "coldOfflineTimerCancellation": "passed-regression-independent-review-and-actual-alert-artifact-OS-acceptance",
+    "deniedNotificationSettingsAction": "passed-regression-independent-review-and-actual-phone-Settings-opening; physical-app-specific-pane-pending"
   },
   "previousFullBrowserRun": {
     "passed": 134,
@@ -61,11 +61,7 @@
     "passed": 135,
     "failed": 0,
     "skipped": 0,
-    "engines": [
-      "chromium",
-      "firefox",
-      "webkit"
-    ],
+    "engines": ["chromium", "firefox", "webkit"],
     "productionSecurity": true,
     "liveTodayNavigation": true,
     "finishedAt": "2026-10-14T05:22:38.050Z",
@@ -78,7 +74,7 @@
     "offlinePhotos": "two retained images survived termination/relaunch with verified file hashes, then synced to server",
     "dynamicText": "AX1/AX5 cold and live changes passed; task draft retained",
     "clipboard": "native exact endpoint copy and one-time key hiding passed",
-    "localTimerOsDelivery": "passed-on-tablet-corrected-main-flows-artifact; later-alert-fix-specific-acceptance-in-progress"
+    "localTimerOsDelivery": "passed-on-corrected-main-flows-artifact; later-alert-fix-OS-acceptance-passed-in-separate-scoped-receipt"
   },
   "containerActualCorrected": {
     "source": "693c515",
@@ -97,7 +93,8 @@
     },
     "auditScope": "Exact installed npm versions; excludes OS and native-library advisories",
     "vmStopped": true,
-    "osAndBundledLibraryAdvisories": "scan-complete; patchable-system-packages-and-unused-tooling-under-hardening-in-separate-worktree"
+    "osAndBundledLibraryAdvisories": "Historical baseline scans completed; current hardening artifact and qualified residuals recorded in container-verification.json.",
+    "evidenceScope": "historical693c515-images"
   },
   "githubChecks": {
     "head": "19b9bf36f0ac93f924edb025546a6a9dad71a2a8",
@@ -156,8 +153,9 @@
     "parallelBundle": "app.memslife.fixture.uicandidate",
     "javascriptSha256": "d1e7c3bbf7e20ddb83f149a6630ccc9817430e81a82cc396e95c36f9b09ac7f9",
     "signedAndCurrentSourceVerified": true,
-    "physicalDeviceContact": false,
-    "deviceGate": "2026-10-14T03:00:00-04:00"
+    "physicalDeviceContact": true,
+    "deviceGate": "2026-10-14T03:00:00-04:00",
+    "currentScope": "After-gate install/launch/screenshot passed; actual journeys limited as physicalActual records."
   },
   "uiSourceMerge": {
     "pullRequest": "https://github.com/memfactorduke/open-life/pull/6",
