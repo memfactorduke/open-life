@@ -60,6 +60,25 @@ const sql = (query, restored = false) =>
     '-Atc',
     query,
   ]).trim();
+let cleaned = false;
+function cleanup() {
+  if (cleaned) return;
+  cleaned = true;
+  try {
+    compose(
+      ['--profile', 'operator', '--profile', 'restore', 'down', '--volumes', '--remove-orphans'],
+      { stdio: 'ignore' },
+    );
+  } catch {}
+  rmSync(temp, { recursive: true, force: true });
+}
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    cleanup();
+    process.exit(signal === 'SIGINT' ? 130 : 143);
+  });
+}
+
 try {
   if (!process.argv.includes('--skip-build'))
     docker(['build', '--target', 'operator', '-t', image, '.'], { stdio: 'inherit' });
@@ -185,11 +204,5 @@ try {
     ]).trim(),
   );
 } finally {
-  try {
-    compose(
-      ['--profile', 'operator', '--profile', 'restore', 'down', '--volumes', '--remove-orphans'],
-      { stdio: 'ignore' },
-    );
-  } catch {}
-  rmSync(temp, { recursive: true, force: true });
+  cleanup();
 }

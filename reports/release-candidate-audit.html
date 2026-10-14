@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mem's Life release-candidate audit</title>
+    <style>
+      :root {
+        --ink: #1c1915;
+        --muted: #5e584e;
+        --line: #e3dcd1;
+        --paper: #f6f3ee;
+        --card: #fffdfb;
+        --green: #1d6842;
+        --green-bg: #e6f3eb;
+        --amber: #8a5810;
+        --amber-bg: #fbf3df;
+        --nav: 15.5rem;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--paper);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        font-size: 16.5px;
+        line-height: 1.5;
+      }
+      a {
+        color: inherit;
+      }
+      a:hover {
+        color: var(--green);
+      }
+      .skip {
+        position: absolute;
+        left: 0.75rem;
+        top: -3rem;
+        background: var(--ink);
+        color: white;
+        padding: 0.4rem 0.7rem;
+      }
+      .skip:focus {
+        top: 0.75rem;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: var(--nav) minmax(0, 1fr);
+        max-width: 1120px;
+        margin: 0 auto;
+      }
+      nav {
+        position: sticky;
+        top: 0;
+        align-self: start;
+        max-height: 100vh;
+        overflow: auto;
+        padding: 1.4rem 0.9rem 2rem 1.3rem;
+        border-right: 1px solid var(--line);
+      }
+      nav p {
+        margin: 0 0 0.7rem;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      nav a {
+        display: block;
+        padding: 0.28rem 0;
+        text-decoration: none;
+        font-size: 0.92rem;
+      }
+      main {
+        padding: 1.6rem 1.6rem 3rem;
+        min-width: 0;
+      }
+      header.cover {
+        background: var(--card);
+        border: 1px solid var(--line);
+        padding: 1.25rem 1.3rem 1.1rem;
+      }
+      h1 {
+        font-family: ui-serif, Georgia, 'Iowan Old Style', Palatino, serif;
+        font-size: 2rem;
+        font-weight: 560;
+        line-height: 1.15;
+        margin: 0.35rem 0 0.45rem;
+      }
+      h2 {
+        font-family: ui-serif, Georgia, 'Iowan Old Style', Palatino, serif;
+        font-size: 1.45rem;
+        font-weight: 560;
+        margin: 2rem 0 0.55rem;
+      }
+      h3 {
+        font-size: 1.02rem;
+        margin: 1.15rem 0 0.35rem;
+      }
+      p {
+        margin: 0.45rem 0 0.7rem;
+      }
+      .lede {
+        font-size: 1.05rem;
+        max-width: 68ch;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 0.92rem;
+        margin: 0;
+      }
+      .banner {
+        margin-top: 0.9rem;
+        padding: 0.75rem 0.85rem;
+        background: var(--amber-bg);
+        border-left: 3px solid var(--amber);
+      }
+      .banner strong {
+        color: var(--amber);
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin: 0.8rem 0 0;
+      }
+      .status {
+        display: inline-block;
+        padding: 0.08rem 0.42rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        line-height: 1.45;
+        font-weight: 650;
+        white-space: nowrap;
+        vertical-align: baseline;
+      }
+      .in-source,
+      .log-passed {
+        color: var(--green);
+        background: var(--green-bg);
+      }
+      .pending,
+      .log-failed,
+      .gate {
+        color: var(--amber);
+        background: var(--amber-bg);
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.7rem;
+        margin-top: 0.9rem;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        padding: 0.75rem 0.8rem 0.85rem;
+      }
+      .card h2 {
+        margin: 0.3rem 0 0.25rem;
+        font-size: 1.05rem;
+      }
+      .card p {
+        margin: 0;
+        font-size: 0.92rem;
+      }
+      section {
+        margin-top: 0.4rem;
+      }
+      .wrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        background: var(--card);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.86rem;
+        line-height: 1.35;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 0.38rem 0.48rem;
+        border-bottom: 1px solid var(--line);
+      }
+      th {
+        background: #f3efe8;
+        font-size: 0.74rem;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      code,
+      .path {
+        font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+        font-size: 0.84em;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      ul {
+        margin: 0.3rem 0 0.8rem;
+        padding-left: 1.15rem;
+      }
+      li {
+        margin: 0.22rem 0;
+      }
+      footer {
+        margin-top: 2rem;
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+      @media (max-width: 860px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        nav {
+          position: static;
+          max-height: none;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+          padding: 0.8rem 1rem;
+        }
+        nav ul {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.2rem 0.9rem;
+          list-style: none;
+          margin: 0;
+          padding: 0;
+        }
+        .cards {
+          grid-template-columns: 1fr;
+        }
+        main {
+          padding: 1rem;
+        }
+      }
+      @media print {
+        body {
+          background: white;
+          font-size: 10pt;
+          line-height: 1.32;
+        }
+        .skip,
+        nav {
+          display: none;
+        }
+        .layout {
+          display: block;
+          max-width: none;
+        }
+        main {
+          padding: 0;
+        }
+        header.cover,
+        .card,
+        .wrap,
+        .banner {
+          border-color: #ccc;
+          background: white;
+        }
+        .banner {
+          border-left-width: 2px;
+          padding: 0.35rem 0.5rem;
+        }
+        h1 {
+          font-size: 16pt;
+          margin-bottom: 0.2rem;
+        }
+        h2 {
+          font-size: 12.5pt;
+          margin: 0.85rem 0 0.25rem;
+          break-after: avoid;
+        }
+        h3 {
+          break-after: avoid;
+        }
+        p,
+        li {
+          orphans: 3;
+          widows: 3;
+        }
+        .cards {
+          gap: 0.35rem;
+          margin-top: 0.4rem;
+        }
+        .card {
+          padding: 0.35rem 0.45rem;
+          break-inside: avoid;
+        }
+        table {
+          font-size: 8pt;
+          line-height: 1.25;
+        }
+        th,
+        td {
+          padding: 0.14rem 0.28rem;
+        }
+        tr,
+        .card,
+        header.cover {
+          break-inside: avoid;
+        }
+        .status {
+          background: none !important;
+          border: 0.5pt solid #888;
+          padding: 0 0.2rem;
+        }
+        a {
+          text-decoration: none;
+        }
+        footer {
+          margin-top: 0.6rem;
+        }
+        @page {
+          margin: 0.5in;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#verdict">Skip to the result</a>
+    <div class="layout">
+      <nav aria-label="Report">
+        <p>Mem’s Life · Release audit</p>
+        <ul>
+          <li><a href="#verdict">Current result</a></li>
+          <li><a href="#coverage">Audit coverage</a></li>
+          <li><a href="#repairs">Repairs</a></li>
+          <li><a href="#performance">Measured performance</a></li>
+          <li><a href="#checks">Verification</a></li>
+          <li><a href="#reviews">Independent review</a></li>
+          <li><a href="#dependencies">Dependencies</a></li>
+          <li><a href="#gates">Remaining acceptance</a></li>
+          <li><a href="#identity">Source and evidence</a></li>
+        </ul>
+      </nav>
+      <main>
+        <header class="cover" id="verdict">
+          <p class="meta">
+            13 October 2026 · America/New_York · application merged; artifact verification continues
+          </p>
+          <h1>Release candidate audit</h1>
+          <p class="lede">
+            The first production run exposed real data and workflow risks. This pass repairs them
+            across the application, adds regression coverage, and improves the measured daily
+            workloads.
+          </p>
+          <div class="banner">
+            <strong>Source checks pass; artifact acceptance is still in progress.</strong> The
+            three-engine browser suite is running after its first full pass found additional issues.
+            The fresh native Release build passed; its simulator journeys are in progress. Physical
+            camera and live WHOOP consent remain separate gates.
+          </div>
+          <div class="cards">
+            <article class="card">
+              <span class="status log-passed">266 source tests</span>
+              <h2>Application</h2>
+              <p>
+                51 shared domain, 178 mobile, and 37 real service tests passed in their final named
+                runs.
+              </p>
+            </article>
+            <article class="card">
+              <span class="status pending">Artifacts running</span>
+              <h2>Release builds</h2>
+              <p>
+                Native compilation passed with unchanged captured inputs. Simulator journeys and
+                current containers require verification.
+              </p>
+            </article>
+            <article class="card">
+              <span class="status gate">Owner/device gates</span>
+              <h2>Live acceptance</h2>
+              <p>
+                The physical iPad becomes available after 3 a.m. Eastern. WHOOP still requires
+                registered configuration and consent.
+              </p>
+            </article>
+          </div>
+        </header>
+        <section id="coverage">
+          <h2>Coverage</h2>
+          <p>
+            All 122 original application source modules were assigned and read across independent
+            domain, service, offline, native, and web reviews. Release tooling was reviewed
+            separately. This is a first-party code audit; dependency reachability and advisories
+            were checked without claiming a full audit of third-party source.
+          </p>
+          <div class="wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th>Review boundary</th>
+                  <th>Verification seam</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Shared domain</td>
+                  <td>
+                    Validation, state transitions, graphs, recurrence/DST, measurement conversions,
+                    actual workout history, timers, food zones, agent contracts.
+                  </td>
+                  <td>51 tests across 12 suites; builds and types.</td>
+                </tr>
+                <tr>
+                  <td>Service and MCP</td>
+                  <td>
+                    Authorization, idempotency, leases, claims, board activation, history, private
+                    files/media, WHOOP consent, sync and restore, maintenance and migrations.
+                  </td>
+                  <td>37 real PostgreSQL/HTTP/MCP tests, including official SDK clients.</td>
+                </tr>
+                <tr>
+                  <td>Native offline</td>
+                  <td>
+                    SQLite atomicity, dispatch and ACK races, partitions, photos, conflicts, restore
+                    epochs, recovery export and large retained history.
+                  </td>
+                  <td>
+                    Actual SQLite regressions, three recovery scripts, mobile component tests.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Native interface</td>
+                  <td>
+                    All screens, drafts, dates, media locking, workout notes/corrections,
+                    timer/haptic/notification lifecycle, compact/wide and large-text behavior.
+                  </td>
+                  <td>178 mobile tests across 30 suites; fresh native journeys pending.</td>
+                </tr>
+                <tr>
+                  <td>Web interface</td>
+                  <td>
+                    All screens, async requests, dialog ownership, draft retention,
+                    keyboard/permission/error handling, performance, script and stylesheet recovery.
+                  </td>
+                  <td>
+                    114 browser journeys passed in Chromium, Firefox and WebKit, with zero skips.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Release operations</td>
+                  <td>
+                    19 executable scripts, backup/export/restore paths and durability, process
+                    supervision, fixture isolation, container packaging, notices and CI.
+                  </td>
+                  <td>12 operations tests passed, including descendant process cleanup.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="repairs">
+          <h2>Repairs</h2>
+          <div class="wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Failure</th>
+                  <th>Resulting behavior</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Started work retained a Next board column.</td>
+                  <td>
+                    Human actions and agent claims share one Active transition, preserve matching
+                    configured columns and stable order. Eligible work beyond the first 100 tasks is
+                    discoverable.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Malformed credentials reached PostgreSQL; one-time grant IDs could be reused.
+                  </td>
+                  <td>
+                    Credentials reject before database parsing. Every mutation respects prior
+                    operation reservations. Revocation/expiry, scope, CORS DELETE, and MCP response
+                    headers are checked.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Successful old responses could revive discarded or restored edits.</td>
+                  <td>
+                    Dispatch and acknowledgement atomically validate operation state, account, and
+                    captured epoch. Explicit reviewed receipt reconciliation remains available.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Outbox changes during sync could send conflicted commands or lose a wakeup.
+                  </td>
+                  <td>
+                    Dispatch claims current eligibility. Saves request a follow-up pass; late
+                    failures cannot revive discarded operations.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Recovery exports mixed old receipts with newer records.</td>
+                  <td>
+                    One SQLite transaction captures the export; photo copies use its frozen
+                    manifest.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Late photos or consent callbacks could overwrite restored state or save
+                    credentials after revocation.
+                  </td>
+                  <td>
+                    Photo confirmation and diary records commit together after current-state checks.
+                    WHOOP rechecks epoch and session after provider responses.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Slow requests displayed the wrong food date; navigation or a pending save
+                    discarded drafts.
+                  </td>
+                  <td>
+                    Request generations prevent stale responses. Screens retain drafts; save/picker
+                    locks and complete dirty guards preserve text and timestamp corrections.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Hidden browser dialogs trapped interaction; transient assets could not recover.
+                  </td>
+                  <td>
+                    Inactive dialogs leave the top layer while retaining drafts. Screen retries
+                    recover both JavaScript and CSS across browsers.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Workout notes and historical corrections were inaccessible or changed superset
+                    progression.
+                  </td>
+                  <td>
+                    Notes survive set saves, skipped/removed exercises retain corrections, and
+                    historical corrections do not advance rounds.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Clock rollback enlarged timers; pause/cancel depended on an unrelated invalid
+                    input.
+                  </td>
+                  <td>
+                    Saved countdown intervals cap clock fallback. Pause/cancel work independently of
+                    edited duration; revoked permissions cancel owned alerts.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Snapshot limits ran only after large allocations.</td>
+                  <td>
+                    PostgreSQL cursors fetch 100 small records or one rich aggregate. A 64 MiB wire
+                    limit rejects oversized aggregates before hydration; whole snapshots retain
+                    their 32 MiB capacity.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Maintenance could exhaust a small pool; archives could overlap media.</td>
+                  <td>
+                    A dedicated operator connection holds the drain barrier; new writes reject
+                    promptly. Archives require separate private paths, safe file handles, checksum
+                    validation and fsync before resume.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="performance">
+          <h2>Measured performance</h2>
+          <p>
+            These are fixture measurements, not promises for every installation. Raw workload
+            results are retained beside the audit. No history was deleted to achieve the
+            improvement.
+          </p>
+          <div class="wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Workload</th>
+                  <th>Before</th>
+                  <th>After</th>
+                  <th>Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Offline replay: 6,000 retained receipts, 60 pending captures</td>
+                  <td>1,516.764 ms; 1,097,041 materialized receipt rows</td>
+                  <td>27.526 ms; 180 rows</td>
+                  <td>
+                    Indexed pending-operation/dependency reads replace repeated full-history reads.
+                    Query-volume regression avoids a flaky time threshold.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Today: 10,001 historical agent attempts</td>
+                  <td>2.83–3.22 s; 10.51 MB transferred</td>
+                  <td>4.84–8.91 ms; 1.05 KB</td>
+                  <td>
+                    Five runs produced identical attention output; query returns only relevant
+                    latest data.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Initial web JavaScript</td>
+                  <td>637.39 KB; gzip 187.05 KB</td>
+                  <td>About 516.5 KB; gzip 156.1 KB</td>
+                  <td>
+                    Roughly 19% less initial JS. Feature chunks load on demand; total application JS
+                    is not claimed to shrink by that amount.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Oversized valid workout snapshot</td>
+                  <td>72.39 MB serialized aggregate; 3.45 MB compressed database storage</td>
+                  <td>Rejected in 119–233 ms; largest hydrated batch 2,423 bytes</td>
+                  <td>
+                    Database-side transfer bounds prevent compressed storage from hiding a large
+                    allocation.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">
+            Cursor collection was chosen over loading the full table or adding a new streaming
+            dependency: it preserves the existing frozen transaction and ordering while bounding
+            each returned batch. Lookup indexes and lazy views were chosen over deleting history or
+            introducing a new cache service.
+          </p>
+        </section>
+        <section id="checks">
+          <h2>Verification</h2>
+          <div class="wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Check</th>
+                  <th>Observed result</th>
+                  <th>Boundary</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Domain</td>
+                  <td><span class="status log-passed">51 passed / 12 suites</span></td>
+                  <td>Current shared rules; WHOOP’s formerly undiscovered test now runs.</td>
+                </tr>
+                <tr>
+                  <td>Mobile</td>
+                  <td><span class="status log-passed">178 passed / 30 suites</span></td>
+                  <td>
+                    Components and actual SQLite. This is not physical camera or OS delivery proof.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Server</td>
+                  <td><span class="status log-passed">37 passed / no skips</span></td>
+                  <td>
+                    Actual PostgreSQL, SDK, restore, privacy, claims, migrations and maintenance.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Types, lint, formatting</td>
+                  <td><span class="status log-passed">Passed</span></td>
+                  <td>Named final logs; repeat if source changes.</td>
+                </tr>
+                <tr>
+                  <td>Operations</td>
+                  <td><span class="status log-passed">12 operations tests passed</span></td>
+                  <td>
+                    Symlink/path guards, isolated PostgreSQL startup, supervision. Descendant
+                    cleanup review adds another regression.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Browser</td>
+                  <td><span class="status pending">114 passed / zero skips</span></td>
+                  <td>
+                    First full pass: 93 passed, 15 failed, 3 skipped. Failures prompted fixes; final
+                    run includes Today live fixture proof.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Independent clean checkout</td>
+                  <td><span class="status pending">Install passed</span></td>
+                  <td>
+                    Fresh checkout of commit 6e93c3d: npm ci installed 1,262 packages in six
+                    seconds. Domain, service, web, and iOS bundle builds passed.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Native Release</td>
+                  <td><span class="status pending">Build passed; journeys pending</span></td>
+                  <td>
+                    Release build exited 0; captured inputs were unchanged. Bundle daf9dc6f…86d11a.
+                    Named simulator journeys are in progress.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Current container and operator</td>
+                  <td><span class="status pending">Not yet verified</span></td>
+                  <td>New source and backup helper require fresh image verification.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="reviews">
+          <h2>Independent review</h2>
+          <p>
+            Standards and specification reviews ran separately. They reproduced and corrected a
+            successful stale-ACK restore race, device-timer clock inflation, loss of photo-only
+            timestamp corrections, failed CSS recovery, and process-supervision descendant cleanup.
+            The cleanup regression has since been fixed; final tooling verification is pending. The
+            final offline/maintenance/snapshot delta is merge-ready from the specification review.
+            Browser verification passed; the final tooling delta is under independent review.
+          </p>
+        </section>
+        <section id="dependencies">
+          <h2>Dependencies</h2>
+          <p>
+            A scoped <code>xcode → uuid 11.1.1</code> override replaces the vulnerable legacy
+            version without changing Expo, React Native or Jest. The official package supports
+            CommonJS; actual project parse/serialize, 500 generated IDs, and the advisory
+            buffer-bound regression passed. Registry findings dropped from 61 to 53 package nodes,
+            with the uuid advisory absent.
+            <a href="https://github.com/uuidjs/uuid/blob/v11.1.1/package.json">Official package</a>
+            ·
+            <a href="https://github.com/uuidjs/uuid/security/advisories/GHSA-w5hq-g745-h8pq"
+              >Advisory</a
+            >.
+          </p>
+          <p>
+            The remaining 53 nodes propagate three underlying advisories in braces, node-forge and
+            sprintf-js; no compatible patched release was available. The service closure and actual
+            Metro module graph exclude those leaves. This does not establish operating-system or
+            native-library vulnerability coverage.
+            <a href="https://github.com/advisories/GHSA-vfj7-8cjw-p6xm">braces</a> ·
+            <a href="https://github.com/advisories/GHSA-86w9-cpqp-85rv">node-forge</a> ·
+            <a href="https://github.com/advisories/GHSA-hp3w-g68c-fv3c">sprintf-js</a>.
+          </p>
+        </section>
+        <section id="gates">
+          <h2>Remaining acceptance</h2>
+          <div class="wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Gate</th>
+                  <th>Current state</th>
+                  <th>Next action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Physical iPad camera / airplane recovery</td>
+                  <td>Pending; device unavailable before 03:00 Eastern on 14 October.</td>
+                  <td>
+                    Scheduled continuation respects availability and investigates the previous
+                    automation failure before claiming physical proof.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Live WHOOP OAuth</td>
+                  <td>Developer configuration and owner consent unavailable.</td>
+                  <td>
+                    Configure registered app/callback/encryption key privately, then complete
+                    consent, refresh and revoked-access verification.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Apple distribution</td>
+                  <td>
+                    Private development signing exists; chosen distribution acceptance remains open.
+                  </td>
+                  <td>
+                    Verify the selected signing/install path separately from simulator builds.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Permanent HTTPS installation</td>
+                  <td>Local fictional HTTPS fixture; prior temporary external transport proof.</td>
+                  <td>Verify an authorized permanent hostname/deployment independently.</td>
+                </tr>
+                <tr>
+                  <td>Optional remote push</td>
+                  <td>Deferred and disabled.</td>
+                  <td>Real physical delivery and opt-out checks are required if enabled.</td>
+                </tr>
+                <tr>
+                  <td>Native library/source distribution</td>
+                  <td>Inventory checks exist; corresponding-source acceptance remains separate.</td>
+                  <td>Review exact distributed native binaries and source provision.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="identity">
+          <h2>Source and evidence</h2>
+          <p>
+            Baseline <code>e29889a14c460bb72f3011cffb5e431749decb59</code>. Application commit
+            <code>6e93c3dce9d3c06037a03efff5686f344a9b0f05</code>; branch
+            <code>codex/release-candidate-hardening</code>.
+            <a href="https://github.com/memfactorduke/open-life/pull/4"
+              >PR #4: application hardening</a
+            >
+            merged after its relevant local checks passed.
+          </p>
+          <p>
+            Raw local evidence: <code>.runtime/rc-audit/</code>, including final source logs,
+            independent review diffs, baseline failures, benchmark JSON and browser traces. Fixture
+            credentials stay private and are excluded from source. Native capture
+            <code>8c8bc3de…e4b1b1d</code> records dirty source explicitly; its build receipt and
+            seven-journey plan live under
+            <code>.scratch/mems-life-v1/evidence/native-gym-food/rc-source-20261013/</code>.
+          </p>
+          <p>
+            The ten-minute continuation monitor checks independent builds quietly, completes
+            remaining verification, and cancels itself when finished. Source merging, local artifact
+            verification and external acceptance are recorded separately.
+          </p>
+        </section>
+        <footer>
+          Prepared from actual source reviews and named fixture executions. Final totals and
+          artifact identities will be updated after their runs finish.
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,52 +1,60 @@
 // Run locally as the authorized installation operator: node --import tsx scripts/backup.mjs DESTINATION [SECRET_FILE ...]
 import { Pool } from 'pg';
-import { mkdir, writeFile, copyFile, chmod, lstat, realpath } from 'node:fs/promises';
-import { resolve, join, basename } from 'node:path';
+import { chmod, mkdir, writeFile } from 'node:fs/promises';
+import { basename, join, resolve } from 'node:path';
 import {
-  enterMaintenance,
-  resumeMaintenance,
   copyPrivateTree,
-  verifyDatabaseMedia,
-  postgresCommand,
   digestFile,
+  enterMaintenance,
+  postgresCommand,
+  resumeMaintenance,
+  verifyDatabaseMedia,
 } from '../apps/server/src/portability.ts';
+import {
+  assertDisjoint,
+  copyOperatorFile,
+  createPrivateDirectory,
+  fsyncTree,
+} from './operator-safety.mjs';
+
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 let release;
 try {
   if (process.argv[2] === '--resume') {
+    if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required.');
     await resumeMaintenance(pool);
     console.log('Maintenance resumed.');
   } else {
     if (!process.env.DATABASE_URL || !process.env.MEDIA_DIRECTORY || !process.argv[2])
       throw new Error('DATABASE_URL, MEDIA_DIRECTORY and a new destination are required.');
-    const destination = resolve(process.argv[2]);
-    await mkdir(destination, { mode: 0o700 });
-    if ((await realpath(destination)) !== destination)
-      throw new Error('Destination cannot contain symlinks.');
+    const media = resolve(process.env.MEDIA_DIRECTORY);
+    const requested = resolve(process.argv[2]);
+    assertDisjoint(requested, media);
+    for (const source of process.argv.slice(3)) assertDisjoint(requested, source);
+    const destination = await createPrivateDirectory(requested);
+    assertDisjoint(destination, media);
     release = await enterMaintenance(pool);
-    await verifyDatabaseMedia(pool, resolve(process.env.MEDIA_DIRECTORY));
+    await verifyDatabaseMedia(pool, media);
     const installation = (await pool.query('SELECT id,epoch,owner_id FROM installation')).rows[0];
     if (!installation) throw new Error('An initialized installation is required.');
     const capturedAt = new Date().toISOString();
     const dump = join(destination, 'database.dump');
     await postgresCommand('pg_dump', process.env.DATABASE_URL, ['--format=custom', '--file', dump]);
     await chmod(dump, 0o600);
-    const media = await copyPrivateTree(process.env.MEDIA_DIRECTORY, join(destination, 'media'));
+    const copied = await copyPrivateTree(media, join(destination, 'media'));
     const protectedConfiguration = [];
-    await mkdir(join(destination, 'protected-configuration'), { mode: 0o700 });
+    const protectedDirectory = join(destination, 'protected-configuration');
+    await mkdir(protectedDirectory, { mode: 0o700 });
+    await chmod(protectedDirectory, 0o700);
     for (const [index, source] of process.argv.slice(3).entries()) {
-      const stat = await lstat(source);
-      if (!stat.isFile() || stat.isSymbolicLink() || stat.mode & 0o077)
-        throw new Error('Secret inputs must be regular operator-only files (0600).');
       const name = `${index}-${basename(source)}`;
-      const target = join(destination, 'protected-configuration', name);
-      await copyFile(source, target);
-      await chmod(target, 0o600);
+      const target = join(protectedDirectory, name);
+      await copyOperatorFile(source, target);
       protectedConfiguration.push({ name, ...(await digestFile(target)) });
     }
     const migrations = (
       await pool.query('SELECT version FROM application_migrations ORDER BY version')
-    ).rows.map((r) => r.version);
+    ).rows.map((row) => row.version);
     await writeFile(
       join(destination, 'manifest.json'),
       JSON.stringify(
@@ -58,7 +66,7 @@ try {
           epoch: installation.epoch,
           migrations,
           database: await digestFile(dump),
-          media,
+          media: copied,
           protectedConfiguration,
           configurationChecklistRequiresOperatorReview: true,
         },
@@ -67,6 +75,7 @@ try {
       ),
       { mode: 0o600 },
     );
+    await fsyncTree(destination);
     await pool.query(
       'UPDATE portability_control SET maintenance=false,entered_at=NULL WHERE singleton=true',
     );

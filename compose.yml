@@ -1,6 +1,6 @@
 services:
   database:
-    image: postgres:16.14-bookworm
+    image: postgres:16.14-bookworm@sha256:64154d0babcb1741988719e703419af0382b19953706149f9872fbd0f438efa8
     environment:
       POSTGRES_DB: mems_life
       POSTGRES_USER: mems_life
@@ -29,9 +29,22 @@ services:
     depends_on:
       database:
         condition: service_healthy
+    init: true
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/api/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     restart: unless-stopped
   proxy:
-    image: caddy:2.10.2-alpine
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
     environment:
       APP_HOST: ${APP_HOST:?Set installation hostname}
     ports:
@@ -42,7 +55,8 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     restart: unless-stopped
   operator:
     profiles: [operator]

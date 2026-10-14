@@ -1,6 +1,6 @@
 import { readFileSync, mkdirSync, writeFileSync, cpSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { resolve, join } from 'node:path';
+import { isAbsolute, relative, resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 const bundle = resolve('scripts/licenses/sharp-libvips-1.3.4');
 const destination = resolve(process.argv[2] ?? '.runtime/native-license-sources');
@@ -8,7 +8,13 @@ const sources = JSON.parse(readFileSync(join(bundle, 'sources.json')));
 const crates = JSON.parse(readFileSync(join(bundle, 'rust-crates.json')));
 mkdirSync(destination, { recursive: true });
 for (const item of [...sources.components, ...crates]) {
-  const file = join(destination, item.file);
+  if (typeof item.file !== 'string' || item.file.length === 0 || isAbsolute(item.file))
+    throw new Error('Unsafe source archive path.');
+  const file = resolve(destination, item.file);
+  const rel = relative(destination, file);
+  if (rel.startsWith('..') || isAbsolute(rel) || item.file.split(/[\\/]/).includes('..'))
+    throw new Error('Unsafe source archive path.');
+  if (!String(item.url).startsWith('https://')) throw new Error('Source archives must use HTTPS.');
   mkdirSync(resolve(file, '..'), { recursive: true });
   const expected = item.sha256 ?? item.checksum;
   let valid = false;
@@ -23,6 +29,8 @@ for (const item of [...sources.components, ...crates]) {
         '--location',
         '--silent',
         '--show-error',
+        '--proto',
+        '=https',
         '--retry',
         '2',
         '--max-time',

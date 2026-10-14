@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const image = process.env.CONTAINER_VERIFY_IMAGE ?? 'mems-life:verify';
+const postgresImage =
+  'postgres:16.14-bookworm@sha256:64154d0babcb1741988719e703419af0382b19953706149f9872fbd0f438efa8';
 const runId = `mems-life-verify-${randomBytes(6).toString('hex')}`;
 const resources = {
   network: runId,
@@ -30,6 +32,29 @@ const waitFor = async (description, check) => {
   }
   throw new Error(`Timed out waiting for ${description}.`);
 };
+
+let cleaned = false;
+function cleanup() {
+  if (cleaned) return;
+  cleaned = true;
+  for (const name of [resources.app, resources.database]) {
+    try {
+      docker(['rm', '--force', '--volumes', name], { stdio: 'ignore' });
+    } catch {}
+  }
+  try {
+    docker(['volume', 'rm', resources.media], { stdio: 'ignore' });
+  } catch {}
+  try {
+    docker(['network', 'rm', resources.network], { stdio: 'ignore' });
+  } catch {}
+}
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    cleanup();
+    process.exit(signal === 'SIGINT' ? 130 : 143);
+  });
+}
 
 try {
   docker(['info'], { stdio: 'ignore' });
@@ -83,7 +108,7 @@ try {
     'POSTGRES_USER=mems_life',
     '--env',
     `POSTGRES_PASSWORD=${password}`,
-    'postgres:16.14-bookworm',
+    postgresImage,
   ]);
   await waitFor('PostgreSQL', () => {
     docker(['exec', resources.database, 'pg_isready', '-U', 'mems_life', '-d', 'mems_life'], {
@@ -311,15 +336,5 @@ try {
     docker(['image', 'inspect', image, '--format', 'Image {{.Id}}; {{.Size}} bytes']).trim(),
   );
 } finally {
-  for (const name of [resources.app, resources.database]) {
-    try {
-      docker(['rm', '--force', '--volumes', name], { stdio: 'ignore' });
-    } catch {}
-  }
-  try {
-    docker(['volume', 'rm', resources.media], { stdio: 'ignore' });
-  } catch {}
-  try {
-    docker(['network', 'rm', resources.network], { stdio: 'ignore' });
-  } catch {}
+  cleanup();
 }

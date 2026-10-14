@@ -4,7 +4,7 @@ import {
   writeFileSync,
   existsSync,
   mkdirSync,
-  statSync,
+  lstatSync,
   cpSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -34,7 +34,7 @@ for (const location of Object.keys(lock.packages)
   if (files.length === 0)
     notices.push('No top-level notice file. Review the package before distribution.');
   for (const file of files) {
-    if (statSync(join(location, file)).isFile())
+    if (lstatSync(join(location, file)).isFile())
       notices.push(file, readFileSync(join(location, file), 'utf8'));
   }
   notices.push('');
@@ -57,7 +57,9 @@ function inventory(directory, relative = '') {
   for (const name of readdirSync(directory).sort()) {
     const file = join(directory, name);
     const path = join(relative, name);
-    if (statSync(file).isDirectory()) inventory(file, path);
+    const info = lstatSync(file);
+    if (info.isSymbolicLink()) throw new Error(`Symlink in native license tree: ${path}`);
+    if (info.isDirectory()) inventory(file, path);
     else files[path] = createHash('sha256').update(readFileSync(file)).digest('hex');
   }
 }

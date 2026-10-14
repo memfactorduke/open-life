@@ -82,6 +82,7 @@ for (const scenario of [
       await page.getByRole('textbox', { name: 'Notes', exact: true }).fill(name);
       await page.getByLabel('Date and time', { exact: true }).fill(scenario.wallTime);
       await page.getByLabel('Daily history', { exact: true }).fill(scenario.wallTime.slice(0, 10));
+      await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toHaveValue(name);
       await page.getByRole('button', { name: 'Save entry', exact: true }).click();
       await expect(page.getByRole('status')).toHaveText('Food entry saved.');
       const entries = (await (await page.request.get('/api/food')).json()).entries;

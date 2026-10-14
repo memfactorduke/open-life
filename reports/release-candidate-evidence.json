@@ -1,0 +1,47 @@
+{
+  "checkedAt": "2026-10-14T03:23:54.816068+00:00",
+  "applicationMerge": "6841794693916693a6e6a7a2640456469d359637",
+  "pullRequest": "https://github.com/memfactorduke/open-life/pull/4",
+  "checks": {
+    "domain": {
+      "tests": 51,
+      "suites": 12,
+      "passed": true
+    },
+    "mobile": {
+      "tests": 178,
+      "suites": 30,
+      "passed": true
+    },
+    "server": {
+      "tests": 37,
+      "passed": true
+    },
+    "browser": {
+      "tests": 114,
+      "engines": ["chromium", "firefox", "webkit"],
+      "skipped": 0,
+      "passed": true
+    },
+    "cleanInstallBuild": {
+      "passed": true,
+      "source": "6e93c3dce9d3c06037a03efff5686f344a9b0f05"
+    },
+    "typesLintFormatting": {
+      "passed": true
+    }
+  },
+  "native": {
+    "compilePassed": true,
+    "capturedInputsChanged": false,
+    "javascriptSha256": "daf9dc6f5aef2fcc6cbb8ebb0f88175c2959c3def454f0f5b5cafa6f9a86d11a",
+    "actualJourneys": "in-progress"
+  },
+  "externalGates": {
+    "physicalCameraAirplane": "pending-after-03:00-America/New_York",
+    "whoopLiveConsent": "configuration-absent",
+    "remotePush": "deferred-disabled",
+    "permanentDeployment": "pending",
+    "appleDistribution": "pending"
+  }
+}
