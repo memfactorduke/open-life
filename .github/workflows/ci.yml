@@ -44,11 +44,11 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
+      - run: npm run build
       - name: Operations script tests
         run: |
           export PATH="/usr/lib/postgresql/16/bin:$PATH"
           node --test scripts/test/*.test.mjs
-      - run: npm run build
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit
       - name: Production browser fixture
