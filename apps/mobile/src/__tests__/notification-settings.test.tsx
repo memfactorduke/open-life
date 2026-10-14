@@ -1,10 +1,13 @@
 import React from 'react';
+import { AppState, Linking, type AppStateStatus } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { NotificationSettings } from '../features/NotificationSettings';
+import * as Notifications from 'expo-notifications';
 import { registerRemoteNotifications } from '../notifications';
 import { RequestRejectedError, type InstallationClient } from '../client';
 jest.mock('better-auth/react', () => ({ createAuthClient: jest.fn() }));
 jest.mock('@better-auth/expo/client', () => ({ expoClient: jest.fn() }));
+jest.mock('expo-notifications', () => ({ getPermissionsAsync: jest.fn() }));
 jest.mock('../notifications', () => ({ registerRemoteNotifications: jest.fn() }));
 jest.mock('expo-crypto', () => ({ randomUUID: () => '00000000-0000-4000-8000-000000000099' }));
 const off = { enabled: false, due: false, handoff: false, failure: false };
@@ -82,4 +85,71 @@ test('unconfirmed notification save retries the immutable request before device 
     first,
     first,
   ]);
+});
+
+test('denied notification permission offers OS Settings only after an explicit action', async () => {
+  const settings = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+  jest
+    .mocked(registerRemoteNotifications)
+    .mockResolvedValue('Notifications are not allowed. Attention remains available in Today.');
+  const request = jest.fn(async (_path, body?) =>
+    body
+      ? { revision: 2, value: body.value }
+      : { revision: 1, value: off, providerConfigured: false },
+  );
+  await render(
+    <NotificationSettings
+      client={{ baseURL: 'fictional', request } as unknown as InstallationClient}
+    />,
+  );
+  await waitFor(() => expect(screen.getByLabelText('Enable notifications')).toBeTruthy());
+  expect(screen.queryByRole('button', { name: 'Open notification settings' })).toBeNull();
+  await fireEvent(screen.getByLabelText('Enable notifications'), 'valueChange', true);
+  await fireEvent.press(screen.getByLabelText('Save notification choices'));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Open notification settings' })).toBeOnTheScreen(),
+  );
+  expect(settings).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByRole('button', { name: 'Open notification settings' }));
+  expect(settings).toHaveBeenCalledTimes(1);
+  settings.mockRestore();
+});
+
+test('returning from OS Settings rechecks denial without discarding unsaved notification choices', async () => {
+  let foreground: (state: AppStateStatus) => void = () => {};
+  const subscription = jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_event, listener) => {
+      foreground = listener;
+      return { remove: jest.fn() };
+    });
+  const permission = jest
+    .mocked(Notifications.getPermissionsAsync)
+    .mockResolvedValue({ granted: true } as never);
+  jest
+    .mocked(registerRemoteNotifications)
+    .mockResolvedValue('Notifications are not allowed. Attention remains available in Today.');
+  const request = jest.fn(async (_path, body?) =>
+    body
+      ? { revision: 2, value: body.value }
+      : { revision: 1, value: off, providerConfigured: false },
+  );
+  await render(
+    <NotificationSettings
+      client={{ baseURL: 'fictional', request } as unknown as InstallationClient}
+    />,
+  );
+  await waitFor(() => expect(screen.getByLabelText('Enable notifications')).toBeTruthy());
+  await fireEvent(screen.getByLabelText('Enable notifications'), 'valueChange', true);
+  await fireEvent.press(screen.getByLabelText('Save notification choices'));
+  await screen.findByRole('button', { name: 'Open notification settings' });
+  await fireEvent(screen.getByLabelText('Due reminders'), 'valueChange', true);
+  await foreground('active');
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: 'Open notification settings' })).toBeNull(),
+  );
+  expect(screen.getByLabelText('Due reminders').props.value).toBe(true);
+  expect(request.mock.calls.filter((call) => call[1])).toHaveLength(1);
+  permission.mockReset();
+  subscription.mockRestore();
 });

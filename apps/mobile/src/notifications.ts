@@ -38,7 +38,8 @@ export async function registerRemoteNotifications(input: {
 }): Promise<string> {
   if (!input.preferences.value.enabled) return 'Notifications are disabled.';
   let permission = await Notifications.getPermissionsAsync();
-  if (!permission.granted) permission = await Notifications.requestPermissionsAsync();
+  if (!permission.granted && permission.canAskAgain !== false)
+    permission = await Notifications.requestPermissionsAsync();
   if (!permission.granted)
     return 'Notifications are not allowed. Attention remains available in Today.';
   const projectId =

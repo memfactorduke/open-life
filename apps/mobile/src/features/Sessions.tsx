@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AppState,
+  Linking,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -10,6 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import * as Crypto from 'expo-crypto';
+import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   SessionCommandSchema,
@@ -198,6 +200,12 @@ export function Sessions({
     [sound, setSound] = useState(false),
     [haptics, setHaptics] = useState(false);
   const [alertsReady, setAlertsReady] = useState(false);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
+  const [notificationDenied, setNotificationDenied] = useState(false);
+  const [permissionBusy, setPermissionBusy] = useState(false);
+  const permissionRequest = useRef(false);
+  const currentClient = useRef(client);
+  currentClient.current = client;
   const alerted = useRef(new Set<string>());
   const [alertMessage, setAlertMessage] = useState(''),
     [rest, setRest] = useState('90'),
@@ -393,30 +401,67 @@ export function Sessions({
               : previous,
           );
       }
+      setSessionLoaded(true);
       setError('');
     } catch (e) {
       setError(messageOf(e));
     }
   }
   useEffect(() => {
+    let active = true;
+    setSessionLoaded(false);
+    setAlertsReady(false);
     void load();
     void syncClock();
     void deviceIdentity(client.baseURL)
-      .then(setDeviceId)
-      .catch((e) => setAlertMessage(messageOf(e)));
-    void readTimerPreferences(client.baseURL).then((p) => {
-      setAlerts(p.alerts);
-      setSound(p.sound);
-      setHaptics(p.haptics);
-      setAlertsReady(true);
-    });
+      .then((id) => {
+        if (active) setDeviceId(id);
+      })
+      .catch((e) => {
+        if (active) setAlertMessage(messageOf(e));
+      });
+    void readTimerPreferences(client.baseURL)
+      .then(async (p) => {
+        const permitted = !p.alerts || (await Notifications.getPermissionsAsync()).granted;
+        if (!active) return;
+        setAlerts(p.alerts && permitted);
+        setNotificationDenied(p.alerts && !permitted);
+        setSound(p.sound);
+        setHaptics(p.haptics);
+        setAlertsReady(true);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setAlerts(false);
+        setAlertsReady(true);
+        setAlertMessage(
+          `Notification permission could not be checked. Retry enabling alerts: ${messageOf(error)}`,
+        );
+      });
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
+      if (state === 'active' && active) {
         void syncClock();
         void load();
+        void Notifications.getPermissionsAsync()
+          .then((permission) => {
+            if (!active) return;
+            if (!permission.granted) {
+              setNotificationDenied(true);
+              setAlerts(false);
+            } else {
+              setNotificationDenied(false);
+              setError((message) =>
+                message.includes('Notifications are not allowed') ? '' : message,
+              );
+            }
+          })
+          .catch(() => undefined);
       }
     });
-    return () => subscription.remove();
+    return () => {
+      active = false;
+      subscription.remove();
+    };
   }, [client]);
   useEffect(() => {
     if (client.offline) void load();
@@ -441,7 +486,8 @@ export function Sessions({
     return () => clearInterval(interval);
   }, [session?.timer, clockReady]);
   useEffect(() => {
-    if (!alertsReady || !deviceId || !clock.current) return;
+    if (!alertsReady || !deviceId || !sessionLoaded || !draftReady) return;
+    let active = true;
     void reconcileTimerAlert({
       installation: client.baseURL,
       session,
@@ -450,11 +496,40 @@ export function Sessions({
       enabled: alerts,
       sound,
       haptics,
-      serverNow: clock.current.server + performance.now() - clock.current.monotonic,
+      // Without a verified clock, reconciliation may cancel obsolete schedules,
+      // but a running timer must not create a new OS schedule.
+      serverNow:
+        clockReady && clock.current
+          ? clock.current.server + performance.now() - clock.current.monotonic
+          : Number.NaN,
     })
-      .then(setAlertMessage)
-      .catch((e) => setAlertMessage(messageOf(e)));
-  }, [session?.timer, session?.status, deviceId, alerts, sound, haptics, clockReady, alertsReady]);
+      .then((message) => {
+        if (!active) return;
+        setAlertMessage(message);
+        if (message.includes('Notifications are not allowed')) {
+          setNotificationDenied(true);
+          setAlerts(false);
+        }
+      })
+      .catch((e) => {
+        if (active) setAlertMessage(messageOf(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    session?.timer,
+    session?.status,
+    deviceId,
+    alerts,
+    sound,
+    haptics,
+    clockReady,
+    alertsReady,
+    sessionLoaded,
+    draftReady,
+    client,
+  ]);
   useEffect(() => {
     if (alertsReady)
       void saveTimerPreferences(client.baseURL, { alerts, sound, haptics }).catch((e) =>
@@ -1003,12 +1078,32 @@ export function Sessions({
         <Choice
           label="Timer notification"
           value={alerts ? 'yes' : 'no'}
+          disabled={permissionBusy}
           onChange={(v) => {
-            setAlerts(v === 'yes');
-            if (v === 'yes')
-              void requestTimerAlertPermission()
-                .then(setError)
-                .catch((e) => setError(messageOf(e)));
+            if (v === 'no') {
+              setAlerts(false);
+              return;
+            }
+            if (permissionRequest.current) return;
+            const requestingClient = client;
+            permissionRequest.current = true;
+            setPermissionBusy(true);
+            void requestTimerAlertPermission()
+              .then((message) => {
+                if (currentClient.current !== requestingClient) return;
+                setError(message);
+                setNotificationDenied(!!message);
+                setAlerts(!message);
+              })
+              .catch((e) => {
+                if (currentClient.current !== requestingClient) return;
+                setAlerts(false);
+                setError(messageOf(e));
+              })
+              .finally(() => {
+                permissionRequest.current = false;
+                if (currentClient.current === requestingClient) setPermissionBusy(false);
+              });
           }}
           options={[
             { value: 'no', label: 'Off' },
@@ -1033,6 +1128,17 @@ export function Sessions({
             { value: 'yes', label: 'Haptic' },
           ]}
         />
+        {notificationDenied && (
+          <Action
+            title="Open notification settings"
+            secondary
+            onPress={() =>
+              void Linking.openSettings().catch(() =>
+                setError('Open Settings on this device to allow notifications for Mem’s Life.'),
+              )
+            }
+          />
+        )}
         {!!alertMessage && <Body>{alertMessage}</Body>}
       </Disclosure>
     </Card>

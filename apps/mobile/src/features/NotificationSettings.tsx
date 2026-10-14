@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Switch, View, StyleSheet } from 'react-native';
+import { AppState, Linking, Switch, View, StyleSheet } from 'react-native';
 import * as Crypto from 'expo-crypto';
+import * as Notifications from 'expo-notifications';
 import { z } from 'zod';
 import {
   defaultNotificationPreferences,
@@ -41,6 +42,7 @@ export function NotificationSettings({
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState(false);
+  const [notificationDenied, setNotificationDenied] = useState(false);
   const working = useRef(false);
   const pending = useRef<{
     operationId: string;
@@ -64,6 +66,24 @@ export function NotificationSettings({
   useEffect(() => {
     void load();
   }, [client]);
+  useEffect(() => {
+    let active = true;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || !notificationDenied || working.current) return;
+      void Notifications.getPermissionsAsync()
+        .then((permission) => {
+          if (active && permission.granted) {
+            setNotificationDenied(false);
+            setMessage('Notifications are allowed. Save your choices to enable this device.');
+          }
+        })
+        .catch(() => undefined);
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [notificationDenied, client]);
   async function save() {
     if (!record || working.current) return;
     working.current = true;
@@ -124,6 +144,7 @@ export function NotificationSettings({
           deactivate: async () => undefined,
         },
       });
+      setNotificationDenied(status.includes('Notifications are not allowed'));
       setMessage(
         status ||
           'This device is registered for remote alerts. Delivery still depends on the configured provider.',
@@ -162,6 +183,7 @@ export function NotificationSettings({
                     pending.current = null;
                     setDraft({ ...draft, [choice.key]: value });
                     setMessage('');
+                    if (choice.key === 'enabled' && !value) setNotificationDenied(false);
                   }}
                 />
               </View>
@@ -218,6 +240,17 @@ export function NotificationSettings({
         </>
       )}
       {message && <Body>{message}</Body>}
+      {notificationDenied && (
+        <Action
+          title="Open notification settings"
+          secondary
+          onPress={() =>
+            void Linking.openSettings().catch(() =>
+              setError('Open Settings on this device to allow notifications for Mem’s Life.'),
+            )
+          }
+        />
+      )}
     </Card>
   );
 }
