@@ -72,7 +72,8 @@ export class OfflineStore {
       CREATE TABLE IF NOT EXISTS offline_conflicts(partition TEXT NOT NULL,operation_id TEXT NOT NULL,local_value TEXT NOT NULL,server_value TEXT,error TEXT NOT NULL,PRIMARY KEY(partition,operation_id));
       CREATE TABLE IF NOT EXISTS offline_snapshot(partition TEXT NOT NULL,snapshot_id TEXT NOT NULL,ordinal TEXT NOT NULL,page TEXT NOT NULL,PRIMARY KEY(partition,snapshot_id,ordinal));
       CREATE TABLE IF NOT EXISTS offline_drafts(partition TEXT NOT NULL,key TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(partition,key));
-      CREATE TABLE IF NOT EXISTS offline_photos(partition TEXT NOT NULL,id TEXT NOT NULL,entry_id TEXT NOT NULL,value TEXT NOT NULL,status TEXT NOT NULL,PRIMARY KEY(partition,id));`);
+      CREATE TABLE IF NOT EXISTS offline_photos(partition TEXT NOT NULL,id TEXT NOT NULL,entry_id TEXT NOT NULL,value TEXT NOT NULL,status TEXT NOT NULL,PRIMARY KEY(partition,id));
+      CREATE INDEX IF NOT EXISTS offline_photo_pending ON offline_photos(partition,status) WHERE status NOT IN ('synced','discarded');`);
     await this.db.run(
       'INSERT OR IGNORE INTO offline_state(partition,value) VALUES(?,?)',
       this.partitionKey,
@@ -153,6 +154,50 @@ export class OfflineStore {
         aggregate,
       )
     ).map(op);
+  }
+  /** Lightweight shell status: return counts without decoding immutable history or photo bytes. */
+  async syncSummary(): Promise<{
+    pendingChangeCount: number;
+    pendingPhotoCount: number;
+    reviewChangeCount: number;
+    reviewPhotoCount: number;
+  }> {
+    return this.db.transaction(async (tx) => {
+      const changes = (
+        await tx.all<{ pending: number; review: number }>(
+          `SELECT COUNT(*) AS pending, COALESCE(SUM(CASE WHEN state IN ('conflict','review') THEN 1 ELSE 0 END),0) AS review FROM offline_outbox WHERE partition=? AND state IN (${pendingStates})`,
+          this.partitionKey,
+        )
+      )[0];
+      const photos = (
+        await tx.all<{ pending: number; review: number }>(
+          "SELECT COUNT(*) AS pending, COALESCE(SUM(CASE WHEN status='needs-attention' THEN 1 ELSE 0 END),0) AS review FROM offline_photos WHERE partition=? AND status NOT IN ('synced','discarded')",
+          this.partitionKey,
+        )
+      )[0];
+      return {
+        pendingChangeCount: changes.pending,
+        pendingPhotoCount: photos.pending,
+        reviewChangeCount: changes.review,
+        reviewPhotoCount: photos.review,
+      };
+    });
+  }
+  async pendingEntries(tx: SqlExecutor = this.db): Promise<OutboxEntry[]> {
+    return (
+      await tx.all<OpRow>(
+        `SELECT * FROM offline_outbox WHERE partition=? AND state IN (${pendingStates}) ORDER BY seq`,
+        this.partitionKey,
+      )
+    ).map(op);
+  }
+  async pendingPhotos(tx: SqlExecutor = this.db): Promise<(DurablePhoto & { status: string })[]> {
+    return (
+      await tx.all<{ value: string; status: string }>(
+        "SELECT value,status FROM offline_photos WHERE partition=? AND status NOT IN ('synced','discarded')",
+        this.partitionKey,
+      )
+    ).map((row) => ({ ...(JSON.parse(row.value) as DurablePhoto), status: row.status }));
   }
   async conflicts(tx: SqlExecutor = this.db) {
     return tx.all<{
@@ -618,6 +663,7 @@ export class OfflineStore {
     await this.db.transaction(async (tx) => {
       const s = await this.state(tx);
       s.signedOut = true;
+      s.authenticationGeneration = (s.authenticationGeneration ?? 0) + 1;
       await this.setState(s, tx);
       await tx.run(
         "UPDATE offline_outbox SET state='uncertain' WHERE partition=? AND state='attempted'",
@@ -1109,8 +1155,24 @@ export class OfflineStore {
         );
     });
   }
-  async ingestValidatedRecords(records: SyncRecord[]): Promise<void> {
+  async ingestValidatedRecords(
+    records: SyncRecord[],
+    guard?: { epoch: string | null; authenticationGeneration: number },
+  ): Promise<void> {
     await this.db.transaction(async (tx) => {
+      if (guard) {
+        const state = await this.state(tx);
+        if (
+          state.signedOut ||
+          state.replayPaused ||
+          state.epoch !== guard.epoch ||
+          (state.authenticationGeneration ?? 0) !== guard.authenticationGeneration
+        )
+          throw new OfflineError(
+            'ACK_REVIEW_REQUIRED',
+            'The account or server changed while saving. Check the saved outcome before trying again.',
+          );
+      }
       for (const record of records) await this.applyConfirmed(record, tx);
     });
   }

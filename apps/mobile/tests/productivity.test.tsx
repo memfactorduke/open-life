@@ -113,8 +113,9 @@ it('keeps steps dormant in Planned and sends required human work with parent rev
   });
   await render(<Steps task={task} client={client(request)} onTask={jest.fn()} />);
   await screen.findByText('Waiting for deliberate release to Next · Assigned: Unassigned');
+  await fireEvent.press(screen.getByRole('button', { name: 'Options for Fictional prerequisite' }));
   expect(
-    screen.getByRole('button', { name: 'Complete step Fictional prerequisite' }),
+    screen.getByRole('button', { name: 'Mark complete: Fictional prerequisite' }),
   ).toBeDisabled();
   await fireEvent.press(screen.getByRole('button', { name: 'Create a step' }));
   await fireEvent.changeText(screen.getByLabelText('Step title'), 'Fictional branch');
@@ -192,9 +193,55 @@ it('retains task drafts when details close and reopen within the task panel', as
     return { tasks: [task], nextCursor: null };
   });
   await render(<Tasks client={client(request)} preferences={defaultPreferences} />);
-  await fireEvent.press(await screen.findByRole('button', { name: 'Open Fictional outcome' }));
+  await fireEvent.press(await screen.findByRole('button', { name: 'Fictional outcome' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Edit task' }));
   await fireEvent.changeText(screen.getByLabelText('Notes'), 'Retained unsaved note');
   await fireEvent.press(screen.getByRole('button', { name: 'Close task details' }));
-  await fireEvent.press(screen.getByRole('button', { name: 'Open Fictional outcome' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Fictional outcome' }));
   expect(screen.getByLabelText('Notes').props.value).toBe('Retained unsaved note');
+});
+
+it('opens ordinary tasks for reading and action without starting agent setup', async () => {
+  const task = fixture();
+  const request = jest.fn(async (path) => {
+    if (path === '/api/boards') return { boards: [] };
+    if (path === '/api/projects') return { projects: [] };
+    if (path.endsWith('/history')) return { events: [], nextCursor: null };
+    if (path.endsWith('/steps')) return { task, entries: [], nextActions: [], canComplete: true };
+    return { tasks: [task], nextCursor: null };
+  });
+  await render(<Tasks client={client(request)} />);
+  expect(screen.queryByRole('radio', { name: 'Completed' })).toBeNull();
+  await fireEvent.press(await screen.findByRole('button', { name: 'Fictional outcome' }));
+  expect(screen.queryByLabelText('Title')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Release to Next' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Close task details' })).toBeEnabled();
+  await waitFor(() =>
+    expect(request.mock.calls.some(([path]) => path.endsWith('/steps'))).toBe(true),
+  );
+  expect(
+    request.mock.calls.some(([path]) => path.includes('skills') || path.includes('workflow')),
+  ).toBe(false);
+  await fireEvent.press(screen.getByRole('button', { name: 'Edit task' }));
+  expect(screen.getByLabelText('Title').props.value).toBe('Fictional outcome');
+});
+
+it('keeps a released outcome incomplete while required work remains', async () => {
+  const task = fixture();
+  task.phase = 'next';
+  const request = jest.fn(async (path) => {
+    if (path === '/api/boards') return { boards: [] };
+    if (path === '/api/projects') return { projects: [] };
+    if (path.endsWith('/history')) return { events: [], nextCursor: null };
+    if (path.endsWith('/steps')) return { task, entries: [], nextActions: [], canComplete: false };
+    return { tasks: [task], nextCursor: null };
+  });
+  await render(<Tasks client={client(request)} />);
+  await fireEvent.press(screen.getByRole('radio', { name: 'Next' }));
+  await fireEvent.press(await screen.findByRole('button', { name: 'Fictional outcome' }));
+  await waitFor(() =>
+    expect(request.mock.calls.some(([path]) => path.endsWith('/steps'))).toBe(true),
+  );
+  expect(screen.queryByRole('button', { name: 'Complete task' })).toBeNull();
+  expect(request.mock.calls.every((call) => call.length === 1)).toBe(true);
 });

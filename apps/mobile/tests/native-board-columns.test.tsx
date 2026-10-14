@@ -85,6 +85,9 @@ beforeEach(() => {
 it('renders two configured columns in the same phase with distinct tasks and stable IDs', async () => {
   const { client, request } = setup();
   await render(<Tasks client={client} />);
+  await fireEvent(screen.getByTestId('tasks-container'), 'layout', {
+    nativeEvent: { layout: { width: jest.mocked(useWindowDimensions)().width } },
+  });
   await selectBoard();
   const ideas = within(screen.getByTestId(`task-group-${uuid(2)}`));
   const research = within(screen.getByTestId(`task-group-${uuid(3)}`));
@@ -101,6 +104,9 @@ it('offers actual columns on a phone through accessible checked radio choices', 
     .mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
   const { client, request } = setup();
   await render(<Tasks client={client} />);
+  await fireEvent(screen.getByTestId('tasks-container'), 'layout', {
+    nativeEvent: { layout: { width: jest.mocked(useWindowDimensions)().width } },
+  });
   await selectBoard();
   expect(screen.getByRole('radio', { name: 'Ideas' }).props.accessibilityState.checked).toBe(true);
   await fireEvent.press(screen.getByRole('radio', { name: 'Research' }));
@@ -118,6 +124,9 @@ it('keeps selection and task phase when a column is renamed to an execution labe
     .mockReturnValue({ width: 390, height: 844, scale: 1, fontScale: 1 });
   const initial = setup();
   const rendered = await render(<Tasks client={initial.client} />);
+  await fireEvent(screen.getByTestId('tasks-container'), 'layout', {
+    nativeEvent: { layout: { width: 390 } },
+  });
   await selectBoard();
   await fireEvent.press(screen.getByRole('radio', { name: 'Research' }));
   const renamed = boardFixture();
@@ -143,6 +152,9 @@ it('keeps selection and task phase when a column is renamed to an execution labe
 it('keeps default phase groups and valid unassigned work findable in All boards', async () => {
   const { client } = setup();
   await render(<Tasks client={client} />);
+  await fireEvent(screen.getByTestId('tasks-container'), 'layout', {
+    nativeEvent: { layout: { width: jest.mocked(useWindowDimensions)().width } },
+  });
   await screen.findByText('Fictional unassigned');
   expect(
     within(screen.getByTestId('task-group-planned')).getByText('Fictional unassigned'),
@@ -157,8 +169,24 @@ it('keeps stale unmatched column records reachable without merging them into a c
   const unmatched = task(15, 'Fictional stale column', uuid(99));
   const { client } = setup(boardFixture(), [...tasks, unmatched]);
   await render(<Tasks client={client} />);
+  await fireEvent(screen.getByTestId('tasks-container'), 'layout', {
+    nativeEvent: { layout: { width: jest.mocked(useWindowDimensions)().width } },
+  });
   await selectBoard();
   expect(
     within(screen.getByTestId('task-group-unassigned')).getByText('Fictional stale column'),
   ).toBeTruthy();
+});
+
+it('uses available pane width when a large window leaves a compact task area', async () => {
+  const { client } = setup();
+  await render(<Tasks client={client} />);
+  await fireEvent(screen.getByTestId('tasks-container'), 'layout', {
+    nativeEvent: { layout: { width: 650 } },
+  });
+  await screen.findByText('Fictional idea');
+  expect(screen.queryByTestId('task-group-next')).toBeNull();
+  await fireEvent.press(screen.getByRole('radio', { name: 'Next' }));
+  expect(screen.getByText('Fictional next')).toBeTruthy();
+  expect(screen.queryByText('Fictional idea')).toBeNull();
 });

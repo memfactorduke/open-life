@@ -9,6 +9,7 @@ import {
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   SessionCommandSchema,
+  SessionTimerSchema,
   defaultPreferences,
   type WorkoutSession,
   type SessionCommand,
@@ -33,6 +34,7 @@ const render = (element: React.ReactElement) =>
 jest.mock('better-auth/react', () => ({ createAuthClient: jest.fn() }));
 jest.mock('@better-auth/expo/client', () => ({ expoClient: jest.fn() }));
 jest.mock('../../timers', () => ({
+  deviceTimerRemaining: jest.requireActual('../../timers').deviceTimerRemaining,
   deviceIdentity: async () => 'test-device',
   reconcileTimerAlert: async () => '',
   readTimerPreferences: async () => ({ alerts: false, sound: false, haptics: false }),
@@ -162,13 +164,14 @@ it('retains per-exercise inputs, records only applicable actuals in canonical un
   await fireEvent.changeText(screen.getByLabelText('Duration (seconds)'), '30');
   await fireEvent.press(screen.getByRole('button', { name: 'Fictional press · planned · 0 sets' }));
   expect(screen.getByLabelText('Repetitions').props.value).toBe('6');
-  await fireEvent.press(screen.getByRole('button', { name: 'Record set' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Log set' }));
   await waitFor(() => expect(commands).toHaveLength(1));
   expect(commands[0]).toMatchObject({
     type: 'session.record-set',
     measurements: { mode: 'weighted', reps: 6, loadKg: 45.359237 },
     expectedRevision: 1,
   });
+  await fireEvent.press(screen.getByRole('button', { name: 'Planned targets' }));
   await screen.findByText('Planned 1: working · 8 reps · 88.18 lb');
   expect(screen.getByLabelText('Repetitions').props.value).toBe('');
 });
@@ -177,7 +180,7 @@ it('retries the identical operation after an uncertain response and clears ackno
   await render(<Sessions client={client} preferences={defaultPreferences()} />);
   await screen.findByLabelText('Repetitions');
   await fireEvent.changeText(screen.getByLabelText('Repetitions'), '5');
-  await fireEvent.press(screen.getByRole('button', { name: 'Record set' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Log set' }));
   await screen.findByText('Connection interrupted.');
   expect(screen.getByLabelText('Repetitions').props.value).toBe('5');
   await fireEvent.press(screen.getByRole('button', { name: 'Retry unchanged request' }));
@@ -193,7 +196,7 @@ it('requires explicit finish confirmation and never converts unperformed targets
   expect(commands).toHaveLength(0);
   await fireEvent.press(screen.getByRole('button', { name: 'Confirm finish' }));
   await waitFor(() => expect(commands[0]?.type).toBe('session.finish'));
-  await screen.findByText('completed · Saved revision 2');
+  await screen.findByText('Completed workout');
   expect(screen.queryByText(/^Actual 1:/)).toBeNull();
 });
 it('keeps rejected input available and offers explicit latest-server review', async () => {
@@ -201,7 +204,7 @@ it('keeps rejected input available and offers explicit latest-server review', as
   await render(<Sessions client={client} preferences={defaultPreferences()} />);
   await screen.findByLabelText('Repetitions');
   await fireEvent.changeText(screen.getByLabelText('Repetitions'), '7');
-  await fireEvent.press(screen.getByRole('button', { name: 'Record set' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Log set' }));
   await screen.findByText('Session changed; review latest.');
   await fireEvent.press(screen.getByRole('button', { name: 'Review latest saved session' }));
   await screen.findByText(/Latest saved revision 1 loaded/);
@@ -239,6 +242,8 @@ it('finds comparable actuals beyond the initial session list and shows partial a
     return original(path, body);
   });
   await render(<Sessions client={client} preferences={defaultPreferences()} />);
+  await screen.findByRole('button', { name: 'Previous sets' });
+  await fireEvent.press(screen.getByRole('button', { name: 'Previous sets' }));
   await screen.findByText(/Previous.*9 reps.*55 kg.*corrected.*Partial/);
   expect(request).toHaveBeenCalledWith(
     expect.stringContaining(`mode=weighted&excludeSessionId=${id(1)}`),
@@ -316,7 +321,8 @@ it('shows the correction reason, actor type and saved historical results', async
       : original(path, body),
   );
   await render(<Sessions client={client} preferences={defaultPreferences()} />);
-  await screen.findByRole('button', { name: 'View correction history' });
+  await screen.findByRole('button', { name: 'Workout details' });
+  await fireEvent.press(screen.getByRole('button', { name: 'Workout details' }));
   await fireEvent.press(screen.getByRole('button', { name: 'View correction history' }));
   await screen.findByText('Reason: Corrected transcription of reported load');
   expect(screen.getByText(/Agent fictional-agent/)).toBeTruthy();
@@ -333,7 +339,7 @@ it('retains entered units when preferences change before the actual set is submi
     <Sessions client={client} preferences={{ ...defaultPreferences(), weightUnit: 'kg' }} />,
   );
   expect(screen.getByLabelText('Load (lb)').props.value).toBe('100');
-  await fireEvent.press(screen.getByRole('button', { name: 'Record set' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Log set' }));
   await waitFor(() => expect(commands[0]).toMatchObject({ measurements: { loadKg: 45.359237 } }));
 });
 
@@ -459,6 +465,8 @@ it('canceling a saved timer ignores invalid edited duration text', async () => {
       : original(path, body),
   );
   await render(<Sessions client={client} preferences={defaultPreferences()} />);
+  await screen.findByRole('button', { name: 'Timer options' });
+  await fireEvent.press(screen.getByRole('button', { name: 'Timer options' }));
   await screen.findByLabelText('Timer seconds');
   await fireEvent.changeText(screen.getByLabelText('Timer seconds'), 'invalid');
   await fireEvent.press(screen.getByRole('button', { name: 'Cancel timer' }));
@@ -496,7 +504,8 @@ it('keeps recorded sets on a removed exercise correctable without allowing new a
   await render(<Sessions client={client} preferences={defaultPreferences()} />);
   await screen.findByRole('button', { name: 'Fictional press · removed · 1 sets' });
   await fireEvent.press(screen.getByRole('button', { name: 'Fictional press · removed · 1 sets' }));
-  expect(screen.queryByRole('button', { name: 'Record set' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Log set' })).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Set 1 actions' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Correct actual set 1' }));
   await fireEvent.changeText(screen.getByLabelText('Repetitions'), '7');
   await fireEvent.changeText(
@@ -517,12 +526,259 @@ it('recording an actual set preserves an unsubmitted exercise note', async () =>
   const { client } = fake();
   await render(<Sessions client={client} preferences={defaultPreferences()} />);
   await screen.findByLabelText('Repetitions');
+  await fireEvent.press(screen.getByRole('button', { name: 'Exercise options' }));
   await fireEvent.changeText(
     screen.getByLabelText('Exercise session notes'),
     'Adjust grip next set',
   );
   await fireEvent.changeText(screen.getByLabelText('Repetitions'), '6');
-  await fireEvent.press(screen.getByRole('button', { name: 'Record set' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Log set' }));
   await waitFor(() => expect(screen.getByLabelText('Repetitions').props.value).toBe(''));
   expect(screen.getByLabelText('Exercise session notes').props.value).toBe('Adjust grip next set');
+});
+
+it('keeps the logger focused and exposes less frequent controls through disclosures', async () => {
+  const { client } = fake();
+  await render(<Sessions client={client} preferences={defaultPreferences()} />);
+  await screen.findByLabelText('Repetitions');
+  expect(screen.getByRole('button', { name: 'Log set' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Finish workout' })).toBeTruthy();
+  expect(screen.queryByLabelText('Actual set notes')).toBeNull();
+  expect(screen.queryByLabelText('Timer seconds')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Abandon partial workout' })).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Set options' }));
+  expect(screen.getByLabelText('Actual set notes')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Workout options' }));
+  expect(screen.getByRole('button', { name: 'Abandon partial workout' })).toBeTruthy();
+});
+
+it.each([false, true])(
+  'reads current routine data after logger mount, new routine=%s, and starts once',
+  async (newRoutine) => {
+    const { client, request, commands } = fake();
+    const original = request.getMockImplementation()!;
+    const routine = {
+      id: id(90),
+      revision: 4,
+      name: 'Fictional routine',
+      notes: '',
+      items: fixture().items.map((item) => ({
+        id: item.id,
+        exerciseId: item.exerciseId,
+        snapshot: item.snapshot,
+        targets: item.targets,
+        notes: item.notes,
+      })),
+      archivedAt: null,
+      createdAt: instant,
+      updatedAt: instant,
+    };
+    request.mockImplementation(async (path: string, body?: unknown) => {
+      if (path === '/api/sessions' && !body) return { sessions: [], nextCursor: null };
+      if (path === '/api/routines') return { routines: newRoutine ? [] : [routine] };
+      if (path === `/api/routines/${routine.id}`)
+        return { routine: { ...routine, revision: 5, name: 'Updated routine' } };
+      return original(path, body);
+    });
+    const focusTarget = { action: 'create' as const, routineId: routine.id };
+    const view = await render(<Sessions client={client} preferences={defaultPreferences()} />);
+    await waitFor(() => expect(view.getByRole('button', { name: 'Start workout' })).toBeTruthy());
+    await view.rerender(
+      <Sessions client={client} preferences={defaultPreferences()} focusTarget={focusTarget} />,
+    );
+    await waitFor(() => expect(commands).toHaveLength(1));
+    expect(commands[0]).toMatchObject({
+      type: 'session.start',
+      routineId: routine.id,
+      expectedRoutineRevision: 5,
+      name: 'Updated routine',
+      itemIdentities: [{ routineItemId: id(2) }, { routineItemId: id(5) }],
+    });
+    await view.rerender(
+      <Sessions client={client} preferences={defaultPreferences()} focusTarget={focusTarget} />,
+    );
+    expect(commands).toHaveLength(1);
+  },
+);
+
+it('opens a completed session without placing a new-workout form above its results', async () => {
+  const { client, request } = fake();
+  const original = request.getMockImplementation()!;
+  const session = { ...fixture(), status: 'completed', finishedAt: instant };
+  request.mockImplementation(async (path: string, body?: unknown) => {
+    if (path === '/api/sessions' && !body) return { sessions: [session], nextCursor: null };
+    if (path === `/api/sessions/${session.id}` && !body) return { session };
+    return original(path, body);
+  });
+  await render(
+    <Sessions
+      client={client}
+      preferences={defaultPreferences()}
+      focusTarget={{ id: session.id }}
+    />,
+  );
+  // Targeted reads return the completed snapshot too.
+  await fireEvent.press(await screen.findByRole('button', { name: 'Workout history' }));
+  await fireEvent.press(await screen.findByRole('button', { name: /Fictional training/ }));
+  expect(screen.queryByRole('button', { name: 'Start workout' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Log set' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Start another workout' })).toBeTruthy();
+});
+
+describe('timer display without timer mutations', () => {
+  const timer = (overrides = {}) =>
+    SessionTimerSchema.parse({
+      id: id(75),
+      kind: 'rest' as const,
+      state: 'running' as const,
+      durationSeconds: 90,
+      remainingSeconds: 90,
+      deadline: '2026-10-12T12:01:30Z',
+      updatedAt: instant,
+      clockBasis: 'server' as const,
+      initiatingDeviceId: 'test-device',
+      itemId: null,
+      ...overrides,
+    });
+  it.each([
+    ['rest expiry', { deadline: '2026-10-12T11:59:59Z' }, true, 'Rest finished', false],
+    [
+      'exercise expiry',
+      { kind: 'exercise', deadline: '2026-10-12T11:59:59Z' },
+      true,
+      'Exercise finished',
+      false,
+    ],
+    [
+      'unknown clock and saved zero',
+      { remainingSeconds: 0 },
+      false,
+      'Rest · Connect to refresh timer',
+      true,
+    ],
+    [
+      'paused without clock',
+      { state: 'paused', deadline: null, remainingSeconds: 35 },
+      false,
+      'Rest · 35s · paused',
+      true,
+    ],
+    [
+      'paused zero without clock',
+      { state: 'paused', deadline: null, remainingSeconds: 0 },
+      false,
+      'Rest finished',
+      false,
+    ],
+    ['live countdown', {}, true, 'Rest · 90s · running', true],
+  ])(
+    '%s uses countdown meaning without sending a command',
+    async (_name, overrides, known, label, controls) => {
+      const { client, request, commands } = fake();
+      const original = request.getMockImplementation()!;
+      const session = { ...fixture(), timer: timer(overrides) };
+      const before = JSON.stringify(session);
+      request.mockImplementation(async (path, body) => {
+        if (path === '/api/sessions/clock') {
+          if (!known) throw new Error('No clock connection');
+          return { now: instant };
+        }
+        if (path === '/api/sessions' && !body) return { sessions: [session], nextCursor: null };
+        return original(path, body);
+      });
+      await render(<Sessions client={client} preferences={defaultPreferences()} />);
+      await waitFor(() => expect(screen.getByText(label as string)).toBeTruthy());
+      expect(
+        screen.getByText(session.timer.kind === 'exercise' ? 'Exercise timer' : 'Rest timer'),
+      ).toBeTruthy();
+      expect(
+        !!screen.queryByRole('button', {
+          name: session.timer.state === 'paused' ? 'Resume timer' : 'Pause timer',
+        }),
+      ).toBe(controls);
+      expect(screen.getByRole('button', { name: 'Cancel timer' })).toBeTruthy();
+      await fireEvent.press(screen.getByRole('button', { name: 'Timer options' }));
+      expect(screen.getByRole('button', { name: 'Reset timer' })).toBeTruthy();
+      expect(commands).toEqual([]);
+      expect(JSON.stringify(session)).toBe(before);
+    },
+  );
+  it('updates a live countdown through expiry without timer commands', async () => {
+    const { client, request, commands } = fake();
+    const original = request.getMockImplementation()!;
+    const session = {
+      ...fixture(),
+      timer: timer({ remainingSeconds: 2, deadline: '2026-10-12T12:00:02Z' }),
+    };
+    request.mockImplementation(async (path, body) =>
+      path === '/api/sessions' && !body
+        ? { sessions: [session], nextCursor: null }
+        : original(path, body),
+    );
+    await render(<Sessions client={client} preferences={defaultPreferences()} />);
+    await waitFor(() => expect(screen.getByText('Rest · 2s · running')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Rest finished')).toBeTruthy(), { timeout: 4000 });
+    expect(screen.queryByRole('button', { name: 'Pause timer' })).toBeNull();
+    expect(commands).toEqual([]);
+    expect(session.timer.state).toBe('running');
+    expect(session.timer.deadline).toBe('2026-10-12T12:00:02Z');
+  });
+  it.each([false, true])(
+    'restores an offline timer, elapsed=%s, with discoverable retained status',
+    async (elapsed) => {
+      const { client, request, commands } = fake();
+      const original = request.getMockImplementation()!;
+      const session = { ...fixture(), timer: timer() };
+      const deviceTimer = {
+        id: id(76),
+        sessionId: session.id,
+        kind: 'rest',
+        duration: 90,
+        remaining: 90,
+        deadline: Date.now() + (elapsed ? -5000 : 60000),
+        status: 'running',
+      };
+      const setDraft = jest.fn(async (key: string, value: Record<string, unknown>) => {
+        void key;
+        void value;
+      });
+      Object.assign(client, {
+        offline: {
+          subscribe: () => () => {},
+          snapshot: () => 0,
+          store: {
+            getDraft: async () => ({
+              drafts: {},
+              selected: id(2),
+              notes: null,
+              name: '',
+              rest: '90',
+              autoRest: false,
+              deviceTimer,
+            }),
+            setDraft,
+          },
+        },
+      });
+      request.mockImplementation(async (path, body) => {
+        if (path === '/api/sessions' && !body) return { sessions: [session], nextCursor: null };
+        return original(path, body);
+      });
+      await render(<Sessions client={client} preferences={defaultPreferences()} />);
+      const label = elapsed
+        ? 'Timer started offline · Rest finished'
+        : /Timer started offline · Rest · (59|60)s · running/;
+      await waitFor(() => expect(screen.getByRole('button', { name: label })).toBeTruthy());
+      expect(screen.getByText('Rest · 90s · running')).toBeTruthy();
+      await fireEvent.press(screen.getByRole('button', { name: label }));
+      expect(!!screen.queryByRole('button', { name: 'Pause device timer' })).toBe(!elapsed);
+      expect(screen.getByRole('button', { name: 'Cancel device timer' })).toBeTruthy();
+      expect(commands).toEqual([]);
+      expect(
+        setDraft.mock.calls.every(
+          (call) => JSON.stringify(call[1].deviceTimer) === JSON.stringify(deviceTimer),
+        ),
+      ).toBe(true);
+    },
+  );
 });

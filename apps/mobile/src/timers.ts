@@ -63,12 +63,15 @@ async function reconcile({
   const name = key(installation, 'notification');
   const prior = await SecureStore.getItemAsync(name);
   const seconds = timer?.deadline ? Math.ceil((Date.parse(timer.deadline) - serverNow) / 1000) : 0;
+  const clockVerified = Number.isFinite(serverNow);
   const eligible =
     enabled &&
     session?.status === 'active' &&
     timer?.state === 'running' &&
     timer.initiatingDeviceId === deviceId &&
-    seconds > 0;
+    !!timer.deadline &&
+    Number.isFinite(Date.parse(timer.deadline)) &&
+    (!clockVerified || seconds > 0);
   const signature = eligible ? `${timer.id}:${timer.deadline}:${sound}` : null;
   let stored: { id: string; signature: string } | null = null;
   try {
@@ -98,6 +101,8 @@ async function reconcile({
   const permission = await Notifications.getPermissionsAsync();
   if (!permission.granted)
     return 'Notifications are not allowed. The saved timer still works in the app.';
+  if (!clockVerified)
+    return 'Reconnect before scheduling a new timer alert. The saved timer remains in the app.';
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Mem’s Life',
@@ -123,7 +128,8 @@ async function reconcile({
 /** Call only from an explicit owner enable action, never startup or foreground reconciliation. */
 export async function requestTimerAlertPermission(): Promise<string> {
   let permission = await Notifications.getPermissionsAsync();
-  if (!permission.granted) permission = await Notifications.requestPermissionsAsync();
+  if (!permission.granted && permission.canAskAgain !== false)
+    permission = await Notifications.requestPermissionsAsync();
   return permission.granted
     ? ''
     : 'Notifications are not allowed. The saved timer still works in the app.';

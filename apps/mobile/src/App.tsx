@@ -10,7 +10,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  Text,
   useColorScheme,
   useWindowDimensions,
   View,
@@ -54,6 +53,7 @@ import { createOfflineClient } from './offline-client';
 import { SyncStatus } from './SyncStatus';
 import { Today, type TodayTarget } from './features/Today';
 import {
+  ScalingText as Text,
   Action,
   Body,
   Card,
@@ -62,6 +62,8 @@ import {
   Field,
   Heading,
   light,
+  Disclosure,
+  ListRow,
   ThemeContext,
   usePalette,
 } from './ui';
@@ -262,32 +264,60 @@ export function SignIn({
   onSignedIn: (client: InstallationClient) => Promise<void>;
 }) {
   const palette = usePalette();
-  const [address, setAddress] = useState(installation ?? process.env.EXPO_PUBLIC_API_URL ?? '');
+  const initialAddress = installation ?? process.env.EXPO_PUBLIC_API_URL ?? '';
+  const [address, setAddress] = useState(initialAddress);
+  const [step, setStep] = useState<'address' | 'credentials'>(() => {
+    try {
+      return normalizeInstallationUrl(initialAddress) ? 'credentials' : 'address';
+    } catch {
+      return 'address';
+    }
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(message);
   const [busy, setBusy] = useState(false);
-
+  const working = useRef(false);
+  async function continueToSignIn() {
+    if (working.current) return;
+    working.current = true;
+    setBusy(true);
+    setError(undefined);
+    try {
+      const url = normalizeInstallationUrl(address);
+      const current = createInstallationClient(url);
+      const health = (await current.request('/api/health')) as { status?: string };
+      if (health.status !== 'ok') throw new Error('This address is not a Mem’s Life space.');
+      setAddress(url);
+      setStep('credentials');
+    } catch (caught) {
+      setError(messageOf(caught));
+    } finally {
+      working.current = false;
+      setBusy(false);
+    }
+  }
   async function signIn() {
+    if (working.current) return;
+    working.current = true;
     setError(undefined);
     setBusy(true);
     try {
       const url = normalizeInstallationUrl(address);
-      if (!email.trim() || !password) throw new Error('Enter your owner email and password.');
+      if (!email.trim() || !password) throw new Error('Enter your email and password.');
       const current = createInstallationClient(url);
       const result = await current.auth.signIn.email({ email: email.trim(), password });
-      if (result.error)
-        throw new Error(result.error.message ?? 'Sign-in failed. Check your email and password.');
+      if (result.error) throw new Error(result.error.message ?? 'Check your email and password.');
       await SecureStore.setItemAsync(installationKey, url);
       setPassword('');
       await onSignedIn(current);
     } catch (caught) {
       setError(messageOf(caught));
     } finally {
+      working.current = false;
       setBusy(false);
     }
   }
-
   return (
     <KeyboardAvoidingView
       style={layout.flex}
@@ -295,55 +325,84 @@ export function SignIn({
     >
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={layout.signInScroll}>
         <View style={layout.signIn}>
-          <Text style={[layout.wordmark, { color: palette.accent }]}>MEM’S LIFE</Text>
-          <Heading eyebrow="Your private installation">A place for your day.</Heading>
-          <Body>
-            Tasks, training, and food. Sign in to the account your installation owner has set up.
-          </Body>
-          <View style={layout.space} />
-          <Card>
-            <Field
-              label="Installation address"
-              value={address}
-              onChangeText={setAddress}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              placeholder="https://life.example.com"
-              editable={!busy}
-            />
-            <Field
-              label="Owner email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="username"
-              autoComplete="email"
-              editable={!busy}
-            />
-            <Field
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              textContentType="password"
-              autoComplete="current-password"
-              editable={!busy}
-              onSubmitEditing={() => {
-                if (!busy) void signIn();
-              }}
-              returnKeyType="go"
-            />
-            {error && <Body error>{error}</Body>}
-            <Action title="Sign in" onPress={() => void signIn()} busy={busy} />
-          </Card>
-          <View style={layout.space} />
-          <Body>
-            Accounts are provisioned privately. To create or recover the owner account, use your
-            installation’s setup instructions.
-          </Body>
+          <Text style={[layout.wordmark, { color: palette.text }]}>Mem’s Life</Text>
+          <Heading>{step === 'address' ? 'Connect your space' : 'Sign in'}</Heading>
+          {step === 'address' ? (
+            <>
+              <Field
+                label="Space address"
+                value={address}
+                onChangeText={(value) => {
+                  setAddress(value);
+                  setError(undefined);
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                placeholder="https://life.example.com"
+                editable={!busy}
+                returnKeyType="next"
+                onSubmitEditing={() => void continueToSignIn()}
+              />
+              {error && <Body error>{error}</Body>}
+              <Action
+                title="Continue"
+                onPress={() => void continueToSignIn()}
+                busy={busy}
+                disabled={!address.trim()}
+              />
+            </>
+          ) : (
+            <>
+              <View style={layout.serverRow}>
+                <Text style={{ color: palette.muted, flex: 1 }} numberOfLines={1}>
+                  {new URL(normalizeInstallationUrl(address)).host}
+                </Text>
+                <Action
+                  title="Change space"
+                  compact
+                  variant="quiet"
+                  disabled={busy}
+                  onPress={() => {
+                    setPassword('');
+                    setStep('address');
+                    setError(undefined);
+                  }}
+                />
+              </View>
+              <Field
+                label="Email address"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="username"
+                autoComplete="email"
+                editable={!busy}
+                returnKeyType="next"
+              />
+              <Field
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                textContentType="password"
+                autoComplete="current-password"
+                editable={!busy}
+                onSubmitEditing={() => void signIn()}
+                returnKeyType="go"
+              />
+              {error && <Body error>{error}</Body>}
+              <Action title="Sign in" onPress={() => void signIn()} busy={busy} />
+            </>
+          )}
+          <Disclosure title="Need access?">
+            <Body>
+              Use the account created when this space was set up. Contact its owner for access or
+              password recovery.
+            </Body>
+          </Disclosure>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -372,8 +431,9 @@ export function Shell({
   useEffect(() => {
     setVisited((previous) => (previous.includes(area) ? previous : [...previous, area]));
   }, [area]);
-  const [workoutView, setWorkoutView] = useState<'library' | 'train' | 'whoop'>('library');
+  const [workoutView, setWorkoutView] = useState<'library' | 'train'>('train');
   const [focusTarget, setFocusTarget] = useState<TodayTarget>();
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
   const contentScroll = useRef<ScrollView>(null);
   const previousSelection = useRef({ area, workoutView });
   const handledNotifications = useRef(new Set<string>());
@@ -469,9 +529,17 @@ export function Shell({
   );
   const { width, fontScale } = useWindowDimensions();
   const largeText = fontScale >= 1.5;
-  const wide = width >= 760 && !largeText;
+  const wide = width >= 1024 && !largeText;
   const navigation = (
-    <AreaNavigation area={area} onSelect={setArea} wide={wide} largeText={largeText} />
+    <AreaNavigation
+      area={area}
+      onSelect={(next) => {
+        if (next === 'Settings') setSettingsSection(null);
+        setArea(next);
+      }}
+      wide={wide}
+      largeText={largeText}
+    />
   );
   return (
     <View style={[layout.flex, wide && layout.row]}>
@@ -486,29 +554,47 @@ export function Shell({
           contentContainerStyle={[layout.content, wide && layout.wideContent]}
         >
           <View style={layout.contentInner}>
-            {session.authentication === 'offline' && (
-              <Body>
-                Working from this device’s saved records. Your server session has not been verified
-                while offline.
-              </Body>
-            )}
-            <SyncStatus client={client} />
-            {area === 'Settings' ? (
-              <Settings
-                client={client}
-                session={session}
-                draft={draft}
-                onDraft={onDraft}
-                onSaved={onSaved}
-                onExpired={onExpired}
-                onSignedOut={onSignedOut}
-              />
-            ) : area === 'Workouts' ? (
-              <View>
-                <Action title="Library" onPress={() => setWorkoutView('library')} />
-                <Action title="Train" onPress={() => setWorkoutView('train')} />
-                <Action title="WHOOP" onPress={() => setWorkoutView('whoop')} />
+            {session.authentication === 'offline' && <Body>Offline · saved on this device</Body>}
+            <SyncStatus
+              client={client}
+              compact
+              onOpen={() => {
+                setSettingsSection('Sync & recovery');
+                setArea('Settings');
+              }}
+            />
+            {area !== 'Today' && <Heading>{area}</Heading>}
+            {(area === 'Settings' || visited.includes('Settings')) && (
+              <View
+                style={{ display: area === 'Settings' ? 'flex' : 'none' }}
+                accessibilityElementsHidden={area !== 'Settings'}
+                importantForAccessibility={area === 'Settings' ? 'auto' : 'no-hide-descendants'}
+              >
+                <Settings
+                  client={client}
+                  session={session}
+                  initialSection={settingsSection}
+                  onSectionChange={setSettingsSection}
+                  active={area === 'Settings'}
+                  draft={draft}
+                  onDraft={onDraft}
+                  onSaved={onSaved}
+                  onExpired={onExpired}
+                  onSignedOut={onSignedOut}
+                />
               </View>
+            )}
+            {area === 'Workouts' ? (
+              <Choice
+                label="Workout view"
+                showLabel={false}
+                value={workoutView === 'library' ? 'library' : 'train'}
+                options={[
+                  { value: 'train', label: 'Workout' },
+                  { value: 'library', label: 'Routines' },
+                ]}
+                onChange={setWorkoutView}
+              />
             ) : null}
             {(area === 'Tasks' || visited.includes('Tasks')) && (
               <View style={{ display: area === 'Tasks' ? 'flex' : 'none' }}>
@@ -546,27 +632,35 @@ export function Shell({
                 }}
               />
             </View>
-            <View
-              style={{
-                display: area === 'Workouts' && workoutView === 'library' ? 'flex' : 'none',
-              }}
-            >
-              <Workouts client={client} preferences={session.preferences.value} />
-            </View>
-            <View
-              style={{ display: area === 'Workouts' && workoutView === 'train' ? 'flex' : 'none' }}
-            >
-              <Sessions
-                client={client}
-                preferences={session.preferences.value}
-                focusTarget={focusTarget?.kind === 'session' ? focusTarget : undefined}
-              />
-            </View>
-            <View
-              style={{ display: area === 'Workouts' && workoutView === 'whoop' ? 'flex' : 'none' }}
-            >
-              <Whoop client={client} />
-            </View>
+            {visited.includes('Workouts') && (
+              <View
+                style={{
+                  display: area === 'Workouts' && workoutView === 'library' ? 'flex' : 'none',
+                }}
+              >
+                <Workouts
+                  client={client}
+                  preferences={session.preferences.value}
+                  onStartRoutine={(routineId) => {
+                    setWorkoutView('train');
+                    setFocusTarget({ kind: 'session', action: 'create', routineId });
+                  }}
+                />
+              </View>
+            )}
+            {visited.includes('Workouts') && (
+              <View
+                style={{
+                  display: area === 'Workouts' && workoutView === 'train' ? 'flex' : 'none',
+                }}
+              >
+                <Sessions
+                  client={client}
+                  preferences={session.preferences.value}
+                  focusTarget={focusTarget?.kind === 'session' ? focusTarget : undefined}
+                />
+              </View>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -683,10 +777,14 @@ export function AreaNavigation({
   );
 }
 
+type SettingsSection = 'Profile' | 'Notifications' | 'Connections' | 'Account' | 'Sync & recovery';
 export function Settings({
   client,
   session,
   draft: retainedDraft,
+  initialSection = null,
+  onSectionChange,
+  active = true,
   onDraft,
   onSaved,
   onExpired,
@@ -695,12 +793,32 @@ export function Settings({
   client: InstallationClient;
   session: Session;
   draft?: Preferences;
+  initialSection?: SettingsSection | null;
+  onSectionChange?: (section: SettingsSection | null) => void;
+  active?: boolean;
   onDraft?: (value: Preferences) => void;
   onSaved: (preferences: PreferencesRecord) => void;
   onExpired: (message: string) => void;
   onSignedOut: () => void;
 }) {
   const palette = usePalette();
+  const [section, setSection] = useState<SettingsSection | null>(initialSection);
+  useEffect(() => {
+    setSection(initialSection);
+  }, [initialSection]);
+  const [visitedSections, setVisitedSections] = useState<Set<SettingsSection>>(
+    () => new Set(initialSection ? [initialSection] : []),
+  );
+  useEffect(() => {
+    if (section)
+      setVisitedSections((previous) =>
+        previous.has(section) ? previous : new Set([...previous, section]),
+      );
+  }, [section]);
+  function selectSection(next: SettingsSection | null) {
+    setSection(next);
+    onSectionChange?.(next);
+  }
   const [draft, setDraft] = useState<Preferences>(retainedDraft ?? session.preferences.value);
   const [revision, setRevision] = useState(session.preferences.revision);
   const [pending, setPending] = useState<PreferencesCommand | null>(null);
@@ -861,105 +979,153 @@ export function Settings({
   }
   return (
     <>
-      <Heading eyebrow="Make it yours">Settings</Heading>
-      <Card>
-        <Text style={[layout.cardTitle, { color: palette.text }]}>Profile & preferences</Text>
-        <Field
-          label="Display name"
-          value={draft.displayName}
-          onChangeText={(value) => change('displayName', value)}
-          editable={!busy}
-          autoComplete="name"
-        />
-        <Field
-          label="Time zone"
-          value={draft.timeZone}
-          onChangeText={(value) => change('timeZone', value)}
-          editable={!busy}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="America/New_York"
-        />
-        <Choice
-          disabled={busy}
-          label="Weight"
-          value={draft.weightUnit}
-          options={[
-            { value: 'kg', label: 'Kilograms' },
-            { value: 'lb', label: 'Pounds' },
-          ]}
-          onChange={(value) => change('weightUnit', value)}
-        />
-        <Choice
-          disabled={busy}
-          label="Distance"
-          value={draft.distanceUnit}
-          options={[
-            { value: 'km', label: 'Kilometers' },
-            { value: 'mi', label: 'Miles' },
-          ]}
-          onChange={(value) => change('distanceUnit', value)}
-        />
-        <Choice
-          disabled={busy}
-          label="Appearance"
-          value={draft.theme}
-          options={[
-            { value: 'system', label: 'System' },
-            { value: 'light', label: 'Light' },
-            { value: 'dark', label: 'Dark' },
-          ]}
-          onChange={(value) => change('theme', value)}
-        />
-        {error && <Body error>{error}</Body>}
-        {notice && <Body>{notice}</Body>}
-        {review && (
-          <Card>
-            <Text style={[layout.cardTitle, { color: palette.text }]}>
-              Review saved preferences
-            </Text>
-            <Body>
-              Your edits are still in the fields above. These are the preferences currently saved to
-              your installation.
-            </Body>
-            <Body>
-              {review.value.displayName}
-              {'\n'}
-              {review.value.timeZone}
-              {'\n'}Weight: {review.value.weightUnit === 'kg' ? 'Kilograms' : 'Pounds'}
-              {'\n'}Distance: {review.value.distanceUnit === 'km' ? 'Kilometers' : 'Miles'}
-              {'\n'}Appearance: {review.value.theme}
-            </Body>
-            <Action title="Use saved preferences" secondary onPress={() => chooseSaved(false)} />
-            <Action title="Keep my reviewed edits" secondary onPress={() => chooseSaved(true)} />
-          </Card>
-        )}
-        <Action
-          title="Save preferences"
-          onPress={() => void save()}
-          busy={busy}
-          disabled={review !== null}
-        />
-        <Action
-          title="Check saved preferences"
-          secondary
-          onPress={() => void reload()}
-          disabled={busy}
-        />
-      </Card>
-      <View style={layout.space} />
-      <Card>
-        <Text style={[layout.cardTitle, { color: palette.text }]}>Private account</Text>
-        <Body>{session.me.user.email}</Body>
-        <Body>{client.baseURL}</Body>
-        <Body>
-          Sign out ends this device’s server session. Your records remain in your installation.
-        </Body>
-        <Action title="Sign out" secondary onPress={requestSignOut} disabled={busy} />
-      </Card>
-      <View style={layout.space} />
-      <NotificationSettings client={client} onSaved={() => reconcileOwnerNotifications(client)} />
-      <AgentAccess client={client} />
+      {!section ? (
+        <Card>
+          <ListRow
+            title="Profile"
+            detail={draft.displayName}
+            onPress={() => selectSection('Profile')}
+          />
+          <ListRow title="Notifications" onPress={() => selectSection('Notifications')} />
+          <ListRow title="Connections" onPress={() => selectSection('Connections')} />
+          <ListRow
+            title="Account"
+            detail={session.me.user.email}
+            onPress={() => selectSection('Account')}
+          />
+          <ListRow title="Sync & recovery" onPress={() => selectSection('Sync & recovery')} />
+        </Card>
+      ) : (
+        <>
+          <Action
+            title="Back to settings"
+            variant="quiet"
+            compact
+            onPress={() => selectSection(null)}
+          />
+          <Heading compact>{section}</Heading>
+        </>
+      )}
+      {error && section !== 'Profile' && <Body error>{error}</Body>}
+      {section === 'Profile' && (
+        <Card>
+          <Field
+            label="Display name"
+            value={draft.displayName}
+            onChangeText={(value) => change('displayName', value)}
+            editable={!busy}
+            autoComplete="name"
+          />
+          <Field
+            label="Time zone"
+            value={draft.timeZone}
+            onChangeText={(value) => change('timeZone', value)}
+            editable={!busy}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="America/New_York"
+          />
+          <Choice
+            disabled={busy}
+            label="Weight"
+            value={draft.weightUnit}
+            options={[
+              { value: 'kg', label: 'Kilograms' },
+              { value: 'lb', label: 'Pounds' },
+            ]}
+            onChange={(value) => change('weightUnit', value)}
+          />
+          <Choice
+            disabled={busy}
+            label="Distance"
+            value={draft.distanceUnit}
+            options={[
+              { value: 'km', label: 'Kilometers' },
+              { value: 'mi', label: 'Miles' },
+            ]}
+            onChange={(value) => change('distanceUnit', value)}
+          />
+          <Choice
+            disabled={busy}
+            label="Appearance"
+            value={draft.theme}
+            options={[
+              { value: 'system', label: 'System' },
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' },
+            ]}
+            onChange={(value) => change('theme', value)}
+          />
+          {error && <Body error>{error}</Body>}
+          {notice && <Body>{notice}</Body>}
+          {review && (
+            <Card>
+              <Text style={[layout.cardTitle, { color: palette.text }]}>
+                Review saved preferences
+              </Text>
+              <Body>
+                Your edits are still in the fields above. These are the preferences currently saved
+                to your installation.
+              </Body>
+              <Body>
+                {review.value.displayName}
+                {'\n'}
+                {review.value.timeZone}
+                {'\n'}Weight: {review.value.weightUnit === 'kg' ? 'Kilograms' : 'Pounds'}
+                {'\n'}Distance: {review.value.distanceUnit === 'km' ? 'Kilometers' : 'Miles'}
+                {'\n'}Appearance: {review.value.theme}
+              </Body>
+              <Action title="Use saved preferences" secondary onPress={() => chooseSaved(false)} />
+              <Action title="Keep my reviewed edits" secondary onPress={() => chooseSaved(true)} />
+            </Card>
+          )}
+          <Action
+            title="Save preferences"
+            onPress={() => void save()}
+            busy={busy}
+            disabled={review !== null}
+          />
+          <Action
+            title="Check saved preferences"
+            secondary
+            onPress={() => void reload()}
+            disabled={busy}
+          />
+        </Card>
+      )}
+      {section === 'Account' && (
+        <Card>
+          <Body>{session.me.user.email}</Body>
+          <Body>{client.baseURL}</Body>
+          <Body>
+            Sign out ends this device’s server session. Your records remain in your installation.
+          </Body>
+          <Action title="Sign out" secondary onPress={requestSignOut} disabled={busy} />
+        </Card>
+      )}
+      {(section === 'Notifications' || visitedSections.has('Notifications')) && (
+        <View
+          style={{ display: section === 'Notifications' ? 'flex' : 'none' }}
+          accessibilityElementsHidden={section !== 'Notifications'}
+          importantForAccessibility={section === 'Notifications' ? 'auto' : 'no-hide-descendants'}
+        >
+          <NotificationSettings
+            client={client}
+            onSaved={() => reconcileOwnerNotifications(client)}
+          />
+        </View>
+      )}
+      {(section === 'Connections' || visitedSections.has('Connections')) && (
+        <View
+          style={{ display: section === 'Connections' ? 'flex' : 'none' }}
+          accessibilityElementsHidden={section !== 'Connections'}
+          importantForAccessibility={section === 'Connections' ? 'auto' : 'no-hide-descendants'}
+        >
+          <AgentAccess client={client} active={active && section === 'Connections'} />
+          <Whoop client={client} />
+        </View>
+      )}
+      {section === 'Sync & recovery' && <SyncStatus client={client} />}
     </>
   );
 }
@@ -972,14 +1138,14 @@ const layout = StyleSheet.create({
   row: { flexDirection: 'row' },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18 },
   signInScroll: { flexGrow: 1, padding: 24, justifyContent: 'center', alignItems: 'center' },
-  signIn: { width: '100%', maxWidth: 480, paddingVertical: 32 },
-  wordmark: { fontSize: 14, fontWeight: '800', letterSpacing: 3, marginBottom: 44 },
-  space: { height: 24 },
-  content: { flexGrow: 1, padding: 24, paddingTop: 34 },
-  wideContent: { padding: 48 },
-  contentInner: { width: '100%', maxWidth: 760, alignSelf: 'center' },
+  signIn: { width: '100%', maxWidth: 420, paddingVertical: 20, gap: 16 },
+  wordmark: { fontSize: 21, fontWeight: '600', marginBottom: 24 },
+  space: { height: 16 },
+  content: { flexGrow: 1, padding: 16, paddingTop: 20 },
+  wideContent: { padding: 28 },
+  contentInner: { width: '100%', maxWidth: 1120, alignSelf: 'center', gap: 12 },
   sidebar: { width: 208, padding: 20, gap: 8 },
-  sidebarBrand: { fontSize: 24, fontWeight: '700', marginTop: 20, marginBottom: 32 },
+  sidebarBrand: { fontSize: 21, fontWeight: '600', marginTop: 8, marginBottom: 20 },
   sideItem: { minHeight: 54, borderRadius: 13, padding: 16, justifyContent: 'center' },
   bottomNav: { flexDirection: 'row', borderTopWidth: 1, paddingHorizontal: 8, paddingVertical: 8 },
   tab: {
@@ -999,4 +1165,5 @@ const layout = StyleSheet.create({
   navText: { fontSize: 13 },
   cardTitle: { fontSize: 21, fontWeight: '600' },
   status: { borderTopWidth: 1, paddingTop: 18 },
+  serverRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

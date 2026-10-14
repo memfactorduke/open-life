@@ -256,3 +256,53 @@ test('revoked OS timer permission cancels an already matching owned schedule', a
   expect(schedules).toHaveLength(0);
   expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
 });
+
+test('permanently denied OS permission does not request a second prompt for remote or timer alerts', async () => {
+  jest
+    .mocked(Notifications.getPermissionsAsync)
+    .mockResolvedValue({ granted: false, canAskAgain: false } as never);
+  expect(await requestTimerAlertPermission()).toContain('not allowed');
+  expect(
+    await registerRemoteNotifications({
+      installation: 'https://fictional.example',
+      providerConfigured: false,
+      preferences: {
+        revision: 1,
+        value: { enabled: true, due: true, handoff: false, failure: false },
+      },
+      api: { register: jest.fn(), deactivate: jest.fn() },
+    }),
+  ).toContain('not allowed');
+  expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+});
+
+test('unknown clock preserves an unchanged owned running OS alert but pause cancels it', async () => {
+  const input = {
+    installation: 'https://timer-fictional.example',
+    session: { id: id(31), status: 'active' } as WorkoutSession,
+    timer: {
+      id: id(30),
+      deadline: future,
+      state: 'running',
+      initiatingDeviceId: id(99),
+    } as SessionTimer,
+    deviceId: id(99),
+    enabled: true,
+    sound: false,
+    haptics: false,
+    serverNow: Date.parse(now),
+  };
+  await reconcileTimerAlert(input);
+  expect(schedules).toHaveLength(1);
+  const identifier = schedules[0].identifier;
+  await reconcileTimerAlert({ ...input, serverNow: Number.NaN });
+  expect(schedules).toHaveLength(1);
+  expect(schedules[0].identifier).toBe(identifier);
+  expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+  await reconcileTimerAlert({
+    ...input,
+    timer: { ...input.timer, state: 'paused', deadline: null },
+    serverNow: Number.NaN,
+  });
+  expect(schedules).toHaveLength(0);
+});

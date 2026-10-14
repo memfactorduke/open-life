@@ -95,12 +95,16 @@ test('food drafts survive navigation, prevent silent replacement, and lock while
   const text = `RC draft ${crypto.randomUUID()}`;
   await page.getByRole('link', { name: 'Food', exact: false }).click();
   await page.getByLabel('Daily history', { exact: true }).fill('2026-01-12');
-  await page.getByRole('textbox', { name: 'Notes', exact: true }).fill(text);
+  await page.getByRole('button', { name: 'Add entry', exact: true }).click();
+  await page.locator('.food-time summary').click();
+  await page.getByRole('textbox', { name: 'What did you eat?', exact: true }).fill(text);
   await page.getByLabel('Date and time', { exact: true }).fill('2026-01-12T12:00');
   await page.getByRole('link', { name: 'Tasks', exact: false }).click();
   await page.getByRole('textbox', { name: 'New task', exact: true }).fill('Unsaved capture');
   await page.getByRole('link', { name: 'Food', exact: false }).click();
-  await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toHaveValue(text);
+  await expect(page.getByRole('textbox', { name: 'What did you eat?', exact: true })).toHaveValue(
+    text,
+  );
   await page.getByRole('link', { name: 'Tasks', exact: false }).click();
   await expect(page.getByRole('textbox', { name: 'New task', exact: true })).toHaveValue(
     'Unsaved capture',
@@ -120,28 +124,40 @@ test('food drafts survive navigation, prevent silent replacement, and lock while
   });
   await page.getByRole('button', { name: 'Save entry', exact: true }).click();
   await expect.poll(() => committed).toBe(true);
-  await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole('textbox', { name: 'What did you eat?', exact: true }),
+  ).toBeDisabled();
   await expect(page.getByLabel('Date and time', { exact: true })).toBeDisabled();
   release();
   await expect(page.locator('.food [role="status"]')).toHaveText('Food entry saved.');
   const card = page.locator('.food article').filter({ hasText: text });
   await expect(card).toBeVisible();
-  await page.getByRole('textbox', { name: 'Notes', exact: true }).fill('Keep this newer draft');
-  await card.getByRole('button', { name: 'Edit', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toHaveValue(
+  await page.getByRole('button', { name: 'Add entry', exact: true }).click();
+  await page
+    .getByRole('textbox', { name: 'What did you eat?', exact: true })
+    .fill('Keep this newer draft');
+  await card.getByRole('button', { name: 'Edit entry', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'What did you eat?', exact: true })).toHaveValue(
     'Keep this newer draft',
   );
   await expect(page.locator('.food [role="status"]')).toContainText('Finish the current draft');
-  await page.getByRole('button', { name: 'Discard food draft', exact: true }).click();
-  await card.getByRole('button', { name: 'Edit', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toHaveValue(text);
+  await page.locator('.food-composer > details').last().getByText('More', { exact: true }).click();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Discard draft', exact: true }).click();
+  await card.getByRole('button', { name: 'Edit entry', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'What did you eat?', exact: true })).toHaveValue(
+    text,
+  );
 });
 
 test('a failed feature chunk can retry while another screen draft stays intact', async ({
   page,
 }) => {
   await page.getByRole('link', { name: 'Food', exact: false }).click();
-  await page.getByRole('textbox', { name: 'Notes', exact: true }).fill('Retain this open draft');
+  await page.getByRole('button', { name: 'Add entry', exact: true }).click();
+  await page
+    .getByRole('textbox', { name: 'What did you eat?', exact: true })
+    .fill('Retain this open draft');
   let blockChunk = true;
   await page.route('**/assets/Tasks-*.js', async (route) => {
     if (blockChunk) {
@@ -154,7 +170,7 @@ test('a failed feature chunk can retry while another screen draft stays intact',
   await page.getByRole('button', { name: 'Retry opening view', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'New task', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Food', exact: false }).click();
-  await expect(page.getByRole('textbox', { name: 'Notes', exact: true })).toHaveValue(
+  await expect(page.getByRole('textbox', { name: 'What did you eat?', exact: true })).toHaveValue(
     'Retain this open draft',
   );
 });
@@ -177,6 +193,7 @@ test('retry restores a failed feature stylesheet as well as its screen', async (
       ),
     ),
   ).toBe(true);
+  await page.getByText('Search and filters', { exact: true }).click();
   await expect(page.locator('.productivity-filters')).toHaveCSS('display', 'flex');
 });
 
@@ -197,12 +214,16 @@ test('a retained task dialog does not block another page and keeps its draft', a
     await page.getByRole('link', { name: 'Tasks', exact: false }).click();
     await page.getByRole('button', { name: `RC modal ${taskId}`, exact: true }).click();
     const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Edit task', exact: true }).click();
     await dialog.getByLabel('Title', { exact: true }).fill('Retained dialog draft');
     await page.evaluate(() => {
       window.location.hash = 'food';
     });
-    await expect(page.getByRole('heading', { name: 'Food diary', exact: true })).toBeVisible();
-    await page.getByRole('textbox', { name: 'Notes', exact: true }).fill('Other page usable');
+    await expect(page.getByRole('heading', { name: 'Food', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Add entry', exact: true }).click();
+    await page
+      .getByRole('textbox', { name: 'What did you eat?', exact: true })
+      .fill('Other page usable');
     await page.getByRole('link', { name: 'Tasks', exact: false }).click();
     await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue('Retained dialog draft');
   } finally {
@@ -224,13 +245,27 @@ test('a retained routine dialog does not block another page and keeps its draft'
   page,
 }) => {
   await page.getByRole('link', { name: 'Workouts', exact: false }).click();
-  await page.getByRole('button', { name: 'New routine', exact: true }).click();
-  const dialog = page.getByRole('dialog');
+  await page
+    .getByRole('navigation', { name: 'Workout views' })
+    .getByRole('button', { name: 'Routines', exact: true })
+    .click();
+  await page
+    .locator('.workout-library')
+    .getByRole('button', { name: 'New routine', exact: true })
+    .click();
+  const dialog = page.locator('dialog[aria-labelledby="workout-editor-title"]');
+  await expect(dialog).toBeVisible();
   await dialog.getByLabel('Name', { exact: true }).fill('Unsaved routine draft');
   await page.evaluate(() => {
     window.location.hash = 'food';
   });
-  await page.getByRole('textbox', { name: 'Notes', exact: true }).fill('Other page usable');
+  await expect(page.getByRole('heading', { name: 'Food', exact: true })).toBeVisible();
+  await expect(dialog).toBeHidden();
+  await page.getByRole('button', { name: 'Add entry', exact: true }).click();
+  await page
+    .getByRole('textbox', { name: 'What did you eat?', exact: true })
+    .fill('Other page usable');
   await page.getByRole('link', { name: 'Workouts', exact: false }).click();
+  await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue('Unsaved routine draft');
 });

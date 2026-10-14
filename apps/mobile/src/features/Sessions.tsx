@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AppState,
+  Linking,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -10,6 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import * as Crypto from 'expo-crypto';
+import * as Notifications from 'expo-notifications';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   SessionCommandSchema,
@@ -20,8 +22,10 @@ import {
   type ExercisePerformanceResponse,
   ExerciseListSchema,
   RoutineListSchema,
+  RoutineResponseSchema,
   MeasurementsSchema,
   measuredWorkingVolume,
+  timerRemaining,
   weightToKg,
   weightFromKg,
   distanceToMeters,
@@ -35,8 +39,8 @@ import {
   type Preferences,
 } from '@mems-life/domain';
 import { parseSessionAcknowledgement, useOfflineRevision } from '../offline-client';
-import type { InstallationClient } from '../client';
-import { Action, Body, Card, Choice, Field, Heading, usePalette } from '../ui';
+import { NetworkUnavailableError, type InstallationClient } from '../client';
+import { Action, Body, Card, Choice, Disclosure, Field, Heading, ListRow, usePalette } from '../ui';
 import { messageOf, numericInput, useCommand } from './helpers';
 import {
   deviceIdentity,
@@ -155,7 +159,7 @@ export function Sessions({
   preferences,
   focusTarget,
 }: {
-  focusTarget?: { id?: string; action?: 'create' | 'capture' };
+  focusTarget?: { id?: string; routineId?: string; action?: 'create' | 'capture' };
   client: InstallationClient;
   preferences: Preferences;
 }) {
@@ -197,12 +201,19 @@ export function Sessions({
     [sound, setSound] = useState(false),
     [haptics, setHaptics] = useState(false);
   const [alertsReady, setAlertsReady] = useState(false);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
+  const [notificationDenied, setNotificationDenied] = useState(false);
+  const [permissionBusy, setPermissionBusy] = useState(false);
+  const permissionRequest = useRef(false);
+  const currentClient = useRef(client);
+  currentClient.current = client;
   const alerted = useRef(new Set<string>());
   const [alertMessage, setAlertMessage] = useState(''),
     [rest, setRest] = useState('90'),
     [autoRest, setAutoRest] = useState(false);
   const [seconds, setSeconds] = useState(0),
     [clockReady, setClockReady] = useState(false);
+  const [timerRefresh, setTimerRefresh] = useState(0);
   const clock = useRef<{ server: number; monotonic: number } | null>(null);
   const pendingAction = useRef<{ type: string; extra: Record<string, unknown> } | null>(null);
   const sessionIdentity = useRef<string | null>(null);
@@ -210,10 +221,15 @@ export function Sessions({
   const loadSequence = useRef(0);
   const command = useCommand(client);
 
-  const { width, fontScale } = useWindowDimensions();
-  const wide = width >= 850 && fontScale < 1.5;
+  const { fontScale } = useWindowDimensions();
+  const [paneWidth, setPaneWidth] = useState(0);
+  const wide = paneWidth >= 800 && fontScale < 1.5;
+  const [routineId, setRoutineId] = useState('');
+  const [showRoutinePicker, setShowRoutinePicker] = useState(false);
+  const [libraryLoaded, setLibraryLoaded] = useState(false);
+  const handledStart = useRef<typeof focusTarget>(undefined);
   const [deviceTimer, setDeviceTimer] = useState<DeviceTimer | null>(null);
-  const [deviceSeconds, setDeviceSeconds] = useState(0);
+  const [, setDeviceSeconds] = useState(0);
   const [draftReady, setDraftReady] = useState(!client.offline);
   const locked = command.busy || command.pending || !draftReady;
   useEffect(() => {
@@ -257,12 +273,17 @@ export function Sessions({
       .catch((e) => setError(`Draft could not be saved on this device: ${messageOf(e)}`));
   }, [client, draftReady, drafts, selected, notes, name, rest, autoRest, deviceTimer]);
   useEffect(() => {
-    const tick = () =>
-      setDeviceSeconds(deviceTimer ? deviceTimerRemaining(deviceTimer, Date.now()) : 0);
-    tick();
-    const interval = setInterval(tick, 1000);
+    const tick = () => {
+      const next = deviceTimer ? deviceTimerRemaining(deviceTimer, Date.now()) : 0;
+      setDeviceSeconds(next);
+      return next;
+    };
+    if (tick() === 0 || deviceTimer?.status !== 'running') return;
+    const interval = setInterval(() => {
+      if (tick() === 0) clearInterval(interval);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [deviceTimer]);
+  }, [deviceTimer, timerRefresh]);
   async function deviceTimerAction(
     action: 'start' | 'pause' | 'resume' | 'reset' | 'cancel',
     kind: 'rest' | 'exercise' = 'rest',
@@ -349,6 +370,7 @@ export function Sessions({
         throw new Error('Server clock unavailable.');
       clock.current = { server: Date.parse(raw.now), monotonic: performance.now() };
       setClockReady(true);
+      setTimerRefresh((value) => value + 1);
     } catch {
       setClockReady(false);
     }
@@ -375,6 +397,7 @@ export function Sessions({
         if (sequence !== loadSequence.current) return;
         setExercises(ExerciseListSchema.parse(e).exercises);
         setRoutines(RoutineListSchema.parse(r).routines);
+        setLibraryLoaded(true);
         const active = list.sessions.find((s) => s.status === 'active');
         if (active && sessionIdentity.current === openedSession)
           setSession((previous) =>
@@ -386,55 +409,99 @@ export function Sessions({
               : previous,
           );
       }
+      setSessionLoaded(true);
       setError('');
     } catch (e) {
       setError(messageOf(e));
     }
   }
   useEffect(() => {
+    let active = true;
+    setSessionLoaded(false);
+    setAlertsReady(false);
     void load();
     void syncClock();
     void deviceIdentity(client.baseURL)
-      .then(setDeviceId)
-      .catch((e) => setAlertMessage(messageOf(e)));
-    void readTimerPreferences(client.baseURL).then((p) => {
-      setAlerts(p.alerts);
-      setSound(p.sound);
-      setHaptics(p.haptics);
-      setAlertsReady(true);
-    });
+      .then((id) => {
+        if (active) setDeviceId(id);
+      })
+      .catch((e) => {
+        if (active) setAlertMessage(messageOf(e));
+      });
+    void readTimerPreferences(client.baseURL)
+      .then(async (p) => {
+        const permitted = !p.alerts || (await Notifications.getPermissionsAsync()).granted;
+        if (!active) return;
+        setAlerts(p.alerts && permitted);
+        setNotificationDenied(p.alerts && !permitted);
+        setSound(p.sound);
+        setHaptics(p.haptics);
+        setAlertsReady(true);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setAlerts(false);
+        setAlertsReady(true);
+        setAlertMessage(
+          `Notification permission could not be checked. Retry enabling alerts: ${messageOf(error)}`,
+        );
+      });
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
+      if (state === 'active' && active) {
+        setTimerRefresh((value) => value + 1);
         void syncClock();
         void load();
+        void Notifications.getPermissionsAsync()
+          .then((permission) => {
+            if (!active) return;
+            if (!permission.granted) {
+              setNotificationDenied(true);
+              setAlerts(false);
+            } else {
+              setNotificationDenied(false);
+              setError((message) =>
+                message.includes('Notifications are not allowed') ? '' : message,
+              );
+            }
+          })
+          .catch(() => undefined);
       }
     });
-    return () => subscription.remove();
+    return () => {
+      active = false;
+      subscription.remove();
+    };
   }, [client]);
   useEffect(() => {
     if (client.offline) void load();
   }, [offlineRevision]);
   useEffect(() => {
+    const timer = session?.timer;
     const tick = () => {
-      const timer = session?.timer,
-        basis = clock.current;
-      if (!timer || !basis) {
+      const basis = clock.current;
+      if (!timer || !basis || !clockReady) {
         setSeconds(0);
-        return;
+        return null;
       }
-      const now = basis.server + performance.now() - basis.monotonic;
-      setSeconds(
-        timer.state === 'running' && timer.deadline
-          ? Math.max(0, Math.ceil((Date.parse(timer.deadline) - now) / 1000))
-          : Math.ceil(timer.remainingSeconds),
+      const next = Math.ceil(
+        timerRemaining(
+          timer,
+          new Date(basis.server + performance.now() - basis.monotonic).toISOString(),
+        ),
       );
+      setSeconds(next);
+      return next;
     };
-    tick();
-    const interval = setInterval(tick, 1000);
+    const next = tick();
+    if (timer?.state !== 'running' || next === null || next === 0) return;
+    const interval = setInterval(() => {
+      if (tick() === 0) clearInterval(interval);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [session?.timer, clockReady]);
+  }, [session?.timer, clockReady, timerRefresh]);
   useEffect(() => {
-    if (!alertsReady || !deviceId || !clock.current) return;
+    if (!alertsReady || !deviceId || !sessionLoaded || !draftReady) return;
+    let active = true;
     void reconcileTimerAlert({
       installation: client.baseURL,
       session,
@@ -443,11 +510,40 @@ export function Sessions({
       enabled: alerts,
       sound,
       haptics,
-      serverNow: clock.current.server + performance.now() - clock.current.monotonic,
+      // Without a verified clock, reconciliation may cancel obsolete schedules,
+      // but a running timer must not create a new OS schedule.
+      serverNow:
+        clockReady && clock.current
+          ? clock.current.server + performance.now() - clock.current.monotonic
+          : Number.NaN,
     })
-      .then(setAlertMessage)
-      .catch((e) => setAlertMessage(messageOf(e)));
-  }, [session?.timer, session?.status, deviceId, alerts, sound, haptics, clockReady, alertsReady]);
+      .then((message) => {
+        if (!active) return;
+        setAlertMessage(message);
+        if (message.includes('Notifications are not allowed')) {
+          setNotificationDenied(true);
+          setAlerts(false);
+        }
+      })
+      .catch((e) => {
+        if (active) setAlertMessage(messageOf(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    session?.timer,
+    session?.status,
+    deviceId,
+    alerts,
+    sound,
+    haptics,
+    clockReady,
+    alertsReady,
+    sessionLoaded,
+    draftReady,
+    client,
+  ]);
   useEffect(() => {
     if (alertsReady)
       void saveTimerPreferences(client.baseURL, { alerts, sound, haptics }).catch((e) =>
@@ -523,6 +619,76 @@ export function Sessions({
     }
     return null;
   }
+  async function startWorkout(routine?: Routine) {
+    if (locked || command.pending) return;
+    if (sessions.some((value) => value.status === 'active')) {
+      setError('Finish the current workout before starting another.');
+      return;
+    }
+    setArea('session');
+    await send(
+      'session.start',
+      {
+        name: routine?.name ?? (name.trim() || 'Workout'),
+        routineId: routine?.id ?? null,
+        expectedRoutineRevision: routine?.revision ?? null,
+        ...(routine
+          ? {
+              itemIdentities: routine.items.map((i) => ({
+                routineItemId: i.id,
+                itemId: Crypto.randomUUID(),
+                targets: i.targets.map((t) => ({
+                  routineTargetId: t.id,
+                  targetId: Crypto.randomUUID(),
+                })),
+              })),
+            }
+          : {}),
+      },
+      null,
+    );
+  }
+  useEffect(() => {
+    if (
+      !focusTarget ||
+      focusTarget.action !== 'create' ||
+      !focusTarget.routineId ||
+      !libraryLoaded ||
+      !draftReady ||
+      locked ||
+      handledStart.current === focusTarget
+    )
+      return;
+    handledStart.current = focusTarget;
+    let active = true;
+    const intent = focusTarget;
+    void client
+      .request(`/api/routines/${intent.routineId}`)
+      .catch(async (error) => {
+        if (!(error instanceof NetworkUnavailableError) || !client.offline) throw error;
+        // Only a transport outage can use the current durable device snapshot.
+        // Its revision is still checked when this offline command synchronizes.
+        const current = RoutineListSchema.parse(await client.request('/api/routines'));
+        const routine = current.routines.find((value) => value.id === intent.routineId);
+        if (!routine) throw error;
+        return { routine };
+      })
+      .then((raw) => {
+        if (!active) return;
+        const { routine } = RoutineResponseSchema.parse(raw);
+        if (routine.archivedAt) {
+          setError('This routine is archived. Choose another routine.');
+          return;
+        }
+        return startWorkout(routine);
+      })
+      .catch((error) => {
+        if (active) setError(messageOf(error));
+      });
+    return () => {
+      active = false;
+    };
+  }, [focusTarget, libraryLoaded, draftReady, locked]);
   async function review() {
     if (!session) return;
     try {
@@ -752,11 +918,9 @@ export function Sessions({
     );
   const performanceView = (
     <>
-      {performanceBusy && <Body>Loading comparable actual performance…</Body>}
+      {performanceBusy && <Body>Loading previous sets…</Body>}
       {!!performanceError && <Body error>{performanceError}</Body>}
-      {!performanceBusy && !performanceError && !previous.length && (
-        <Body>No comparable recorded results in the loaded history.</Body>
-      )}
+      {!performanceBusy && !performanceError && !previous.length && <Body>No previous sets.</Body>}
       {previous.map(({ performance: s, result: r }) => (
         <Body key={r.id}>
           Previous · {new Date(s.startedAt).toLocaleDateString()} · {r.kind}:{' '}
@@ -814,63 +978,260 @@ export function Sessions({
     </>
   );
   const active = session?.status === 'active';
-  const list = (
-    <View style={[styles.stack, wide && styles.sidebar]}>
-      <Choice
-        label="Workout view"
-        value={area}
-        onChange={setArea}
-        options={[
-          { value: 'session', label: 'Train' },
-          { value: 'history', label: 'History' },
-        ]}
+  const usingDeviceTimer = !!client.offline && !clockReady;
+  const savedTimer = session?.timer;
+  const verifiedNow =
+    clockReady && clock.current
+      ? clock.current.server + performance.now() - clock.current.monotonic
+      : null;
+  const serverRemaining = savedTimer
+    ? verifiedNow !== null
+      ? Math.ceil(timerRemaining(savedTimer, new Date(verifiedNow).toISOString()))
+      : savedTimer.state === 'running'
+        ? null
+        : Math.ceil(savedTimer.remainingSeconds)
+    : null;
+  const serverFinished = !!savedTimer && (savedTimer.state === 'finished' || serverRemaining === 0);
+  const serverKind = savedTimer?.kind === 'exercise' ? 'Exercise' : 'Rest';
+  const retainedDeviceTimer = deviceTimer?.sessionId === session?.id ? deviceTimer : null;
+  const deviceRemaining = retainedDeviceTimer
+    ? deviceTimerRemaining(retainedDeviceTimer, Date.now())
+    : 0;
+  const deviceFinished = !!retainedDeviceTimer && deviceRemaining === 0;
+  const deviceKind = retainedDeviceTimer?.kind === 'exercise' ? 'Exercise' : 'Rest';
+  const deviceLabel = deviceFinished
+    ? `${deviceKind} finished`
+    : `${deviceKind} · ${deviceRemaining}s · ${retainedDeviceTimer?.status}`;
+  const retainedTimerView = retainedDeviceTimer && (
+    <View style={styles.timerRow}>
+      <Body>{deviceLabel}</Body>
+      {!deviceFinished && (
+        <Action
+          title={
+            retainedDeviceTimer.status === 'running' ? 'Pause device timer' : 'Resume device timer'
+          }
+          compact
+          secondary
+          disabled={locked}
+          onPress={() =>
+            void deviceTimerAction(retainedDeviceTimer.status === 'running' ? 'pause' : 'resume')
+          }
+        />
+      )}
+      <Action
+        title="Cancel device timer"
+        compact
+        variant="quiet"
+        disabled={locked}
+        onPress={() => void deviceTimerAction('cancel')}
       />
-      {!!error && <Body error>{error}</Body>}
-      <Action title="Refresh sessions" secondary disabled={locked} onPress={() => void load()} />
-      {!sessions.some((s) => s.status === 'active') && area === 'session' && (
-        <Card>
-          <Heading>Start training</Heading>
-          <Field label="Session name" value={name} editable={!locked} onChangeText={setName} />
+    </View>
+  );
+  const timerView = active && session && (
+    <Card>
+      <Heading compact>
+        {savedTimer?.kind === 'exercise' ||
+        (!savedTimer && retainedDeviceTimer?.kind === 'exercise')
+          ? 'Exercise timer'
+          : 'Rest timer'}
+      </Heading>
+      {savedTimer && (
+        <View style={styles.timerRow}>
+          <Body>
+            {serverFinished
+              ? `${serverKind} finished`
+              : serverRemaining === null
+                ? `${serverKind} · Connect to refresh timer`
+                : `${serverKind} · ${serverRemaining}s · ${savedTimer.state}`}
+          </Body>
+          {!serverFinished && (
+            <Action
+              title={savedTimer.state === 'running' ? 'Pause timer' : 'Resume timer'}
+              compact
+              secondary
+              disabled={locked}
+              onPress={() => void timerAction(savedTimer.state === 'running' ? 'pause' : 'resume')}
+            />
+          )}
           <Action
-            title="Start empty workout"
-            disabled={locked || !name.trim()}
+            title="Cancel timer"
+            compact
+            variant="quiet"
+            disabled={locked}
+            onPress={() => void timerAction('cancel')}
+          />
+        </View>
+      )}
+      {retainedTimerView &&
+        (savedTimer ? (
+          <Disclosure title={`Timer started offline · ${deviceLabel}`}>
+            {retainedTimerView}
+          </Disclosure>
+        ) : (
+          retainedTimerView
+        ))}
+      <Action
+        title="Start rest timer"
+        compact
+        secondary
+        disabled={locked || (!usingDeviceTimer && !clockReady)}
+        onPress={() => void (usingDeviceTimer ? deviceTimerAction('start') : timerAction('start'))}
+      />
+      {usingDeviceTimer && <Body>Saved on this device.</Body>}
+      <Disclosure title="Timer options">
+        <Field
+          label="Timer seconds"
+          keyboardType="number-pad"
+          editable={!locked}
+          value={rest}
+          onChangeText={setRest}
+        />
+        <Choice
+          label="Auto rest after new actual set"
+          value={autoRest ? 'yes' : 'no'}
+          disabled={locked}
+          onChange={(v) => setAutoRest(v === 'yes')}
+          options={[
+            { value: 'no', label: 'Manual rest' },
+            { value: 'yes', label: 'Auto rest' },
+          ]}
+        />
+        <Action
+          title="Start exercise timer"
+          compact
+          secondary
+          disabled={locked || (!usingDeviceTimer && !clockReady)}
+          onPress={() =>
+            void (usingDeviceTimer
+              ? deviceTimerAction('start', 'exercise')
+              : timerAction('start', session, 'exercise'))
+          }
+        />
+        {session.timer && (
+          <Action
+            title="Reset timer"
+            compact
+            secondary
+            disabled={locked}
+            onPress={() => void timerAction('reset')}
+          />
+        )}
+        {deviceTimer?.sessionId === session.id && (
+          <Action
+            title="Reset device timer"
+            compact
+            secondary
+            disabled={locked}
+            onPress={() => void deviceTimerAction('reset')}
+          />
+        )}
+      </Disclosure>
+      <Disclosure title="Alerts">
+        <Choice
+          label="Timer notification"
+          value={alerts ? 'yes' : 'no'}
+          disabled={permissionBusy}
+          onChange={(v) => {
+            if (v === 'no') {
+              setAlerts(false);
+              return;
+            }
+            if (permissionRequest.current) return;
+            const requestingClient = client;
+            permissionRequest.current = true;
+            setPermissionBusy(true);
+            void requestTimerAlertPermission()
+              .then((message) => {
+                if (currentClient.current !== requestingClient) return;
+                setError(message);
+                setNotificationDenied(!!message);
+                setAlerts(!message);
+              })
+              .catch((e) => {
+                if (currentClient.current !== requestingClient) return;
+                setAlerts(false);
+                setError(messageOf(e));
+              })
+              .finally(() => {
+                permissionRequest.current = false;
+                if (currentClient.current === requestingClient) setPermissionBusy(false);
+              });
+          }}
+          options={[
+            { value: 'no', label: 'Off' },
+            { value: 'yes', label: 'Enable alerts' },
+          ]}
+        />
+        <Choice
+          label="Timer sound"
+          value={sound ? 'yes' : 'no'}
+          onChange={(v) => setSound(v === 'yes')}
+          options={[
+            { value: 'no', label: 'Silent' },
+            { value: 'yes', label: 'Sound' },
+          ]}
+        />
+        <Choice
+          label="Foreground haptic"
+          value={haptics ? 'yes' : 'no'}
+          onChange={(v) => setHaptics(v === 'yes')}
+          options={[
+            { value: 'no', label: 'No haptic' },
+            { value: 'yes', label: 'Haptic' },
+          ]}
+        />
+        {notificationDenied && (
+          <Action
+            title="Open notification settings"
+            secondary
             onPress={() =>
-              void send(
-                'session.start',
-                { name, routineId: null, expectedRoutineRevision: null },
-                null,
+              void Linking.openSettings().catch(() =>
+                setError('Open Settings on this device to allow notifications for Mem’s Life.'),
               )
             }
           />
-          {routines
-            .filter((r) => !r.archivedAt)
-            .map((r) => (
-              <Action
-                key={r.id}
-                title={`Start ${r.name}`}
-                secondary
-                disabled={locked}
-                onPress={() =>
-                  void send(
-                    'session.start',
-                    {
-                      name: r.name,
-                      routineId: r.id,
-                      expectedRoutineRevision: r.revision,
-                      itemIdentities: r.items.map((i) => ({
-                        routineItemId: i.id,
-                        itemId: Crypto.randomUUID(),
-                        targets: i.targets.map((t) => ({
-                          routineTargetId: t.id,
-                          targetId: Crypto.randomUUID(),
-                        })),
-                      })),
-                    },
-                    null,
-                  )
-                }
-              />
-            ))}
+        )}
+        {!!alertMessage && <Body>{alertMessage}</Body>}
+      </Disclosure>
+    </Card>
+  );
+  const list = (
+    <View style={[styles.stack, wide && area === 'history' && styles.sidebar]}>
+      <View style={styles.timerRow}>
+        {area === 'history' && (
+          <Action
+            title="Current workout"
+            compact
+            variant="quiet"
+            onPress={() => setArea('session')}
+          />
+        )}
+        <Action
+          title="Workout history"
+          compact
+          variant="quiet"
+          onPress={() => setArea('history')}
+        />
+      </View>
+      {!!error && <Body error>{error}</Body>}
+
+      {!session && !sessions.some((s) => s.status === 'active') && area === 'session' && (
+        <Card>
+          <Heading compact>Start workout</Heading>
+          <Action
+            title={routines.find((r) => r.id === routineId)?.name ?? 'Empty workout'}
+            secondary
+            disabled={locked}
+            onPress={() => setShowRoutinePicker(true)}
+          />
+          <Disclosure title="Name workout">
+            <Field label="Session name" value={name} editable={!locked} onChangeText={setName} />
+          </Disclosure>
+          <Action
+            title="Start workout"
+            disabled={locked || !libraryLoaded}
+            onPress={() => void startWorkout(routines.find((r) => r.id === routineId))}
+          />
         </Card>
       )}
       {area === 'history' && (
@@ -879,35 +1240,27 @@ export function Sessions({
       {sessions
         .filter((s) =>
           area === 'session'
-            ? s.status === 'active'
+            ? false
             : `${s.name} ${s.items.map((i) => i.snapshot.name).join(' ')}`
                 .toLowerCase()
                 .includes(filter.toLowerCase()),
         )
         .map((s) => (
-          <Card key={s.id}>
-            <Body>
-              {s.name} · {s.status === 'abandoned' ? 'Partial / abandoned' : s.status} ·{' '}
-              {new Date(s.startedAt).toLocaleDateString()}
-            </Body>
-            <Body>
-              {s.items.reduce((n, i) => n + i.results.filter((r) => !r.removedAt).length, 0)} actual
-              sets · {Number(measuredWorkingVolume(s).toFixed(2))} kg-repetitions
-            </Body>
-            <Action
-              title={`Open session ${s.name}`}
-              secondary
-              disabled={locked}
-              onPress={() => {
-                setSession(s);
-                setSelected(null);
-                setNotes(s.notes);
-                setHistory([]);
-                setHistoryCursor(null);
-                historySequence.current++;
-              }}
-            />
-          </Card>
+          <ListRow
+            key={s.id}
+            title={s.name}
+            detail={`${s.status === 'abandoned' ? 'Partial workout' : s.status} · ${new Date(s.startedAt).toLocaleDateString()} · ${s.items.reduce((n, i) => n + i.results.filter((r) => !r.removedAt).length, 0)} sets`}
+            selected={session?.id === s.id}
+            disabled={locked}
+            onPress={() => {
+              setSession(s);
+              setSelected(null);
+              setNotes(s.notes);
+              setHistory([]);
+              setHistoryCursor(null);
+              historySequence.current++;
+            }}
+          />
         ))}
       {area === 'history' && cursor && (
         <Action title="Load older sessions" secondary onPress={() => void load(true)} />
@@ -915,21 +1268,46 @@ export function Sessions({
     </View>
   );
   return (
-    <View style={styles.stack}>
-      <Heading eyebrow="Actual training, separate from your plan">Sessions</Heading>
-      <View style={wide ? styles.columns : styles.stack}>
+    <View
+      testID="session-pane"
+      style={styles.stack}
+      onLayout={(event) => setPaneWidth(event.nativeEvent.layout.width)}
+    >
+      <View style={wide && area === 'history' ? styles.columns : styles.stack}>
         {list}
         {session && (
-          <View style={[styles.stack, wide && styles.detail]}>
+          <View style={[styles.stack, wide && area === 'history' && styles.detail]}>
             <Heading
-              eyebrow={`${session.status === 'abandoned' ? 'Partial / abandoned' : session.status} · Saved revision ${session.revision}`}
+              compact
+              eyebrow={
+                session.status === 'abandoned'
+                  ? 'Partial workout'
+                  : session.status === 'active'
+                    ? undefined
+                    : 'Completed workout'
+              }
             >
               {session.name}
             </Heading>
-            <Body>
-              Targets below are plans. Only recorded sets count as performed. Skipped or removed
-              exercises retain recorded results and correction history.
-            </Body>
+            {active && (
+              <Action
+                title="Finish workout"
+                secondary
+                disabled={locked}
+                onPress={() => setConfirm('finish')}
+              />
+            )}
+            {!active && (
+              <Action
+                title="Start another workout"
+                secondary
+                disabled={locked}
+                onPress={() => {
+                  setSession(null);
+                  setArea('session');
+                }}
+              />
+            )}
             {!!command.error && <Body error>{command.error}</Body>}
             {command.pending ? (
               <Action
@@ -937,34 +1315,45 @@ export function Sessions({
                 busy={command.busy}
                 onPress={() => void send('session.finish')}
               />
-            ) : (
+            ) : command.error || error ? (
               <Action
                 title="Review latest saved session"
                 secondary
                 disabled={command.busy}
                 onPress={() => void review()}
               />
-            )}
-            {session.items.map((i) => (
-              <Action
-                key={i.id}
-                title={`${i.snapshot.name} · ${i.status} · ${i.results.filter((r) => !r.removedAt).length} sets`}
-                secondary
-                onPress={() => setSelected(i.id)}
-              />
-            ))}
+            ) : null}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.exerciseChoices}
+            >
+              {session.items.map((i) => (
+                <Action
+                  key={i.id}
+                  compact
+                  variant={item?.id === i.id ? 'secondary' : 'quiet'}
+                  title={`${i.snapshot.name} · ${i.status} · ${i.results.filter((r) => !r.removedAt).length} sets`}
+                  onPress={() => setSelected(i.id)}
+                />
+              ))}
+            </ScrollView>
             {item && (
               <Card>
-                <Heading eyebrow={`Exercise · ${item.status}`}>{item.snapshot.name}</Heading>
-                <Body>{item.notes || 'No exercise notes'}</Body>
-                {!active && !draft.setId && performanceView}
-                {item.targets.map((t, index) => (
-                  <Body key={t.id}>
-                    Planned {index + 1}: {t.kind} ·{' '}
-                    {describeMeasurements(t.measurements, preferences)}
-                    {t.notes ? ` · ${t.notes}` : ''}
-                  </Body>
-                ))}
+                <Heading compact>{item.snapshot.name}</Heading>
+                {!!item.notes && <Body>{item.notes}</Body>}
+                {!active && !draft.setId && (
+                  <Disclosure title="Previous sets">{performanceView}</Disclosure>
+                )}
+                <Disclosure title="Planned targets">
+                  {item.targets.map((t, index) => (
+                    <Body key={t.id}>
+                      Planned {index + 1}: {t.kind} ·{' '}
+                      {describeMeasurements(t.measurements, preferences)}
+                      {t.notes ? ` · ${t.notes}` : ''}
+                    </Body>
+                  ))}
+                </Disclosure>
                 {item.results.map((r, index) => (
                   <View key={r.id} style={styles.stack}>
                     <Body>
@@ -976,63 +1365,64 @@ export function Sessions({
                       {r.notes ? ` · ${r.notes}` : ''}
                     </Body>
                     {!r.removedAt && (
-                      <Action
-                        title={`Correct actual set ${index + 1}`}
-                        secondary
-                        disabled={locked}
-                        onPress={() =>
-                          setDrafts((old) => ({ ...old, [item.id]: toDraft(r, preferences) }))
-                        }
-                      />
+                      <Disclosure title={`Set ${index + 1} actions`}>
+                        <Action
+                          title={`Correct actual set ${index + 1}`}
+                          secondary
+                          disabled={locked}
+                          onPress={() =>
+                            setDrafts((old) => ({ ...old, [item.id]: toDraft(r, preferences) }))
+                          }
+                        />
+                      </Disclosure>
                     )}
                   </View>
                 ))}
                 {(draft.setId ||
                   (item.status !== 'removed' && item.status !== 'skipped' && active)) && (
                   <>
-                    <Heading>{draft.setId ? 'Correct recorded set' : 'Record actual set'}</Heading>
-                    {performanceView}
-                    <Choice
-                      label="Actual set type"
-                      value={draft.kind}
-                      disabled={locked}
-                      onChange={(kind) => updateDraft({ kind })}
-                      options={[
-                        { value: 'working', label: 'Working' },
-                        { value: 'warmup', label: 'Warm-up' },
-                      ]}
-                    />
-                    {(item.snapshot.mode === 'weighted' || item.snapshot.mode === 'bodyweight'
-                      ? [['reps', 'Repetitions']]
-                      : item.snapshot.mode === 'timed'
-                        ? [['durationSeconds', 'Duration (seconds)']]
-                        : [
-                            ['distanceMeters', `Distance (${draftPreferences.distanceUnit})`],
-                            ['durationSeconds', 'Duration (seconds)'],
-                          ]
-                    )
-                      .concat(
-                        item.snapshot.supportsLoad
-                          ? [
-                              [
-                                item.snapshot.mode === 'bodyweight' ? 'addedLoadKg' : 'loadKg',
-                                `${item.snapshot.mode === 'bodyweight' ? 'Added load' : 'Load'} (${draftPreferences.weightUnit})`,
-                              ],
+                    {draft.setId && <Heading compact>Correct set</Heading>}
+                    {previous[0] && (
+                      <Body>
+                        Previous set ·{' '}
+                        {describeMeasurements(previous[0].result.measurements, preferences)}
+                      </Body>
+                    )}
+                    <Disclosure title="Previous sets">{performanceView}</Disclosure>
+                    <View style={styles.measurements}>
+                      {(item.snapshot.mode === 'weighted' || item.snapshot.mode === 'bodyweight'
+                        ? [['reps', 'Repetitions']]
+                        : item.snapshot.mode === 'timed'
+                          ? [['durationSeconds', 'Duration (seconds)']]
+                          : [
+                              ['distanceMeters', `Distance (${draftPreferences.distanceUnit})`],
+                              ['durationSeconds', 'Duration (seconds)'],
                             ]
-                          : [],
                       )
-                      .map(([key, label]) => (
-                        <Field
-                          key={key}
-                          label={label!}
-                          keyboardType="decimal-pad"
-                          value={draft.values[key!] ?? ''}
-                          editable={!locked}
-                          onChangeText={(value) =>
-                            updateDraft({ values: { ...draft.values, [key!]: value } })
-                          }
-                        />
-                      ))}
+                        .concat(
+                          item.snapshot.supportsLoad
+                            ? [
+                                [
+                                  item.snapshot.mode === 'bodyweight' ? 'addedLoadKg' : 'loadKg',
+                                  `${item.snapshot.mode === 'bodyweight' ? 'Added load' : 'Load'} (${draftPreferences.weightUnit})`,
+                                ],
+                              ]
+                            : [],
+                        )
+                        .map(([key, label]) => (
+                          <View key={key} style={styles.measurement}>
+                            <Field
+                              label={label!}
+                              keyboardType="decimal-pad"
+                              value={draft.values[key!] ?? ''}
+                              editable={!locked}
+                              onChangeText={(value) =>
+                                updateDraft({ values: { ...draft.values, [key!]: value } })
+                              }
+                            />
+                          </View>
+                        ))}
+                    </View>
                     {session.supersets.some((g) => g.itemIds.includes(item.id)) && (
                       <Field
                         label="Superset round"
@@ -1042,13 +1432,25 @@ export function Sessions({
                         onChangeText={(round) => updateDraft({ round })}
                       />
                     )}
-                    <Field
-                      label="Actual set notes"
-                      value={draft.notes}
-                      multiline
-                      editable={!locked}
-                      onChangeText={(notes) => updateDraft({ notes })}
-                    />
+                    <Disclosure title="Set options">
+                      <Choice
+                        label="Actual set type"
+                        value={draft.kind}
+                        disabled={locked}
+                        onChange={(kind) => updateDraft({ kind })}
+                        options={[
+                          { value: 'working', label: 'Working' },
+                          { value: 'warmup', label: 'Warm-up' },
+                        ]}
+                      />
+                      <Field
+                        label="Actual set notes"
+                        value={draft.notes}
+                        multiline
+                        editable={!locked}
+                        onChangeText={(notes) => updateDraft({ notes })}
+                      />
+                    </Disclosure>
                     {draft.setId && (
                       <Field
                         label="Correction reason"
@@ -1058,7 +1460,7 @@ export function Sessions({
                       />
                     )}
                     <Action
-                      title={draft.setId ? 'Save correction' : 'Record set'}
+                      title={draft.setId ? 'Save correction' : 'Log set'}
                       busy={command.busy}
                       disabled={locked || (!!draft.setId && !draft.reason.trim())}
                       onPress={() => void record()}
@@ -1102,8 +1504,9 @@ export function Sessions({
                     )}
                   </>
                 )}
+                {timerView}
                 {active && (
-                  <>
+                  <Disclosure title="Exercise options">
                     <Action
                       title="Substitute this exercise"
                       secondary
@@ -1156,7 +1559,7 @@ export function Sessions({
                         })
                       }
                     />
-                  </>
+                  </Disclosure>
                 )}
               </Card>
             )}
@@ -1168,285 +1571,159 @@ export function Sessions({
                   disabled={locked}
                   onPress={() => setPicker('add')}
                 />
-                <Field
-                  label="Session notes"
-                  value={notes ?? session.notes}
-                  multiline
-                  editable={!locked}
-                  onChangeText={setNotes}
-                />
-                <Action
-                  title="Save session notes"
-                  secondary
-                  disabled={locked}
-                  onPress={() =>
-                    void send('session.set-notes', { itemId: null, notes: notes ?? session.notes })
-                  }
-                />
-                <Card>
-                  <Heading>Timer</Heading>
-                  <Body>
-                    {session.timer
-                      ? `${session.timer.kind} · ${session.timer.state} · ${clockReady ? `${seconds} seconds remaining` : 'Checking server clock'}`
-                      : 'No running timer'}
-                  </Body>
-                  <Body>
-                    Saved server deadline drives the timer. Device clock changes do not move its
-                    deadline; reconnect after restart to check the server clock.
-                  </Body>
-                  {client.offline && (
-                    <Card>
-                      <Body>
-                        Device timer · saved locally. Its device-clock deadline survives restart;
-                        changing the device clock may change the countdown. Server timer
-                        confirmation and delivery of alerts remain separate.
-                      </Body>
-                      {deviceTimer?.sessionId === session.id && (
-                        <Body>
-                          {deviceTimer.kind} · {deviceTimer.status} · {deviceSeconds} seconds
-                          remaining
-                        </Body>
-                      )}
-                      <Action
-                        title="Start device rest timer"
-                        secondary
-                        disabled={locked}
-                        onPress={() => void deviceTimerAction('start')}
-                      />
-                      <Action
-                        title="Start device exercise timer"
-                        secondary
-                        disabled={locked}
-                        onPress={() => void deviceTimerAction('start', 'exercise')}
-                      />
-                      {deviceTimer?.sessionId === session.id && (
-                        <>
-                          <Action
-                            title={
-                              deviceTimer.status === 'running'
-                                ? 'Pause device timer'
-                                : 'Resume device timer'
-                            }
-                            secondary
-                            disabled={locked}
-                            onPress={() =>
-                              void deviceTimerAction(
-                                deviceTimer.status === 'running' ? 'pause' : 'resume',
-                              )
-                            }
-                          />
-                          <Action
-                            title="Reset device timer"
-                            secondary
-                            disabled={locked}
-                            onPress={() => void deviceTimerAction('reset')}
-                          />
-                          <Action
-                            title="Cancel device timer"
-                            secondary
-                            disabled={locked}
-                            onPress={() => void deviceTimerAction('cancel')}
-                          />
-                        </>
-                      )}
-                    </Card>
-                  )}
+                {!item && timerView}
+                <Disclosure title="Workout options">
                   <Field
-                    label="Timer seconds"
-                    keyboardType="number-pad"
+                    label="Session notes"
+                    value={notes ?? session.notes}
+                    multiline
                     editable={!locked}
-                    value={rest}
-                    onChangeText={setRest}
-                  />
-                  <Choice
-                    label="Auto rest after new actual set"
-                    value={autoRest ? 'yes' : 'no'}
-                    disabled={locked}
-                    onChange={(v) => setAutoRest(v === 'yes')}
-                    options={[
-                      { value: 'no', label: 'Manual rest' },
-                      { value: 'yes', label: 'Auto rest' },
-                    ]}
+                    onChangeText={setNotes}
                   />
                   <Action
-                    title="Start rest timer"
-                    disabled={locked || !clockReady}
-                    onPress={() => void timerAction('start')}
-                  />
-                  <Action
-                    title="Start exercise timer"
+                    title="Save session notes"
                     secondary
-                    disabled={locked || !clockReady}
-                    onPress={() => void timerAction('start', session, 'exercise')}
+                    disabled={locked}
+                    onPress={() =>
+                      void send('session.set-notes', {
+                        itemId: null,
+                        notes: notes ?? session.notes,
+                      })
+                    }
                   />
-                  {session.timer && (
-                    <>
-                      {session.timer.state === 'running' ? (
-                        <Action
-                          title="Pause timer"
-                          secondary
-                          disabled={locked}
-                          onPress={() => void timerAction('pause')}
-                        />
-                      ) : (
-                        <Action
-                          title="Resume timer"
-                          secondary
-                          disabled={locked}
-                          onPress={() => void timerAction('resume')}
-                        />
-                      )}
-                      <Action
-                        title="Reset timer"
-                        secondary
-                        disabled={locked}
-                        onPress={() => void timerAction('reset')}
-                      />
-                      <Action
-                        title="Cancel timer"
-                        secondary
-                        disabled={locked}
-                        onPress={() => void timerAction('cancel')}
-                      />
-                    </>
-                  )}
-                  <Choice
-                    label="Timer notification"
-                    value={alerts ? 'yes' : 'no'}
-                    onChange={(v) => {
-                      setAlerts(v === 'yes');
-                      if (v === 'yes')
-                        void requestTimerAlertPermission()
-                          .then((message) => setError(message))
-                          .catch((e) => setError(messageOf(e)));
+                  <Action
+                    title="Arrange superset"
+                    secondary
+                    disabled={locked}
+                    onPress={() => {
+                      setGroup([]);
+                      setShowGroups(true);
                     }}
-                    options={[
-                      { value: 'no', label: 'Off' },
-                      { value: 'yes', label: 'Enable alerts' },
-                    ]}
                   />
-                  <Choice
-                    label="Timer sound"
-                    value={sound ? 'yes' : 'no'}
-                    onChange={(v) => setSound(v === 'yes')}
-                    options={[
-                      { value: 'no', label: 'Silent' },
-                      { value: 'yes', label: 'Sound' },
-                    ]}
+                  {session.supersets.map((g) => (
+                    <Card key={g.id}>
+                      <Body>
+                        Superset order:{' '}
+                        {g.itemIds
+                          .map((id) => session.items.find((i) => i.id === id)?.snapshot.name)
+                          .join(' → ')}
+                      </Body>
+                      <Action
+                        title="Remove superset grouping"
+                        secondary
+                        disabled={locked}
+                        onPress={() =>
+                          void send('session.set-supersets', {
+                            supersets: session.supersets.filter((v) => v.id !== g.id),
+                          })
+                        }
+                      />
+                    </Card>
+                  ))}
+                  <Action
+                    title="Abandon partial workout"
+                    secondary
+                    disabled={locked}
+                    onPress={() => setConfirm('abandon')}
                   />
-                  <Choice
-                    label="Foreground haptic"
-                    value={haptics ? 'yes' : 'no'}
-                    onChange={(v) => setHaptics(v === 'yes')}
-                    options={[
-                      { value: 'no', label: 'No haptic' },
-                      { value: 'yes', label: 'Haptic' },
-                    ]}
-                  />
-                  {!!alertMessage && <Body>{alertMessage}</Body>}
-                </Card>
+                </Disclosure>
+              </>
+            )}
+            <Disclosure title="Workout details">
+              <Action
+                title="Refresh sessions"
+                variant="quiet"
+                compact
+                disabled={locked}
+                onPress={() => void load()}
+              />
+              <Body>
+                Measured weighted working-set volume:{' '}
+                {Number(measuredWorkingVolume(session).toFixed(2))} kg-repetitions. Reps × load in
+                kg; excludes warm-ups, targets, removed sets and missing measurements.
+              </Body>
+              {session.sourceRoutineId && (
                 <Action
-                  title="Arrange superset"
+                  title="Choose changes for future routine"
                   secondary
                   disabled={locked}
                   onPress={() => {
-                    setGroup([]);
-                    setShowGroups(true);
+                    setRoutineChoices(
+                      session.items
+                        .filter((i) => i.status !== 'removed' && i.status !== 'skipped')
+                        .map((i) => i.id),
+                    );
+                    setShowRoutineUpdate(true);
                   }}
                 />
-                {session.supersets.map((g) => (
-                  <Card key={g.id}>
-                    <Body>
-                      Superset order:{' '}
-                      {g.itemIds
-                        .map((id) => session.items.find((i) => i.id === id)?.snapshot.name)
-                        .join(' → ')}
-                    </Body>
-                    <Action
-                      title="Remove superset grouping"
-                      secondary
-                      disabled={locked}
-                      onPress={() =>
-                        void send('session.set-supersets', {
-                          supersets: session.supersets.filter((v) => v.id !== g.id),
-                        })
-                      }
-                    />
-                  </Card>
-                ))}
-                <Action
-                  title="Finish workout"
-                  disabled={locked}
-                  onPress={() => setConfirm('finish')}
-                />
-                <Action
-                  title="Abandon partial workout"
-                  secondary
-                  disabled={locked}
-                  onPress={() => setConfirm('abandon')}
-                />
-              </>
-            )}
-            <Body>
-              Measured weighted working-set volume:{' '}
-              {Number(measuredWorkingVolume(session).toFixed(2))} kg-repetitions. Reps × load in kg;
-              excludes warm-ups, targets, removed sets and missing measurements.
-            </Body>
-            {session.sourceRoutineId && (
+              )}
               <Action
-                title="Choose changes for future routine"
+                title="View correction history"
                 secondary
                 disabled={locked}
-                onPress={() => {
-                  setRoutineChoices(
-                    session.items
-                      .filter((i) => i.status !== 'removed' && i.status !== 'skipped')
-                      .map((i) => i.id),
-                  );
-                  setShowRoutineUpdate(true);
-                }}
+                onPress={() => void loadHistory()}
               />
-            )}
-            <Action
-              title="View correction history"
-              secondary
-              disabled={locked}
-              onPress={() => void loadHistory()}
-            />
-            {historyCursor && (
-              <Action
-                title="Load older correction history"
-                secondary
-                onPress={() => void loadHistory(true)}
-              />
-            )}
-            {history.map((event) => (
-              <Card key={event.id}>
-                <Body>
-                  {new Date(event.createdAt).toLocaleString()} · {event.eventType} · revision{' '}
-                  {event.revision} · {event.actorType === 'agent' ? 'Agent' : 'Owner'}{' '}
-                  {event.actorId}
-                </Body>
-                {event.reason && <Body>Reason: {event.reason}</Body>}
-                {event.session.items.map((i) => (
-                  <View key={i.id}>
-                    <Body>
-                      {i.snapshot.name} · {i.status}
-                    </Body>
-                    {i.results.map((r) => (
-                      <Body key={r.id}>
-                        {r.kind}: {describeMeasurements(r.measurements, preferences)}
-                        {r.removedAt ? ' · removed' : ''}
-                        {r.correctedAt ? ' · corrected' : ''} {r.notes}
+              {historyCursor && (
+                <Action
+                  title="Load older correction history"
+                  secondary
+                  onPress={() => void loadHistory(true)}
+                />
+              )}
+              {history.map((event) => (
+                <Card key={event.id}>
+                  <Body>
+                    {new Date(event.createdAt).toLocaleString()} · {event.eventType} · revision{' '}
+                    {event.revision} · {event.actorType === 'agent' ? 'Agent' : 'Owner'}{' '}
+                    {event.actorId}
+                  </Body>
+                  {event.reason && <Body>Reason: {event.reason}</Body>}
+                  {event.session.items.map((i) => (
+                    <View key={i.id}>
+                      <Body>
+                        {i.snapshot.name} · {i.status}
                       </Body>
-                    ))}
-                  </View>
-                ))}
-              </Card>
-            ))}
+                      {i.results.map((r) => (
+                        <Body key={r.id}>
+                          {r.kind}: {describeMeasurements(r.measurements, preferences)}
+                          {r.removedAt ? ' · removed' : ''}
+                          {r.correctedAt ? ' · corrected' : ''} {r.notes}
+                        </Body>
+                      ))}
+                    </View>
+                  ))}
+                </Card>
+              ))}
+            </Disclosure>
           </View>
         )}
       </View>
+      {showRoutinePicker && (
+        <Sheet title="Choose routine" onClose={() => setShowRoutinePicker(false)}>
+          <Action
+            title="Empty workout"
+            secondary
+            onPress={() => {
+              setRoutineId('');
+              setShowRoutinePicker(false);
+            }}
+          />
+          {routines
+            .filter((r) => !r.archivedAt)
+            .map((r) => (
+              <Action
+                key={r.id}
+                title={r.name}
+                secondary
+                onPress={() => {
+                  setRoutineId(r.id);
+                  setShowRoutinePicker(false);
+                }}
+              />
+            ))}
+          <Action title="Refresh routines" secondary onPress={() => void load()} />
+        </Sheet>
+      )}
       {picker && (
         <Sheet
           error={command.error}
@@ -1649,7 +1926,7 @@ function Sheet({
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheet}>
-              <Heading>{title}</Heading>
+              <Heading compact>{title}</Heading>
               {children}
               {!!error && <Body error>{error}</Body>}
               <Action title="Close" secondary onPress={onClose} />
@@ -1663,7 +1940,11 @@ function Sheet({
 const styles = StyleSheet.create({
   stack: { gap: 16 },
   columns: { flexDirection: 'row', alignItems: 'flex-start', gap: 24 },
-  sidebar: { width: 300 },
-  detail: { flex: 1 },
+  sidebar: { width: 220, flexShrink: 0 },
+  exerciseChoices: { gap: 8, flexDirection: 'row', paddingBottom: 4 },
+  timerRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  measurements: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  measurement: { flex: 1, minWidth: 120 },
+  detail: { flex: 1, minWidth: 0 },
   sheet: { padding: 24, gap: 18 },
 });

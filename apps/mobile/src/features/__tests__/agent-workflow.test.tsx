@@ -150,18 +150,18 @@ test('retains review feedback across conflict and requires review before a fresh
   await render(<AgentWorkflow client={f.client} taskId={id(1)} />);
   await screen.findByText('The actual fictional script version.');
   await fireEvent.changeText(screen.getByLabelText('Changes for version 1'), 'Keep this feedback');
-  await fireEvent.press(screen.getByRole('button', { name: 'Request revisions to version 1' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Request changes to version 1' }));
   await screen.findByText(/This version changed/);
   expect(screen.getByLabelText('Changes for version 1').props.value).toBe('Keep this feedback');
   expect(
-    screen.getByRole('button', { name: 'Request revisions to version 1' }).props.accessibilityState
+    screen.getByRole('button', { name: 'Request changes to version 1' }).props.accessibilityState
       .disabled,
   ).toBe(true);
   await fireEvent.press(
     screen.getByRole('button', { name: 'I reviewed the refreshed information' }),
   );
   expect(
-    screen.getByRole('button', { name: 'Request revisions to version 1' }).props.accessibilityState
+    screen.getByRole('button', { name: 'Request changes to version 1' }).props.accessibilityState
       .disabled,
   ).toBe(false);
 });
@@ -180,11 +180,19 @@ test('unknown external effect requires checked outcome and evidence and never si
     screen.getByLabelText('Evidence from your check'),
     'Checked fictional destination receipt list; no upload with this operation exists.',
   );
+  expect(
+    screen.getByRole('button', { name: 'Save verified outcome' }).props.accessibilityState.disabled,
+  ).toBe(true);
+  await fireEvent.changeText(
+    screen.getByLabelText('Evidence that the previous worker stopped'),
+    'Worker confirmed terminal stop; receipt checked separately.',
+  );
   await fireEvent.press(screen.getByRole('button', { name: 'Save verified outcome' }));
   await waitFor(() => expect(f.commands).toHaveLength(1));
   expect(f.commands[0]).toMatchObject({
     type: 'attempt.reconcile',
     outcome: 'not-performed',
+    workerStoppedEvidence: 'Worker confirmed terminal stop; receipt checked separately.',
     artifacts: [],
   });
 });
@@ -198,6 +206,7 @@ test('binds a chosen reusable version and required inputs with an explicit appro
   f.data.skills[0]!.revision = 2;
   await render(<AgentWorkflow client={f.client} taskId={id(1)} />);
   await screen.findByText('The actual fictional script version.');
+  await fireEvent.press(screen.getByRole('button', { name: 'Configure agent step' }));
   await fireEvent.press(
     screen.getByRole('button', { name: 'Set procedure for Draft fictional script' }),
   );
@@ -263,6 +272,7 @@ test('a lost file-finalization reply retries identical version and operation wit
     } as unknown as InstallationClient;
     await render(<AgentWorkflow client={client} taskId={id(1)} />);
     await screen.findByText('The actual fictional script version.');
+    await fireEvent.press(screen.getByRole('button', { name: 'Private task files' }));
     await fireEvent.changeText(
       screen.getByLabelText('Private text filename'),
       'fictional-script.txt',
@@ -282,4 +292,118 @@ test('a lost file-finalization reply retries identical version and operation wit
   } finally {
     global.fetch = oldFetch;
   }
+});
+
+test('keeps setup and provenance out of the review path and reveals them explicitly', async () => {
+  const f = client();
+  await render(<AgentWorkflow client={f.client} taskId={id(1)} />);
+  await screen.findByText('The actual fictional script version.');
+  expect(screen.queryByText('Worker: fictional-worker')).toBeNull();
+  expect(screen.queryByText('Fictional script prepared')).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: 'Create a fictional YouTube workflow in Planned' }),
+  ).toBeNull();
+  expect(screen.queryByRole('button', { name: 'New reusable procedure' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Release to Next' })).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Run 1 details · Needs your review' }));
+  expect(screen.getByText('Worker: fictional-worker')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: 'Configure agent step' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Advanced' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Use workflow template' }));
+  expect(
+    screen.getByRole('button', { name: 'Create a fictional YouTube workflow in Planned' }),
+  ).toBeTruthy();
+});
+
+test('shows only latest approval controls and keeps old result content in history', async () => {
+  const f = client();
+  f.data.results.push({
+    ...f.data.results[0]!,
+    id: id(6),
+    version: 2,
+    artifacts: [{ key: 'script', kind: 'text', text: 'New version to review.' }],
+  });
+  await render(<AgentWorkflow client={f.client} taskId={id(1)} />);
+  await screen.findByText('New version to review.');
+  expect(screen.queryByRole('button', { name: 'Approve version 1' })).toBeNull();
+  expect(screen.queryByText('The actual fictional script version.')).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Result version 1' }));
+  expect(screen.getByText('The actual fictional script version.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Approve version 1' })).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Approve version 2' }));
+  await waitFor(() => expect(f.commands).toHaveLength(1));
+  expect(f.commands[0]).toMatchObject({
+    type: 'result.approve',
+    resultId: id(6),
+    expectedVersion: 2,
+  });
+});
+
+test('stopping a running agent requires a reason and requests a cooperative stop', async () => {
+  const f = client();
+  f.data.attempts[0]!.status = 'running';
+  f.data.attempts[0]!.effectiveStatus = 'running';
+  f.data.results = [];
+  await render(<AgentWorkflow client={f.client} taskId={id(1)} />);
+  await screen.findByText('Fictional script prepared');
+  expect(screen.queryByLabelText('Reason for stopping attempt 1')).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Stop this run' }));
+  expect(
+    screen.getByRole('button', { name: 'Request stop for attempt 1' }).props.accessibilityState
+      .disabled,
+  ).toBe(true);
+  await fireEvent.changeText(
+    screen.getByLabelText('Reason for stopping attempt 1'),
+    'The brief changed.',
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Request stop for attempt 1' }));
+  await waitFor(() => expect(f.commands).toHaveLength(1));
+  expect(f.commands[0]).toMatchObject({
+    type: 'attempt.cancel',
+    attemptId: id(4),
+    reason: 'The brief changed.',
+  });
+  expect(
+    screen.getByText('Stopping is cooperative. Wait for confirmation or verify the destination.'),
+  ).toBeTruthy();
+});
+
+test('parent configuration changes preserve drafts and an uncertain save on the mounted workflow', async () => {
+  const f = client('uncertain');
+  const view = await render(<AgentWorkflow client={f.client} taskId={id(1)} />);
+  await screen.findByText('The actual fictional script version.');
+  await fireEvent.changeText(
+    screen.getByLabelText('Changes for version 1'),
+    'Keep this draft across setup changes',
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Approve version 1' }));
+  await screen.findByText(/Lost response/);
+  await view.rerender(
+    <AgentWorkflow client={f.client} taskId={id(1)} configurationInitiallyOpen />,
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Configure agent step' }).props.accessibilityState
+        .expanded,
+    ).toBe(true),
+  );
+  expect(screen.getByLabelText('Changes for version 1').props.value).toBe(
+    'Keep this draft across setup changes',
+  );
+  await view.rerender(
+    <AgentWorkflow client={f.client} taskId={id(1)} configurationInitiallyOpen={false} />,
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Configure agent step' }).props.accessibilityState
+        .expanded,
+    ).toBe(false),
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Configure agent step' }));
+  expect(
+    screen.getByRole('button', { name: 'Configure agent step' }).props.accessibilityState.expanded,
+  ).toBe(true);
+  await fireEvent.press(screen.getByRole('button', { name: 'Retry the same change' }));
+  await waitFor(() => expect(f.commands).toHaveLength(2));
+  expect(f.commands[1]).toEqual(f.commands[0]);
 });

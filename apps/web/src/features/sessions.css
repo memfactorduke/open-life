@@ -27,6 +27,7 @@
   margin: 0.75rem 0;
 }
 .session-area summary {
+  min-height: 44px;
   cursor: pointer;
   padding: 0.65rem 0;
   font-weight: 650;
@@ -192,5 +193,130 @@
   }
   .session-inline {
     grid-template-columns: 1fr;
+  }
+}
+
+/* The logger remains compact while every control retains a 44px target. */
+.session-area {
+  gap: 0.75rem;
+}
+.session-area .session-card {
+  padding: 1rem;
+  border-radius: 12px;
+}
+.session-area h3 {
+  font-size: 1.2rem;
+  margin: 0 0 0.5rem;
+}
+.session-area legend {
+  padding: 0.5rem 0;
+}
+.session-area .segmented {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+.session-heading {
+  align-items: center;
+}
+.session-heading p {
+  margin: 0.25rem 0;
+  font-size: 0.875rem;
+}
+.session-finish {
+  display: grid;
+  gap: 0.4rem;
+}
+.session-finish button {
+  white-space: nowrap;
+}
+.session-area .actual-results {
+  margin: 0.5rem 0;
+}
+.actual-set {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.actual-set p {
+  margin: 0.25rem 0;
+  flex: 1;
+}
+.actual-set button {
+  font-size: 0.8rem;
+  padding: 0.5rem 0.75rem;
+}
+.previous-set-summary {
+  font-size: 0.875rem;
+  margin: 0.5rem 0;
+}
+.session-area .rest-controls {
+  border-top: 1px solid var(--line);
+  padding-top: 0.25rem;
+}
+.rest-controls label {
+  max-width: 240px;
+}
+.rest-controls .session-actions button {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.session-area .session-timer {
+  background: var(--surface);
+  border-color: var(--line);
+  padding: 0.75rem;
+}
+@media (max-width: 700px) {
+  .session-exercises button {
+    min-width: 140px;
+    padding: 0.5rem 0.75rem;
+  }
+  .session-area .session-heading {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .session-finish {
+    margin-left: auto;
+  }
+  .session-area .session-card {
+    padding: 0.8rem;
+  }
+  .session-area h2 {
+    font-size: 1.3rem;
+  }
+  .session-area .session-inline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.session-heading > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.session-heading .session-finish {
+  flex-shrink: 0;
+}
+.session-heading h3 {
+  overflow-wrap: anywhere;
+}
+.session-area .actual-results .actual-set {
+  font-size: 0.875rem;
+}
+.session-area .actual-results .actual-set button {
+  padding: 0.4rem 0.65rem;
+}
+@media (max-width: 700px) {
+  .session-heading {
+    gap: 0.5rem;
+  }
+  .session-heading h3 {
+    font-size: 1rem;
+  }
+  .session-heading p {
+    font-size: 0.8rem;
+  }
+  .session-finish button {
+    font-size: 0.8rem;
+    padding: 0.5rem 0.7rem;
   }
 }

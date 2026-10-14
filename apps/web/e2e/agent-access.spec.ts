@@ -13,6 +13,7 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
   await page.goto('/#settings');
+  await page.getByRole('link', { name: 'Connections', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Agent access', exact: true })).toBeVisible();
 });
 test.afterEach(async ({ page }) => {
@@ -39,7 +40,9 @@ test('creates scoped expiring access, copies only on request, clears the key and
 }) => {
   const label = `Fictional access ${crypto.randomUUID().slice(0, 8)}`;
   labels.add(label);
+  await page.getByRole('button', { name: 'Add agent', exact: true }).click();
   await page.getByLabel('Agent name', { exact: true }).fill(label);
+  await page.getByRole('combobox', { name: 'Purpose', exact: true }).selectOption('custom');
   await page.getByLabel('Plan exercises and routines', { exact: true }).check();
   await expect(
     page.getByLabel('Record reported or imported workouts', { exact: true }),
@@ -100,6 +103,7 @@ test('lost issuance response exposes committed grant for revocation without auto
 }) => {
   const label = `Fictional lost key ${crypto.randomUUID().slice(0, 8)}`;
   labels.add(label);
+  await page.getByRole('button', { name: 'Add agent', exact: true }).click();
   await page.getByLabel('Agent name', { exact: true }).fill(label);
   let count = 0;
   await page.route('**/api/agent-grants', async (route) => {
@@ -127,12 +131,56 @@ test('lost issuance response exposes committed grant for revocation without auto
 test('leaving Settings clears the revealed key without revoking access', async ({ page }) => {
   const label = `Fictional navigation ${crypto.randomUUID().slice(0, 8)}`;
   labels.add(label);
+  await page.getByRole('button', { name: 'Add agent', exact: true }).click();
   await page.getByLabel('Agent name', { exact: true }).fill(label);
   await page.getByRole('button', { name: 'Create one-time key' }).click();
   await expect(page.getByLabel('One-time agent key')).toBeVisible();
   await page.goto('/#tasks');
   await expect(page.getByLabel('One-time agent key')).toHaveCount(0);
   await page.goto('/#settings');
+  await page.getByRole('link', { name: 'Connections', exact: true }).click();
   await expect(page.getByLabel('One-time agent key')).toHaveCount(0);
   await expect(page.getByRole('button', { name: `Revoke ${label}`, exact: true })).toBeVisible();
+});
+
+test('workout planner preset keeps performed recording separate and presents optional setup details', async ({
+  page,
+}) => {
+  const label = `Fictional planning ${crypto.randomUUID().slice(0, 8)}`;
+  labels.add(label);
+  await expect(page.getByLabel('Agent name', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add agent', exact: true }).click();
+  await page.getByLabel('Agent name', { exact: true }).fill(label);
+  await page.getByRole('combobox', { name: 'Purpose', exact: true }).selectOption('workouts');
+  await expect(page.getByRole('checkbox')).toHaveCount(0);
+  await page.getByRole('combobox', { name: 'Access duration', exact: true }).selectOption('1');
+  let issued: { scopes: string[]; expiresAt: string } | undefined;
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().endsWith('/api/agent-grants'))
+      issued = request.postDataJSON();
+  });
+  await page.getByRole('button', { name: 'Create one-time key' }).click();
+  await expect(page.getByLabel('One-time agent key')).toBeVisible();
+  expect(issued!.scopes).toEqual(['workouts:read', 'workouts:plan']);
+  expect(Math.abs(Date.parse(issued!.expiresAt) - Date.now() - 86400000)).toBeLessThan(60000);
+  await expect(page.getByText('Authorization: Bearer YOUR_KEY', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Manual setup details' }).click();
+  await expect(page.getByText('Authorization: Bearer YOUR_KEY', { exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          (window as unknown as { endpointCopied: boolean }).endpointCopied =
+            text === `${location.origin}/mcp`;
+        },
+      },
+    });
+  });
+  await page.getByRole('button', { name: 'Copy endpoint', exact: true }).click();
+  expect(
+    await page.evaluate(() => (window as unknown as { endpointCopied: boolean }).endpointCopied),
+  ).toBe(true);
+  await page.getByRole('button', { name: 'Done · hide key' }).click();
+  await page.getByRole('button', { name: `Revoke ${label}`, exact: true }).click();
 });

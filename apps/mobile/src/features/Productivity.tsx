@@ -20,7 +20,7 @@ import {
   type TaskStep,
 } from '@mems-life/domain';
 import type { InstallationClient } from '../client';
-import { Action, Body, Card, Choice, Field, Heading } from '../ui';
+import { Action, Body, Card, Choice, Field, Heading, Disclosure } from '../ui';
 import { messageOf, useCommand } from './helpers';
 import { DateTimeField } from '../DateTimeField';
 
@@ -314,10 +314,16 @@ export function Steps({
   task,
   client,
   onTask,
+  onStepState,
+  blocked = false,
+  onBlockedChange,
 }: {
   task: Task;
   client: InstallationClient;
   onTask: (task: Task) => void;
+  blocked?: boolean;
+  onBlockedChange?: (blocked: boolean) => void;
+  onStepState?: (state: { canComplete: boolean; hasAgent: boolean; nextStep: string }) => void;
 }) {
   const [data, setData] = useState<z.infer<typeof StepResponse> | null>(null);
   const [editing, setEditing] = useState(false);
@@ -331,7 +337,11 @@ export function Steps({
   const [filter, setFilter] = useState('all');
   const [reviewed, setReviewed] = useState(false);
   const command = useCommand(client);
-  const locked = command.busy || command.pending;
+  const locked = blocked || command.busy || command.pending;
+  useEffect(() => {
+    onBlockedChange?.(command.busy || command.pending);
+    return () => onBlockedChange?.(false);
+  }, [command.busy, command.pending, onBlockedChange]);
   async function load(review = false) {
     try {
       const result = StepResponse.parse(await client.request(`/api/tasks/${task.id}/steps`));
@@ -348,7 +358,7 @@ export function Steps({
   }
   useEffect(() => {
     void load();
-  }, [task.id]);
+  }, [task.id, task.revision]);
   function edit(step: TaskStep | null) {
     setEditing(true);
     setSelected(step);
@@ -383,6 +393,21 @@ export function Steps({
       setReviewed(false);
     }
   }
+  useEffect(() => {
+    if (data)
+      onStepState?.({
+        canComplete: data.canComplete,
+        hasAgent: data.entries.some(({ step }) => step.content.responsibility !== 'human'),
+        nextStep: (() => {
+          const entry = data.entries.find(
+            ({ step }) => step.content.required && step.status !== 'completed',
+          );
+          return entry
+            ? `${entry.step.content.title} · ${entry.step.content.responsibility === 'agent' ? 'Agent work' : 'Needs you'}${entry.waitingReason === 'dependencies' ? ' · Waiting for prerequisites' : ''}`
+            : '';
+        })(),
+      });
+  }, [data, onStepState]);
   const reasons: Record<string, string> = {
     not_released: 'Waiting for deliberate release to Next',
     paused: 'Parent task is paused',
@@ -391,22 +416,29 @@ export function Steps({
   };
   return (
     <Card>
-      <Heading>Steps and next actions</Heading>
-      <Body>
-        Required steps and any final review govern completion of the parent. Assignment is separate
-        from readiness. Agents execute work through external clients.
-      </Body>
-      <Choice
-        label="Responsibility view"
-        value={filter}
-        disabled={locked}
-        onChange={setFilter}
-        options={[
-          { value: 'all', label: 'All steps' },
-          { value: 'human', label: 'Needs a person' },
-          { value: 'agent', label: 'Agent work' },
-        ]}
-      />
+      {!!data?.entries.length && <Heading compact>Steps</Heading>}
+      {!!command.error && <Body error>{command.error}</Body>}
+      {command.pending && !editing && (
+        <Action
+          title="Retry unchanged step request"
+          busy={command.busy}
+          onPress={() => void act('step.edit', {})}
+        />
+      )}
+
+      {!!data?.entries.length && (
+        <Choice
+          label="Responsibility view"
+          value={filter}
+          disabled={locked}
+          onChange={setFilter}
+          options={[
+            { value: 'all', label: 'All steps' },
+            { value: 'human', label: 'Needs a person' },
+            { value: 'agent', label: 'Agent work' },
+          ]}
+        />
+      )}
       {data?.entries
         .filter(
           (e) =>
@@ -428,40 +460,49 @@ export function Steps({
                   : 'No pending action'}{' '}
               · Assigned: {step.assignedTo ?? 'Unassigned'}
             </Body>
-            <Action
-              title={`Edit step ${step.content.title}`}
-              secondary
-              disabled={locked}
-              onPress={() => edit(step)}
-            />
-            <Action
-              title={`Complete step ${step.content.title}`}
-              disabled={locked || Boolean(waitingReason) || step.status === 'completed'}
-              onPress={() => void act('step.status', { status: 'completed' }, step)}
-            />
-            {!step.content.required && step.status !== 'skipped' && (
+            {ready && step.status !== 'completed' && step.content.responsibility !== 'agent' && (
               <Action
-                title={`Skip optional step ${step.content.title}`}
-                secondary
+                title={`Complete step ${step.content.title}`}
                 disabled={locked}
-                onPress={() => void act('step.status', { status: 'skipped' }, step)}
+                onPress={() => void act('step.status', { status: 'completed' }, step)}
               />
             )}
-            {step.status === 'completed' && (
+            <Disclosure title={`Options for ${step.content.title}`}>
               <Action
-                title={`Reopen step ${step.content.title}`}
+                title={`Edit step ${step.content.title}`}
                 secondary
                 disabled={locked}
-                onPress={() => void act('step.status', { status: 'pending' }, step)}
+                onPress={() => edit(step)}
               />
-            )}
+              <Action
+                title={`Mark complete: ${step.content.title}`}
+                disabled={locked || Boolean(waitingReason) || step.status === 'completed'}
+                onPress={() => void act('step.status', { status: 'completed' }, step)}
+              />
+              {!step.content.required && step.status !== 'skipped' && (
+                <Action
+                  title={`Skip optional step ${step.content.title}`}
+                  secondary
+                  disabled={locked}
+                  onPress={() => void act('step.status', { status: 'skipped' }, step)}
+                />
+              )}
+              {step.status === 'completed' && (
+                <Action
+                  title={`Reopen step ${step.content.title}`}
+                  secondary
+                  disabled={locked}
+                  onPress={() => void act('step.status', { status: 'pending' }, step)}
+                />
+              )}
+            </Disclosure>
           </View>
         ))}
-      {data && (
+      {!!data?.entries.length && (
         <Body>
           {data.canComplete
-            ? 'Requirements satisfied; complete the parent deliberately.'
-            : 'Parent completion is waiting for required steps or final review.'}
+            ? 'Required steps complete.'
+            : 'Finish required steps and final review before completing this task.'}
         </Body>
       )}
       <Action
@@ -521,7 +562,7 @@ export function Steps({
               }
             />
           ))}
-        {!!command.error && <Body error>{command.error}</Body>}
+
         {reviewed && (
           <Body>
             Latest saved step: {selected?.content.title ?? 'New step'} ·{' '}

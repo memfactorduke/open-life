@@ -356,7 +356,7 @@
       <main>
         <header class="cover" id="verdict">
           <p class="meta">
-            13 October 2026 · America/New_York · application merged; artifact verification continues
+            14 October 2026 · America/New_York · original hardening merged; refined UI acceptance continues
           </p>
           <h1>Release candidate audit</h1>
           <p class="lede">
@@ -364,27 +364,21 @@
             across the application, adds regression coverage, and improves the measured daily
             workloads.
           </p>
-          <div class="banner">
-            <strong>Source checks pass; artifact acceptance is still in progress.</strong> The
-            three-engine browser suite is running after its first full pass found additional issues.
-            The fresh native Release build passed; its simulator journeys are in progress. Physical
-            camera and live WHOOP consent remain separate gates.
-          </div>
+          <div class="banner"><strong>Original hardening passed. The usability candidate is undergoing fresh artifact acceptance.</strong> PRs 4 and 5 are merged. PR6 refines native and web flows. Its 224 native, 68 domain, and 37 real service tests pass. Actual native checks found a date-format crash, stale cache revisions, and large-text layout defects; fixes are now in the corrected build. The final browser and container checks are running. The <a href="usability-audit.html">UI audit</a> records those changes and current limits. Earlier image and native hashes below belong to the earlier candidate.</div>
           <div class="cards">
             <article class="card">
-              <span class="status log-passed">266 source tests</span>
+              <span class="status log-passed">329 current source tests</span>
               <h2>Application</h2>
               <p>
-                51 shared domain, 178 mobile, and 37 real service tests passed in their final named
-                runs.
+                68 shared domain, 224 mobile, and 37 real service tests passed in the current candidate runs.
               </p>
             </article>
             <article class="card">
               <span class="status pending">Artifacts running</span>
               <h2>Release builds</h2>
               <p>
-                Native compilation passed with unchanged captured inputs. Simulator journeys and
-                current containers require verification.
+                Native compilation and fresh container verification passed with unchanged inputs.
+                Corrected simulator journeys, final UI container images, and cloud CI remain required.
               </p>
             </article>
             <article class="card">
@@ -462,10 +456,13 @@
                 <tr>
                   <td>Release operations</td>
                   <td>
-                    19 executable scripts, backup/export/restore paths and durability, process
-                    supervision, fixture isolation, container packaging, notices and CI.
+                    19 original executable scripts and added helpers: private archives, durability,
+                    supervision, isolation, containers, notices and CI.
                   </td>
-                  <td>12 operations tests passed, including descendant process cleanup.</td>
+                  <td>
+                    13 operations tests passed, including startup interruption and descendant
+                    cleanup.
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -694,18 +691,19 @@
                 </tr>
                 <tr>
                   <td>Operations</td>
-                  <td><span class="status log-passed">12 operations tests passed</span></td>
+                  <td><span class="status log-passed">13 tests passed / no skips</span></td>
                   <td>
-                    Symlink/path guards, isolated PostgreSQL startup, supervision. Descendant
-                    cleanup review adds another regression.
+                    Actual isolated PostgreSQL startup, unsafe paths, process groups, startup
+                    interruption and port cleanup.
                   </td>
                 </tr>
                 <tr>
                   <td>Browser</td>
-                  <td><span class="status pending">114 passed / zero skips</span></td>
+                  <td><span class="status log-passed">114 passed / zero skips</span></td>
                   <td>
-                    First full pass: 93 passed, 15 failed, 3 skipped. Failures prompted fixes; final
-                    run includes Today live fixture proof.
+                    Final five-minute run on a separate fictional CI installation included 21 RC
+                    checks, live Today, private media/retries, conflicts and production CSP in all
+                    three engines.
                   </td>
                 </tr>
                 <tr>
@@ -725,9 +723,13 @@
                   </td>
                 </tr>
                 <tr>
-                  <td>Current container and operator</td>
-                  <td><span class="status pending">Not yet verified</span></td>
-                  <td>New source and backup helper require fresh image verification.</td>
+                  <td>Fresh container and operator</td>
+                  <td><span class="status log-passed">Passed</span></td>
+                  <td>
+                    Exact current application/operator images passed startup, restart, export,
+                    coherent backup and independent restore. Captured inputs unchanged; owned VM
+                    stopped.
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -736,12 +738,11 @@
         <section id="reviews">
           <h2>Independent review</h2>
           <p>
-            Standards and specification reviews ran separately. They reproduced and corrected a
-            successful stale-ACK restore race, device-timer clock inflation, loss of photo-only
-            timestamp corrections, failed CSS recovery, and process-supervision descendant cleanup.
-            The cleanup regression has since been fixed; final tooling verification is pending. The
-            final offline/maintenance/snapshot delta is merge-ready from the specification review.
-            Browser verification passed; the final tooling delta is under independent review.
+            Standards and specification reviews ran independently. They reproduced and corrected
+            stale offline acknowledgements, clock inflation, lost timestamp corrections, failed CSS
+            recovery and process cancellation races. Both final scoped reviews are merge-ready with
+            no material remaining finding. Cloud CI found a missing build prerequisite; that cause
+            was reproduced and ordering corrected, with its rerun active.
           </p>
         </section>
         <section id="dependencies">
@@ -827,13 +828,13 @@
         <section id="identity">
           <h2>Source and evidence</h2>
           <p>
-            Baseline <code>e29889a14c460bb72f3011cffb5e431749decb59</code>. Application commit
-            <code>6e93c3dce9d3c06037a03efff5686f344a9b0f05</code>; branch
-            <code>codex/release-candidate-hardening</code>.
-            <a href="https://github.com/memfactorduke/open-life/pull/4"
-              >PR #4: application hardening</a
-            >
-            merged after its relevant local checks passed.
+            Baseline <code>e29889a14c460bb72f3011cffb5e431749decb59</code>.
+            <a href="https://github.com/memfactorduke/open-life/pull/4">PR #4</a> merged at
+            <code>6841794693916693a6e6a7a2640456469d359637</code>.
+            <a href="https://github.com/memfactorduke/open-life/pull/5">PR #5</a> is reviewed and
+            awaits its GitHub CI rerun at <code>b7420549842a4cf5563ee5d01239ce04b660fed9</code>. Raw
+            <a href="container-verification.json">container verification</a> binds the exact images
+            and unchanged input manifest.
           </p>
           <p>
             Raw local evidence: <code>.runtime/rc-audit/</code>, including final source logs,

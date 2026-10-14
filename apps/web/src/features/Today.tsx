@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AttentionResponseSchema,
+  latestFoodEntries,
   type AttentionItem,
   type AttentionResponse,
   type Preferences,
@@ -10,7 +11,7 @@ import './today.css';
 
 export type TodayTarget =
   | { kind: 'task'; id?: string; action?: 'create' }
-  | { kind: 'session'; id?: string; action?: 'create' }
+  | { kind: 'session'; id?: string; routineId?: string; action?: 'create' }
   | { kind: 'food'; id?: string; action?: 'capture' };
 const labels: Record<AttentionItem['kind'], string> = {
   due: 'Due now',
@@ -27,9 +28,9 @@ const reasons: Record<string, string> = {
   agent: 'Waiting for an agent.',
   dependencies: 'Waiting for earlier steps.',
   dependency: 'Waiting for an earlier step.',
-  agent_failed: 'The latest agent attempt failed. Open the task to review what happened.',
-  reconcile_agent_outcome: 'The agent outcome is uncertain. Check the task before retrying.',
-  review_result: 'An agent result is ready for your review.',
+  agent_failed: 'Review the failed attempt.',
+  reconcile_agent_outcome: 'Check the outcome before retrying.',
+  review_result: 'Review the agent result.',
   final_review: 'The finished work needs your final review.',
 };
 export function attentionReason(item: AttentionItem) {
@@ -41,7 +42,6 @@ export function attentionReason(item: AttentionItem) {
 }
 
 export function Today({
-  preferences,
   onOpen,
   active = true,
 }: {
@@ -52,7 +52,7 @@ export function Today({
   const [data, setData] = useState<AttentionResponse | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<string | null>(null);
+
   const generation = useRef(0);
   const refresh = useCallback(async () => {
     const current = ++generation.current;
@@ -84,194 +84,130 @@ export function Today({
       window.removeEventListener('online', foreground);
     };
   }, [active, refresh]);
-  const item = data?.items.find((i) => i.id === selected) ?? data?.items[0];
-  const ready = data?.items.filter((i) => i.kind !== 'waiting') ?? [];
-  const nextAction = ready[0];
+  const ready = data?.items.filter((item) => item.kind !== 'waiting') ?? [];
+  const waiting = data?.items.filter((item) => item.kind === 'waiting') ?? [];
+  const attentionRow = (item: AttentionItem) => (
+    <li key={item.id}>
+      <button
+        aria-label={`${labels[item.kind]}: ${item.step?.content.title ?? item.task.content.title}`}
+        onClick={() => onOpen({ kind: 'task', id: item.task.id })}
+      >
+        <span className="today-row-content">
+          <strong>{item.step?.content.title ?? item.task.content.title}</strong>
+          {item.step && <span className="today-muted">{item.task.content.title}</span>}
+          {item.waitingReason && <span className="today-muted">{attentionReason(item)}</span>}
+        </span>
+        <span className={`today-status ${item.kind}`}>{labels[item.kind]}</span>
+      </button>
+    </li>
+  );
   return (
     <section className="today" aria-labelledby="today-heading">
       <header className="today-heading">
         <div>
-          <p className="eyebrow">Your daily focus</p>
           <h1 id="today-heading">Today</h1>
-          <p className="today-greeting" title={`Hello, ${preferences.displayName}.`}>
-            Hello, {preferences.displayName}.
-          </p>
-          <p className="today-date">
-            {data
-              ? new Intl.DateTimeFormat('en', {
-                  timeZone: data.timezone,
-                  weekday: 'long',
-                  month: 'long',
-                  day: 'numeric',
-                }).format(new Date(data.now))
-              : 'A little space to see what comes next.'}
-          </p>
+          {data && (
+            <p className="today-date">
+              {new Intl.DateTimeFormat('en', {
+                timeZone: data.timezone,
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+              }).format(new Date(data.now))}
+            </p>
+          )}
         </div>
-        <button onClick={() => void refresh()} disabled={loading}>
+        <button className="today-quiet" onClick={() => void refresh()} disabled={loading}>
           {loading ? 'Refreshing…' : 'Refresh Today'}
         </button>
       </header>
       {error && (
         <div role="alert" className="today-error">
           <p>{error}</p>
-          {data && (
-            <p>
-              Showing the last confirmed view from{' '}
-              {new Intl.DateTimeFormat('en', {
-                timeZone: data.timezone,
-                hour: 'numeric',
-                minute: '2-digit',
-              }).format(new Date(data.now))}
-              . It may have changed.
-            </p>
-          )}
+          {data && <p>Showing the last confirmed view. It may have changed.</p>}
           <button onClick={() => void refresh()} disabled={loading}>
             Retry Today
           </button>
         </div>
       )}
       {loading && !data && <p role="status">Loading your day…</p>}
-      <nav className="today-capture" aria-label="Quick capture">
-        <button className="primary" onClick={() => onOpen({ kind: 'task', action: 'create' })}>
-          Capture a task
-        </button>
-        <button onClick={() => onOpen({ kind: 'food', action: 'capture' })}>Log food</button>
-        {data?.activeSession && (
-          <button onClick={() => onOpen({ kind: 'session', id: data.activeSession!.id })}>
-            Resume workout
-          </button>
-        )}
-      </nav>
-      {nextAction && (
-        <div className="today-next">
-          <span className="today-tag">{labels[nextAction.kind]}</span>
-          <strong>{nextAction.step?.content.title ?? nextAction.task.content.title}</strong>
+      {data?.activeSession && (
+        <section className="today-workout" aria-label="Active workout">
+          <div>
+            <strong>{data.activeSession.name}</strong>
+            <p className="today-muted">
+              {data.activeSession.items.reduce(
+                (count, exercise) =>
+                  count + exercise.results.filter((result) => !result.removedAt).length,
+                0,
+              )}{' '}
+              sets recorded
+            </p>
+          </div>
           <button
             className="primary"
-            onClick={() => onOpen({ kind: 'task', id: nextAction.task.id })}
+            onClick={() => onOpen({ kind: 'session', id: data.activeSession!.id })}
           >
-            Continue task
+            Resume workout
           </button>
-        </div>
+        </section>
       )}
+      <nav className="today-capture" aria-label="Quick capture">
+        <button onClick={() => onOpen({ kind: 'task', action: 'create' })}>Capture a task</button>
+        <button onClick={() => onOpen({ kind: 'food', action: 'capture' })}>Log food</button>
+        {!data?.activeSession && (
+          <button onClick={() => onOpen({ kind: 'session' })}>Start workout</button>
+        )}
+      </nav>
       {data && (
         <div className="today-grid">
-          <section className="today-panel today-focus" aria-labelledby="focus-heading">
-            <h2 id="focus-heading">What needs you</h2>
-            {data.items.length === 0 ? (
-              <div className="today-empty">
-                <h3>A clear place to start</h3>
-                <p>Capture a task, log a meal, or open Workouts to plan your next session.</p>
-              </div>
+          <section className="today-focus" aria-labelledby="focus-heading">
+            <h2 id="focus-heading">Needs you{ready.length ? ` · ${ready.length}` : ''}</h2>
+            {ready.length ? (
+              <ul className="today-list">{ready.map(attentionRow)}</ul>
             ) : (
-              <>
-                <p className="today-muted">
-                  {ready.length} {ready.length === 1 ? 'action needs' : 'actions need'} your
-                  attention · {data.items.length - ready.length} waiting
-                </p>
-                <div className="today-list-detail">
-                  <ul className="today-list">
-                    {data.items.map((i) => (
-                      <li key={i.id}>
-                        <button
-                          className={item?.id === i.id ? 'selected' : ''}
-                          aria-pressed={item?.id === i.id}
-                          onClick={() => setSelected(i.id)}
-                        >
-                          <span className={`today-tag ${i.kind}`}>{labels[i.kind]}</span>
-                          <strong>{i.step?.content.title ?? i.task.content.title}</strong>
-                          {i.step && <span className="today-muted">{i.task.content.title}</span>}
-                          <span className="today-muted">{attentionReason(i)}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  {item && (
-                    <div className="today-detail">
-                      <span className="today-tag">{labels[item.kind]}</span>
-                      <h3>{item.step?.content.title ?? item.task.content.title}</h3>
-                      <p>{attentionReason(item)}</p>
-                      {item.task.schedule.dueAt && (
-                        <p className="today-muted">
-                          Due{' '}
-                          {new Intl.DateTimeFormat('en', {
-                            timeZone: preferences.timeZone,
-                            month: 'short',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          }).format(new Date(item.task.schedule.dueAt))}
-                        </p>
-                      )}
-                      <button
-                        className="primary"
-                        onClick={() => onOpen({ kind: 'task', id: item.task.id })}
-                      >
-                        Open task
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
+              <p className="today-muted">Nothing needs your attention.</p>
+            )}
+            {!!waiting.length && (
+              <details className="today-waiting">
+                <summary>Waiting · {waiting.length}</summary>
+                <ul className="today-list">{waiting.map(attentionRow)}</ul>
+              </details>
             )}
           </section>
-          <aside className="today-side">
-            <section className="today-panel">
-              <p className="eyebrow">Training</p>
-              <h2>{data.activeSession ? 'Workout in progress' : 'Room for movement'}</h2>
-              {data.activeSession ? (
-                <>
-                  <p>{data.activeSession.name}</p>
-                  <p className="today-muted">
-                    {data.activeSession.items.reduce(
-                      (count, exercise) => count + exercise.results.length,
-                      0,
-                    )}{' '}
-                    sets recorded
-                  </p>
-                  <button
-                    className="primary"
-                    onClick={() => onOpen({ kind: 'session', id: data.activeSession!.id })}
-                  >
-                    Resume {data.activeSession.name}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className="today-muted">No active workout.</p>
-                  <button onClick={() => onOpen({ kind: 'session' })}>Open Workouts</button>
-                </>
-              )}
-            </section>
-            <section className="today-panel">
-              <p className="eyebrow">Food diary</p>
-              <h2>Food today</h2>
-              <p className="today-muted">
-                {data.food.count === 0
-                  ? 'Your diary is ready for your first entry.'
-                  : `${data.food.count} ${data.food.count === 1 ? 'entry' : 'entries'} recorded`}
-              </p>
-              <ul className="today-food">
-                {data.food.entries.map((entry) => (
-                  <li key={entry.id}>
-                    <button onClick={() => onOpen({ kind: 'food', id: entry.id })}>
-                      {entry.content.text.trim() || 'Photo entry'}
-                      <span className="today-muted">
-                        {new Intl.DateTimeFormat('en', {
-                          timeZone: data.timezone,
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        }).format(new Date(entry.content.occurredAt))}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <button onClick={() => onOpen({ kind: 'food', action: 'capture' })}>
-                Add a food entry
+          <section className="today-food-panel" aria-labelledby="food-heading">
+            <header className="today-section-heading">
+              <h2 id="food-heading">Food today · {data.food.count}</h2>
+              <button
+                className="today-quiet"
+                onClick={() => onOpen({ kind: 'food', action: 'capture' })}
+              >
+                Add food entry
               </button>
-            </section>
-          </aside>
+            </header>
+            {!data.food.count && <p className="today-muted">No entries yet.</p>}
+            <ul className="today-food">
+              {latestFoodEntries(data.food.entries).map((entry) => (
+                <li key={entry.id}>
+                  <button onClick={() => onOpen({ kind: 'food', id: entry.id })}>
+                    <strong>{entry.content.text.trim() || 'Photo entry'}</strong>
+                    <span className="today-muted">
+                      {new Intl.DateTimeFormat('en', {
+                        timeZone: data.timezone,
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      }).format(new Date(entry.content.occurredAt))}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {data.food.count > 3 && (
+              <button className="today-quiet" onClick={() => onOpen({ kind: 'food' })}>
+                View food diary
+              </button>
+            )}
+          </section>
         </div>
       )}
     </section>

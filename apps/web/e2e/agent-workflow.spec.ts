@@ -72,6 +72,14 @@ test('owner binds a revision, reviews actual output, requests another version an
   await page.getByRole('button', { name: title, exact: true }).click();
   const ui = page.getByRole('region', { name: 'Agent workflow' });
   await expect(ui.getByRole('heading', { name: 'Agent work & review' })).toBeVisible();
+  await expect(ui.getByLabel('File to attach')).not.toBeVisible();
+  await expect(
+    ui.getByRole('button', { name: 'Set procedure for Write fictional script' }),
+  ).not.toBeVisible();
+  await expect(
+    ui.getByRole('button', { name: 'Create a fictional YouTube workflow in Planned' }),
+  ).not.toBeVisible();
+  await ui.getByText('Private task files', { exact: true }).click();
   await ui.getByLabel('File to attach').setInputFiles({
     name: 'fictional-source.txt',
     mimeType: 'text/plain',
@@ -85,6 +93,7 @@ test('owner binds a revision, reviews actual output, requests another version an
   expect(attachedFiles[0].status).toBe('finalized');
   const bytes = await page.request.get(`/api/task-files/${attachedFiles[0].id}`);
   expect(await bytes.text()).toBe('Fictional source file, no personal records.');
+  await ui.getByText('Configure agent step', { exact: true }).click();
   await ui.getByText('Reusable procedures', { exact: true }).click();
   await ui.getByLabel('Procedure name').fill(`Fictional script procedure ${suffix}`);
   await ui
@@ -101,8 +110,10 @@ test('owner binds a revision, reviews actual output, requests another version an
   await ui.getByLabel('brief', { exact: true }).fill('Explain imaginary planets.');
   await ui.getByRole('button', { name: 'Save procedure binding' }).click();
   await expect(ui.getByRole('status')).toHaveText('Saved.');
-  await ui.getByRole('button', { name: 'Release to Next' }).click();
-  await expect(ui.getByRole('status')).toHaveText('Saved.');
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Release to Next', exact: true })
+    .click();
   async function finish(text: string) {
     const read = await page.request.get(`/api/tasks/${taskId}/agent-workflow`);
     const work = await read.json(),
@@ -126,16 +137,23 @@ test('owner binds a revision, reviews actual output, requests another version an
       artifacts: [{ key: 'script', kind: 'text', text }],
       summary: 'Fictional script output',
     });
+    const more = ui
+      .locator('details')
+      .filter({ has: page.locator('summary', { hasText: /^More$/ }) });
+    if (!(await more.evaluate((el) => (el as HTMLDetailsElement).open)))
+      await ui.getByText('More', { exact: true }).click();
     await ui.getByRole('button', { name: 'Refresh workflow' }).click();
   }
   await finish('The first actual fictional script.');
   await expect(ui.getByText('The first actual fictional script.', { exact: true })).toBeVisible();
   await ui.getByLabel('Changes for version 1').fill('Add a fictional moon.');
-  await ui.getByRole('button', { name: 'Request revisions to version 1' }).click();
+  await ui.getByRole('button', { name: 'Request changes to version 1' }).click();
   await expect(ui.getByRole('status')).toHaveText('Saved.');
   await finish('The revised fictional script with a moon.');
   await ui.getByRole('button', { name: 'Approve version 2' }).click();
   await expect(ui.getByRole('heading', { name: 'Result version 2 · Approved' })).toBeVisible();
+  await expect(ui.getByRole('button', { name: 'Approve version 1' })).toHaveCount(0);
+  await ui.getByRole('heading', { name: 'Result version 1', exact: true }).click();
   await expect(ui.getByText('The first actual fictional script.', { exact: true })).toBeVisible();
   const verified = await page.request.get(`/api/tasks/${taskId}/agent-workflow`);
   const saved = await verified.json();
@@ -181,7 +199,17 @@ test('fictional YouTube template stays Planned and opens eight editable steps', 
   expect(response.ok()).toBeTruthy();
   await page.goto('/#tasks');
   await page.getByRole('button', { name: title, exact: true }).click();
+  await page.getByRole('dialog').getByText('More task actions', { exact: true }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Manage agent work', exact: true })
+    .click();
   const ui = page.getByRole('region', { name: 'Agent workflow' });
+  await expect(
+    ui.getByRole('button', { name: 'Create a fictional YouTube workflow in Planned' }),
+  ).not.toBeVisible();
+  await ui.getByText('Advanced', { exact: true }).click();
+  await ui.getByText('Use workflow template', { exact: true }).click();
   const savedResponse = page.waitForResponse(
     (r) =>
       r.url().endsWith('/api/agent-workflows/commands') &&
@@ -196,8 +224,11 @@ test('fictional YouTube template stays Planned and opens eight editable steps', 
   );
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('button', { name: created.task.content.title, exact: true }).click();
-  await expect(page.locator('.agent-workflow .workflow-steps > article')).toHaveCount(8);
-  await expect(ui.getByRole('button', { name: 'Release to Next' })).toBeVisible();
+  await expect(page.locator('.agent-workflow .workflow-steps > article')).toHaveCount(4);
+  await expect(ui.getByRole('button', { name: 'Release to Next' })).toHaveCount(0);
+  await expect(
+    page.getByRole('dialog').getByRole('button', { name: 'Release to Next', exact: true }),
+  ).toBeVisible();
   const workflow = await page.request.get(`/api/tasks/${created.task.id}/agent-workflow`);
   const data = await workflow.json();
   expect(data.attempts).toHaveLength(0);

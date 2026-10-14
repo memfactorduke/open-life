@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import {
   TaskResponseSchema,
@@ -20,7 +19,7 @@ import {
 import * as Crypto from 'expo-crypto';
 import { parseTaskAcknowledgement, useOfflineRevision } from '../offline-client';
 import type { InstallationClient } from '../client';
-import { Action, Body, Card, Choice, Field, Heading, usePalette } from '../ui';
+import { Action, Body, Card, Choice, Field, Heading, usePalette, Disclosure, ListRow } from '../ui';
 import { AgentWorkflow } from './AgentWorkflow';
 import { messageOf, useCommand } from './helpers';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
@@ -60,7 +59,8 @@ export function Tasks({
   const [detailBlocked, setDetailBlocked] = useState(false),
     [captureRequested, setCaptureRequested] = useState(0);
   const zone = preferences?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
-  const wide = useWindowDimensions().width >= 900;
+  const [containerWidth, setContainerWidth] = useState(0);
+  const wide = containerWidth >= 900;
   const [boards, setBoards] = useState<Board[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [filters, setFilters] = useState(false);
@@ -71,8 +71,6 @@ export function Tasks({
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [timing, setTiming] = useState('all');
   const [responsibility, setResponsibility] = useState('all');
-  const [configuration, setConfiguration] = useState(false);
-  const [recurring, setRecurring] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<TaskView>('open');
@@ -216,18 +214,11 @@ export function Tasks({
         : boardGroups.filter((g) => g.id === (selectedBoard ? selectedColumn : phase));
   const visible = groups.flatMap((group) => group.tasks);
   return (
-    <View style={layout.stack}>
-      <Heading eyebrow="Make room for what matters">Tasks</Heading>
-      <Choice
-        label="Task view"
-        value={view}
-        onChange={setView}
-        options={[
-          { value: 'open', label: 'Open' },
-          { value: 'completed', label: 'Completed' },
-          { value: 'archived', label: 'Archived' },
-        ]}
-      />
+    <View
+      style={layout.stack}
+      testID="tasks-container"
+      onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
+    >
       {view === 'open' && (
         <>
           <Card>
@@ -347,30 +338,6 @@ export function Tasks({
           ]}
         />
       </View>
-      <Action
-        title={configuration ? 'Hide configuration' : 'Manage boards and projects'}
-        secondary
-        onPress={() => setConfiguration(!configuration)}
-      />
-      <View style={{ display: configuration ? 'flex' : 'none' }}>
-        <Configuration
-          client={client}
-          boards={boards}
-          projects={projects}
-          onSaved={() => {
-            void loadConfiguration();
-            void load();
-          }}
-        />
-      </View>
-      <Action
-        title={recurring ? 'Hide recurring responsibilities' : 'Manage recurring responsibilities'}
-        secondary
-        onPress={() => setRecurring(!recurring)}
-      />
-      <View style={{ display: recurring ? 'flex' : 'none' }}>
-        <Recurrence client={client} zone={zone} onSaved={() => void load()} />
-      </View>
       {!!command.error && <Body error>{command.error}</Body>}
       {command.pending && view !== 'open' && (
         <Action
@@ -387,61 +354,108 @@ export function Tasks({
             : 'No tasks in this history view yet.'}
         </Body>
       )}
-      <View style={wide ? layout.columns : layout.stack}>
-        {groups.map((group) => (
-          <View
-            key={group.id}
-            testID={`task-group-${group.id}`}
-            style={wide ? { flexGrow: 1, flexBasis: 320, minWidth: 280, gap: 18 } : layout.stack}
-          >
-            {!!group.label && <Heading>{group.label}</Heading>}
-            {group.tasks.map((task, index) => (
-              <Card key={task.id}>
-                <Body>{task.content.title}</Body>
-                <Body>
-                  {task.phase} · {task.organization.priority} priority
-                  {task.paused ? ' · Paused' : ''}
-                </Body>
-                {task.schedule.dueAt && (
-                  <Body>
-                    Due{' '}
-                    {new Date(task.schedule.dueAt).toLocaleString(undefined, { timeZone: zone })} (
-                    {zone})
-                  </Body>
-                )}
-                {!!task.content.description && <Body>{task.content.description}</Body>}
-                <Action
-                  title={`Open ${task.content.title}`}
-                  secondary
-                  onPress={() => {
-                    setOpened((previous) =>
-                      previous.some((t) => t.id === task.id) ? previous : [...previous, task],
-                    );
-                    setSelected(task);
-                  }}
-                />
-                {view === 'open' && index > 0 && (
-                  <Action
-                    title={`Move ${task.content.title} up`}
-                    secondary
-                    busy={command.busy}
-                    disabled={command.pending}
-                    onPress={() =>
-                      void mutate({
-                        type: 'task.move',
-                        taskId: task.id,
-                        expectedRevision: task.revision,
-                        phase: task.phase,
-                        beforeTaskId: group.tasks[index - 1]!.id,
-                      })
-                    }
-                  />
-                )}
-              </Card>
+      <View
+        style={
+          wide && selected ? { flexDirection: 'row', gap: 24, alignItems: 'flex-start' } : undefined
+        }
+      >
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={wide && !selected ? layout.columns : layout.stack}>
+            {groups.map((group) => (
+              <View
+                key={group.id}
+                testID={`task-group-${group.id}`}
+                style={
+                  wide && !selected
+                    ? { flexGrow: 1, flexBasis: 320, minWidth: 280, gap: 18 }
+                    : layout.stack
+                }
+              >
+                {wide && !!group.label && <Heading compact>{group.label}</Heading>}
+                {group.tasks.map((task, index) => (
+                  <View key={task.id} style={{ gap: 8 }}>
+                    <ListRow
+                      title={task.content.title}
+                      detail={`${task.phase}${task.paused ? ' · Paused' : ''}${task.schedule.dueAt ? ` · Due ${new Date(task.schedule.dueAt).toLocaleDateString(undefined, { timeZone: zone })}` : ''}`}
+                      onPress={() => {
+                        setOpened((previous) =>
+                          previous.some((t) => t.id === task.id) ? previous : [...previous, task],
+                        );
+                        setSelected(task);
+                      }}
+                    />
+                    {view === 'open' && index > 0 && (
+                      <Action
+                        title={`Move ${task.content.title} up`}
+                        secondary
+                        busy={command.busy}
+                        disabled={command.pending}
+                        onPress={() =>
+                          void mutate({
+                            type: 'task.move',
+                            taskId: task.id,
+                            expectedRevision: task.revision,
+                            phase: task.phase,
+                            beforeTaskId: group.tasks[index - 1]!.id,
+                          })
+                        }
+                      />
+                    )}
+                  </View>
+                ))}
+              </View>
             ))}
           </View>
-        ))}
+        </View>
+        <View style={wide && selected ? { flex: 1, minWidth: 0 } : undefined}>
+          {opened.map((openedTask) => (
+            <TaskDetail
+              key={openedTask.id}
+              task={openedTask}
+              embedded={wide}
+              visible={selected?.id === openedTask.id}
+              navigationRequested={!!navigationRequest}
+              onKeepEditing={() => setNavigationRequest(null)}
+              onContinueNavigation={() => {
+                if (navigationRequest) void openFocus(navigationRequest);
+              }}
+              onBlockedChange={setDetailBlocked}
+              client={client}
+              zone={zone}
+              boards={boards}
+              projects={projects}
+              onClose={() => setSelected(null)}
+              onSaved={() => void load()}
+            />
+          ))}
+        </View>
       </View>
+      <Disclosure title="More">
+        <Choice
+          label="Task view"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'open', label: 'Open' },
+            { value: 'completed', label: 'Completed' },
+            { value: 'archived', label: 'Archived' },
+          ]}
+        />
+        <Disclosure title="Manage boards and projects">
+          <Configuration
+            client={client}
+            boards={boards}
+            projects={projects}
+            onSaved={() => {
+              void loadConfiguration();
+              void load();
+            }}
+          />
+        </Disclosure>
+        <Disclosure title="Manage recurring responsibilities">
+          <Recurrence client={client} zone={zone} onSaved={() => void load()} />
+        </Disclosure>
+      </Disclosure>
       {nextCursor && (
         <Action
           title="Load more tasks"
@@ -450,31 +464,13 @@ export function Tasks({
           onPress={() => void load(nextCursor)}
         />
       )}
-      {opened.map((openedTask) => (
-        <TaskDetail
-          key={openedTask.id}
-          task={openedTask}
-          visible={selected?.id === openedTask.id}
-          navigationRequested={!!navigationRequest}
-          onKeepEditing={() => setNavigationRequest(null)}
-          onContinueNavigation={() => {
-            if (navigationRequest) void openFocus(navigationRequest);
-          }}
-          onBlockedChange={setDetailBlocked}
-          client={client}
-          zone={zone}
-          boards={boards}
-          projects={projects}
-          onClose={() => setSelected(null)}
-          onSaved={() => void load()}
-        />
-      ))}
     </View>
   );
 }
 
 function TaskDetail({
   task,
+  embedded = false,
   client,
   onClose,
   onSaved,
@@ -488,6 +484,7 @@ function TaskDetail({
   onBlockedChange,
 }: {
   task: Task;
+  embedded?: boolean;
   visible: boolean;
   navigationRequested: boolean;
   onKeepEditing: () => void;
@@ -501,6 +498,10 @@ function TaskDetail({
   onSaved: () => void;
 }) {
   const [workflowBlocked, setWorkflowBlocked] = useState(false);
+  const [stepsBlocked, setStepsBlocked] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [agentManagement, setAgentManagement] = useState(false);
+  const [stepState, setStepState] = useState({ canComplete: false, hasAgent: false, nextStep: '' });
   const palette = usePalette();
   const insets = React.useContext(SafeAreaInsetsContext) ?? {
     top: 24,
@@ -508,12 +509,12 @@ function TaskDetail({
     left: 0,
     right: 0,
   };
-  const wide = useWindowDimensions().width >= 900;
+  const [containerWidth, setContainerWidth] = useState(0);
+  const wide = containerWidth >= 900;
   const [current, setCurrent] = useState(task);
   const [title, setTitle] = useState(task.content.title);
   const [description, setDescription] = useState(task.content.description);
   const [notes, setNotes] = useState(task.content.notes);
-  const [organizing, setOrganizing] = useState(false);
   const [organization, setOrganization] = useState(task.organization);
   const [tags, setTags] = useState(task.organization.tags.join(', '));
   const [due, setDue] = useState(localParts(task.schedule.dueAt, zone));
@@ -623,12 +624,14 @@ function TaskDetail({
       command.setError(messageOf(error));
     }
   }
-  const locked = command.busy || command.pending || workflowBlocked || !draftReady;
+  const locked = command.busy || command.pending || workflowBlocked || stepsBlocked || !draftReady;
   useEffect(() => {
     if (visible) onBlockedChange(locked);
   }, [visible, locked, onBlockedChange]);
+  const DetailContainer = embedded ? View : Modal;
   return (
-    <Modal
+    <DetailContainer
+      style={embedded ? { display: visible ? 'flex' : 'none', maxHeight: 780 } : undefined}
       visible={visible}
       animationType="slide"
       onRequestClose={() => {
@@ -638,13 +641,32 @@ function TaskDetail({
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={[layout.modal, { backgroundColor: palette.background }]}
+        style={[
+          embedded ? { minHeight: 500, maxHeight: 780 } : layout.modal,
+          { backgroundColor: palette.background },
+        ]}
+        onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
       >
+        <View
+          style={{
+            paddingTop: embedded ? 0 : insets.top,
+            paddingHorizontal: 20,
+            backgroundColor: palette.background,
+          }}
+        >
+          <Action
+            title="Close task details"
+            variant="quiet"
+            compact
+            disabled={locked}
+            onPress={onClose}
+          />
+        </View>
         <ScrollView
           contentContainerStyle={[
             layout.modalContent,
             {
-              paddingTop: insets.top + 24,
+              paddingTop: embedded ? 16 : 24,
               paddingBottom: insets.bottom + 24,
               maxWidth: wide ? 1000 : undefined,
               width: '100%',
@@ -653,7 +675,59 @@ function TaskDetail({
           ]}
           keyboardShouldPersistTaps="handled"
         >
-          <Heading eyebrow={current.phase}>Task details</Heading>
+          <Heading eyebrow={current.phase}>{current.content.title}</Heading>
+          <View style={{ display: editing ? 'none' : 'flex', gap: 18 }}>
+            {!!stepState.nextStep && <Body>Next required step: {stepState.nextStep}</Body>}
+            {!!current.content.description && <Body>{current.content.description}</Body>}
+            {!!current.content.notes && <Body>{current.content.notes}</Body>}
+            {!current.deletedAt &&
+              !current.archivedAt &&
+              current.phase !== 'completed' &&
+              (current.phase === 'planned' ||
+                current.paused ||
+                (current.finalReviewRequired && !current.finalReviewSatisfied) ||
+                stepState.canComplete) && (
+                <>
+                  <Action
+                    title={
+                      current.phase === 'planned'
+                        ? 'Release to Next'
+                        : current.paused
+                          ? 'Continue work'
+                          : current.finalReviewRequired && !current.finalReviewSatisfied
+                            ? 'Confirm final review'
+                            : 'Complete task'
+                    }
+                    disabled={
+                      locked ||
+                      (current.phase !== 'planned' &&
+                        !current.paused &&
+                        !(current.finalReviewRequired && !current.finalReviewSatisfied) &&
+                        !stepState.canComplete)
+                    }
+                    onPress={() =>
+                      current.phase === 'planned'
+                        ? void act('task.move', { phase: 'next', beforeTaskId: null })
+                        : current.paused
+                          ? void act('task.pause', { paused: false })
+                          : current.finalReviewRequired && !current.finalReviewSatisfied
+                            ? void act('task.review', { required: true, satisfied: true })
+                            : void act('task.complete')
+                    }
+                  />
+                  {current.phase === 'planned' && stepState.hasAgent && (
+                    <Body>
+                      Releasing allows eligible agent steps to start. Human steps wait for you.
+                    </Body>
+                  )}
+                </>
+              )}
+          </View>
+          <Action
+            title={editing ? 'Done editing' : 'Edit task'}
+            variant="quiet"
+            onPress={() => setEditing(!editing)}
+          />
           {navigationRequested && (
             <Card>
               <Heading>Open the requested work</Heading>
@@ -669,341 +743,347 @@ function TaskDetail({
               />
             </Card>
           )}
-          <Field label="Title" value={title} onChangeText={setTitle} editable={!locked} />
-          <Field
-            label="Description"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            editable={!locked}
-          />
-          <Field label="Notes" value={notes} onChangeText={setNotes} multiline editable={!locked} />
-          <Action
-            title={organizing ? 'Hide organization and dates' : 'Organization and dates'}
-            secondary
-            disabled={locked}
-            onPress={() => setOrganizing(!organizing)}
-          />
-          <View style={{ display: organizing ? 'flex' : 'none', gap: 18 }}>
-            <Choice
-              label="Task board"
-              value={organization.boardId ?? 'none'}
-              disabled={locked}
-              onChange={(boardId) =>
-                setOrganization({
-                  ...organization,
-                  boardId: boardId === 'none' ? null : boardId,
-                  columnId: null,
-                })
-              }
-              options={[
-                { value: 'none', label: 'No board' },
-                ...boards.map((b) => ({ value: b.id, label: b.content.name })),
-              ]}
-            />
-            {organization.boardId && (
-              <Choice
-                label="Task column"
-                value={organization.columnId ?? 'none'}
-                disabled={locked}
-                onChange={(columnId) =>
-                  setOrganization({
-                    ...organization,
-                    columnId: columnId === 'none' ? null : columnId,
-                  })
-                }
-                options={[
-                  { value: 'none', label: 'No column' },
-                  ...(boards.find((b) => b.id === organization.boardId)?.content.columns ?? [])
-                    .filter((c) => c.phase === current.phase)
-                    .map((c) => ({ value: c.id, label: `${c.name} (${c.phase})` })),
-                ]}
-              />
-            )}
-            <Body>
-              Only columns matching the current phase are offered. Release to Next deliberately
-              before placing work in a Next column.
-            </Body>
-            <Choice
-              label="Task project"
-              value={organization.projectId ?? 'none'}
-              disabled={locked}
-              onChange={(projectId) =>
-                setOrganization({
-                  ...organization,
-                  projectId: projectId === 'none' ? null : projectId,
-                })
-              }
-              options={[
-                { value: 'none', label: 'No project' },
-                ...projects.map((p) => ({ value: p.id, label: p.content.name })),
-              ]}
-            />
+          <View style={{ display: editing ? 'flex' : 'none', gap: 18 }}>
+            <Field label="Title" value={title} onChangeText={setTitle} editable={!locked} />
             <Field
-              label="Tags (comma separated)"
-              value={tags}
-              onChangeText={setTags}
+              label="Description"
+              value={description}
+              onChangeText={setDescription}
+              multiline
               editable={!locked}
             />
-            <Choice
-              label="Priority"
-              value={organization.priority}
-              disabled={locked}
-              onChange={(priority) => setOrganization({ ...organization, priority })}
-              options={['none', 'low', 'normal', 'high', 'urgent'].map((value) => ({
-                value: value as Task['organization']['priority'],
-                label: value,
-              }))}
+            <Field
+              label="Notes"
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              editable={!locked}
             />
             <Action
-              title="Save organization"
-              disabled={locked}
+              title={reviewing ? 'Save reviewed task' : 'Save task'}
+              disabled={!title.trim() || locked || !!current.archivedAt || !!current.deletedAt}
+              busy={command.busy}
               onPress={() =>
-                void act('task.organize', {
-                  organization: {
-                    ...organization,
-                    tags: tags
-                      .split(',')
-                      .map((t) => t.trim())
-                      .filter(Boolean),
-                  },
-                })
+                void act('task.edit', { content: { title: title.trim(), description, notes } })
               }
-            />
-            <DateFields label="Due" value={due} onChange={setDue} zone={zone} disabled={locked} />
-            <DateFields
-              label="Scheduled"
-              value={scheduled}
-              onChange={setScheduled}
-              zone={zone}
-              disabled={locked}
-            />
-            <Action
-              title="Save dates"
-              disabled={locked}
-              onPress={() => {
-                try {
-                  void act('task.schedule', {
-                    dueAt: localInstant(due.date, due.time, zone),
-                    scheduledAt: localInstant(scheduled.date, scheduled.time, zone),
-                  });
-                } catch (error) {
-                  command.setError(messageOf(error));
-                }
-              }}
             />
           </View>
           {!!command.error && <Body error>{command.error}</Body>}
-          {!command.pending && (
-            <Action
-              title="Review latest saved task"
-              secondary
-              disabled={command.busy}
-              onPress={() => void reviewLatest()}
-            />
-          )}
-          {reviewing && (
-            <Card>
-              <Body>Latest saved title: {current.content.title}</Body>
-              <Body>Latest saved description: {current.content.description || 'None'}</Body>
-              <Body>Latest saved notes: {current.content.notes || 'None'}</Body>
-              <Body>
-                Latest saved board:{' '}
-                {boards.find((b) => b.id === current.organization.boardId)?.content.name ?? 'None'};
-                project:{' '}
-                {projects.find((p) => p.id === current.organization.projectId)?.content.name ??
-                  'None'}
-                ; tags: {current.organization.tags.join(', ') || 'None'}; priority:{' '}
-                {current.organization.priority}
-              </Body>
-              <Body>
-                Latest due: {current.schedule.dueAt ?? 'None'}; scheduled:{' '}
-                {current.schedule.scheduledAt ?? 'None'}
-              </Body>
-              <Body>
-                Your edits above are retained. Saving replaces this content with your edits.
-              </Body>
-            </Card>
-          )}
-          {command.pending ? (
+          {command.pending && (
             <Action
               title="Retry unchanged request"
               busy={command.busy}
               onPress={() => void act('task.edit')}
             />
-          ) : (
-            <>
-              <Action
-                title={reviewing ? 'Save reviewed task' : 'Save task'}
-                disabled={
-                  !title.trim() ||
-                  locked ||
-                  Boolean(current.archivedAt) ||
-                  Boolean(current.deletedAt)
+          )}
+          <Disclosure title="Options">
+            <View style={{ gap: 18 }}>
+              <Choice
+                label="Task board"
+                value={organization.boardId ?? 'none'}
+                disabled={locked}
+                onChange={(boardId) =>
+                  setOrganization({
+                    ...organization,
+                    boardId: boardId === 'none' ? null : boardId,
+                    columnId: null,
+                  })
                 }
-                busy={command.busy}
+                options={[
+                  { value: 'none', label: 'No board' },
+                  ...boards.map((b) => ({ value: b.id, label: b.content.name })),
+                ]}
+              />
+              {organization.boardId && (
+                <Choice
+                  label="Task column"
+                  value={organization.columnId ?? 'none'}
+                  disabled={locked}
+                  onChange={(columnId) =>
+                    setOrganization({
+                      ...organization,
+                      columnId: columnId === 'none' ? null : columnId,
+                    })
+                  }
+                  options={[
+                    { value: 'none', label: 'No column' },
+                    ...(boards.find((b) => b.id === organization.boardId)?.content.columns ?? [])
+                      .filter((c) => c.phase === current.phase)
+                      .map((c) => ({ value: c.id, label: `${c.name} (${c.phase})` })),
+                  ]}
+                />
+              )}
+              <Body>
+                Only columns matching the current phase are offered. Release to Next deliberately
+                before placing work in a Next column.
+              </Body>
+              <Choice
+                label="Task project"
+                value={organization.projectId ?? 'none'}
+                disabled={locked}
+                onChange={(projectId) =>
+                  setOrganization({
+                    ...organization,
+                    projectId: projectId === 'none' ? null : projectId,
+                  })
+                }
+                options={[
+                  { value: 'none', label: 'No project' },
+                  ...projects.map((p) => ({ value: p.id, label: p.content.name })),
+                ]}
+              />
+              <Field
+                label="Tags (comma separated)"
+                value={tags}
+                onChangeText={setTags}
+                editable={!locked}
+              />
+              <Choice
+                label="Priority"
+                value={organization.priority}
+                disabled={locked}
+                onChange={(priority) => setOrganization({ ...organization, priority })}
+                options={['none', 'low', 'normal', 'high', 'urgent'].map((value) => ({
+                  value: value as Task['organization']['priority'],
+                  label: value,
+                }))}
+              />
+              <Action
+                title="Save organization"
+                disabled={locked}
                 onPress={() =>
-                  void act('task.edit', { content: { title: title.trim(), description, notes } })
+                  void act('task.organize', {
+                    organization: {
+                      ...organization,
+                      tags: tags
+                        .split(',')
+                        .map((t) => t.trim())
+                        .filter(Boolean),
+                    },
+                  })
                 }
               />
-              {!current.deletedAt && !current.archivedAt && current.phase !== 'completed' && (
-                <>
-                  <Body>
-                    Planned work stays dormant until you deliberately release it. Pausing prevents
-                    new work from starting.
-                  </Body>
-                  <Action
-                    title={current.paused ? 'Resume released work' : 'Pause work'}
-                    secondary
-                    disabled={locked}
-                    onPress={() => void act('task.pause', { paused: !current.paused })}
-                  />
-                  {current.phase === 'planned' && (
-                    <Action
-                      title="Release to Next"
-                      disabled={locked}
-                      onPress={() => void act('task.move', { phase: 'next', beforeTaskId: null })}
-                    />
-                  )}
-                  <Choice
-                    label="Move to phase"
-                    value={current.phase}
-                    options={
-                      current.phase === 'planned'
-                        ? phases.filter((p) => p.value === 'planned')
-                        : phases
-                    }
-                    disabled={locked}
-                    onChange={(phase) => void act('task.move', { phase, beforeTaskId: null })}
-                  />
-                  <Action
-                    title="Complete task"
-                    busy={command.busy}
-                    onPress={() => void act('task.complete')}
-                  />
-                </>
-              )}
-              {current.phase === 'completed' && !current.deletedAt && !current.archivedAt && (
-                <Action
-                  title="Reopen in Planned"
-                  secondary
-                  busy={command.busy}
-                  onPress={() => void act('task.reopen', { phase: 'planned' })}
-                />
-              )}
-              {!current.deletedAt && (
-                <Action
-                  title={current.archivedAt ? 'Unarchive task' : 'Archive task'}
-                  secondary
-                  busy={command.busy}
-                  onPress={() => void act(current.archivedAt ? 'task.unarchive' : 'task.archive')}
-                />
-              )}
-              {current.deletedAt ? (
-                <Action
-                  title="Undo deletion"
-                  secondary
-                  busy={command.busy}
-                  onPress={() => void act('task.restore')}
-                />
-              ) : (
-                <Action
-                  title="Delete task"
-                  secondary
-                  busy={command.busy}
-                  onPress={() =>
-                    Alert.alert(
-                      'Delete this task?',
-                      'Its history is retained. You can undo deletion here.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Delete',
-                          style: 'destructive',
-                          onPress: () => void act('task.delete'),
-                        },
-                      ],
-                    )
+              <DateFields label="Due" value={due} onChange={setDue} zone={zone} disabled={locked} />
+              <DateFields
+                label="Scheduled"
+                value={scheduled}
+                onChange={setScheduled}
+                zone={zone}
+                disabled={locked}
+              />
+              <Action
+                title="Save dates"
+                disabled={locked}
+                onPress={() => {
+                  try {
+                    void act('task.schedule', {
+                      dueAt: localInstant(due.date, due.time, zone),
+                      scheduledAt: localInstant(scheduled.date, scheduled.time, zone),
+                    });
+                  } catch (error) {
+                    command.setError(messageOf(error));
                   }
-                />
-              )}
-            </>
+                }}
+              />
+            </View>
+          </Disclosure>
+          {(stepState.hasAgent || agentManagement) && (
+            <AgentWorkflow
+              client={client}
+              taskId={current.id}
+              configurationInitiallyOpen={agentManagement}
+              onBlockedChange={setWorkflowBlocked}
+              onChanged={() => {
+                void client
+                  .request(`/api/tasks/${current.id}`)
+                  .then((value) => {
+                    setCurrent(TaskResponseSchema.parse(value).task);
+                    onSaved();
+                    void loadHistory();
+                  })
+                  .catch((error) => command.setError(messageOf(error)));
+              }}
+            />
           )}
           <Steps
             task={current}
             client={client}
+            onStepState={setStepState}
+            blocked={command.busy || command.pending || workflowBlocked}
+            onBlockedChange={setStepsBlocked}
             onTask={(updated) => {
               setCurrent(updated);
               onSaved();
             }}
           />
-          <AgentWorkflow
-            client={client}
-            taskId={current.id}
-            onBlockedChange={setWorkflowBlocked}
-            onChanged={() => {
-              void client
-                .request(`/api/tasks/${current.id}`)
-                .then((value) => {
-                  setCurrent(TaskResponseSchema.parse(value).task);
-                  onSaved();
-                  void loadHistory();
-                })
-                .catch((error) => command.setError(messageOf(error)));
-            }}
-          />
-          <Choice
-            label="Final review"
-            value={current.finalReviewRequired ? 'required' : 'none'}
-            disabled={locked}
-            options={[
-              { value: 'none', label: 'No final review' },
-              { value: 'required', label: 'Require final review' },
-            ]}
-            onChange={(value) =>
-              void act('task.review', { required: value === 'required', satisfied: false })
-            }
-          />
-          {current.finalReviewRequired && (
-            <Action
-              title={current.finalReviewSatisfied ? 'Reopen final review' : 'Confirm final review'}
+          <Disclosure title="More task options">
+            {!stepState.hasAgent && (
+              <>
+                <Action
+                  title={agentManagement ? 'Hide agent management' : 'Manage agent work'}
+                  variant="quiet"
+                  disabled={workflowBlocked}
+                  onPress={() => setAgentManagement(!agentManagement)}
+                />
+              </>
+            )}
+
+            {!command.pending && (
+              <Action
+                title="Review latest saved task"
+                secondary
+                disabled={command.busy}
+                onPress={() => void reviewLatest()}
+              />
+            )}
+            {reviewing && (
+              <Card>
+                <Body>Latest saved title: {current.content.title}</Body>
+                <Body>Latest saved description: {current.content.description || 'None'}</Body>
+                <Body>Latest saved notes: {current.content.notes || 'None'}</Body>
+                <Body>
+                  Latest saved board:{' '}
+                  {boards.find((b) => b.id === current.organization.boardId)?.content.name ??
+                    'None'}
+                  ; project:{' '}
+                  {projects.find((p) => p.id === current.organization.projectId)?.content.name ??
+                    'None'}
+                  ; tags: {current.organization.tags.join(', ') || 'None'}; priority:{' '}
+                  {current.organization.priority}
+                </Body>
+                <Body>
+                  Latest due: {current.schedule.dueAt ?? 'None'}; scheduled:{' '}
+                  {current.schedule.scheduledAt ?? 'None'}
+                </Body>
+                <Body>
+                  Your edits above are retained. Saving replaces this content with your edits.
+                </Body>
+              </Card>
+            )}
+            {!command.pending && (
+              <>
+                {!current.deletedAt && !current.archivedAt && current.phase !== 'completed' && (
+                  <>
+                    <Action
+                      title={current.paused ? 'Resume released work' : 'Pause work'}
+                      secondary
+                      disabled={locked}
+                      onPress={() => void act('task.pause', { paused: !current.paused })}
+                    />
+                    <Choice
+                      label="Move to phase"
+                      value={current.phase}
+                      options={
+                        current.phase === 'planned'
+                          ? phases.filter((p) => p.value === 'planned')
+                          : phases
+                      }
+                      disabled={locked}
+                      onChange={(phase) => void act('task.move', { phase, beforeTaskId: null })}
+                    />
+                  </>
+                )}
+                {current.phase === 'completed' && !current.deletedAt && !current.archivedAt && (
+                  <Action
+                    title="Reopen in Planned"
+                    secondary
+                    busy={command.busy}
+                    onPress={() => void act('task.reopen', { phase: 'planned' })}
+                  />
+                )}
+                {!current.deletedAt && (
+                  <Action
+                    title={current.archivedAt ? 'Unarchive task' : 'Archive task'}
+                    secondary
+                    busy={command.busy}
+                    onPress={() => void act(current.archivedAt ? 'task.unarchive' : 'task.archive')}
+                  />
+                )}
+                {current.deletedAt ? (
+                  <Action
+                    title="Undo deletion"
+                    secondary
+                    busy={command.busy}
+                    onPress={() => void act('task.restore')}
+                  />
+                ) : (
+                  <Action
+                    title="Delete task"
+                    secondary
+                    busy={command.busy}
+                    onPress={() =>
+                      Alert.alert(
+                        'Delete this task?',
+                        'Its history is retained. You can undo deletion here.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete',
+                            style: 'destructive',
+                            onPress: () => void act('task.delete'),
+                          },
+                        ],
+                      )
+                    }
+                  />
+                )}
+              </>
+            )}
+
+            <Choice
+              label="Final review"
+              value={current.finalReviewRequired ? 'required' : 'none'}
               disabled={locked}
-              onPress={() =>
-                void act('task.review', {
-                  required: true,
-                  satisfied: !current.finalReviewSatisfied,
-                })
+              options={[
+                { value: 'none', label: 'No final review' },
+                { value: 'required', label: 'Require final review' },
+              ]}
+              onChange={(value) =>
+                void act('task.review', { required: value === 'required', satisfied: false })
               }
             />
-          )}
-          {current.schedule.seriesId && (
-            <Recurrence
-              client={client}
-              zone={zone}
-              occurrence={current}
-              onSaved={() => {
-                void reviewLatest();
-                onSaved();
-              }}
-            />
-          )}
-          <Heading>History</Heading>
-          {history.length ? (
-            history.map((entry, index) => <Body key={index}>{entry}</Body>)
-          ) : (
-            <Body>No history loaded yet.</Body>
-          )}
-          {historyCursor && (
-            <Action
-              title="Load older history"
-              secondary
-              onPress={() => void loadHistory(historyCursor)}
-            />
-          )}
-          <Action title="Close task details" secondary disabled={locked} onPress={onClose} />
+            {current.finalReviewRequired && current.finalReviewSatisfied && (
+              <Action
+                title={
+                  current.finalReviewSatisfied ? 'Reopen final review' : 'Confirm final review'
+                }
+                disabled={locked}
+                onPress={() =>
+                  void act('task.review', {
+                    required: true,
+                    satisfied: !current.finalReviewSatisfied,
+                  })
+                }
+              />
+            )}
+            {current.schedule.seriesId && (
+              <Recurrence
+                client={client}
+                zone={zone}
+                occurrence={current}
+                onSaved={() => {
+                  void reviewLatest();
+                  onSaved();
+                }}
+              />
+            )}
+            <Heading>History</Heading>
+            {history.length ? (
+              history.map((entry, index) => <Body key={index}>{entry}</Body>)
+            ) : (
+              <Body>No history loaded yet.</Body>
+            )}
+            {historyCursor && (
+              <Action
+                title="Load older history"
+                secondary
+                onPress={() => void loadHistory(historyCursor)}
+              />
+            )}
+          </Disclosure>
         </ScrollView>
       </KeyboardAvoidingView>
-    </Modal>
+    </DetailContainer>
   );
 }
 const layout = StyleSheet.create({

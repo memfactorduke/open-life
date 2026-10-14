@@ -1,0 +1,13 @@
+{
+  "state": "complete",
+  "sourceManifestSha256": "f3f78885208532bbf8e2bab4def1fc5810c7f16e3352dda168a3e1eaab51c383",
+  "applicationExitCode": 0,
+  "operatorExitCode": 0,
+  "changedInputs": [],
+  "images": {
+    "mems-life:rc-20261013": "sha256:b0b7819f42368528ae7677d5725512b8474adf877623686f27481768daf37938",
+    "mems-life:rc-operator-20261013": "sha256:3b54c85f1db6a2622b4d266b777b1a8ea7e1609aaaeece53d79c34c9d4ffd07d"
+  },
+  "vmStopExitCode": 0,
+  "finishedAt": "2026-10-14T03:28:56.609167+00:00"
+}

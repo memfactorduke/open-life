@@ -42,10 +42,24 @@ const groups: { title: string; options: { scope: AgentScope; label: string }[] }
 ];
 const scopeLabel = (scope: AgentScope) =>
   groups.flatMap((g) => g.options).find((o) => o.scope === scope)?.label ?? scope;
-const defaultExpiry = () => new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 16);
-export function AgentAccess() {
+const defaultExpiry = () => {
+  const date = new Date(Date.now() + 7 * 86400000);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
+const purposes: { value: string; label: string; scopes: AgentScope[] }[] = [
+  { value: 'read', label: 'Read only', scopes: ['tasks:read'] },
+  { value: 'tasks', label: 'Task assistant', scopes: ['tasks:read', 'tasks:write'] },
+  { value: 'workouts', label: 'Workout planner', scopes: ['workouts:read', 'workouts:plan'] },
+  { value: 'custom', label: 'Custom', scopes: [] },
+];
+export function AgentAccess({ active = true }: { active?: boolean }) {
   const [grants, setGrants] = useState<Grant[]>([]),
     [label, setLabel] = useState(''),
+    [creating, setCreating] = useState(false),
+    [showHistory, setShowHistory] = useState(false),
+    [purpose, setPurpose] = useState('read'),
+    [duration, setDuration] = useState('7'),
+    [manual, setManual] = useState(false),
     [scopes, setScopes] = useState<AgentScope[]>(['tasks:read']),
     [expiry, setExpiry] = useState(defaultExpiry),
     [secret, setSecret] = useState<string | null>(null),
@@ -86,14 +100,30 @@ export function AgentAccess() {
       window.removeEventListener('pagehide', clear);
     };
   }, []);
+  useEffect(() => {
+    if (!active) {
+      generation.current++;
+      setSecret(null);
+      setCreating(false);
+      setManual(false);
+      setNotice('');
+    }
+  }, [active]);
   async function issue(event: React.FormEvent) {
     event.preventDefault();
     if (working.current || uncertain || secret) return;
+    if (duration === 'custom' && !Number.isFinite(new Date(expiry).getTime())) {
+      setError('Choose a valid access end date.');
+      return;
+    }
     const parsed = AgentGrantCreateSchema.safeParse({
       operationId: crypto.randomUUID(),
       label,
       scopes,
-      expiresAt: `${expiry}:00.000Z`,
+      expiresAt:
+        duration === 'custom'
+          ? new Date(expiry).toISOString()
+          : new Date(Date.now() + Number(duration) * 86400000).toISOString(),
     });
     if (
       !parsed.success ||
@@ -152,6 +182,7 @@ export function AgentAccess() {
         body: JSON.stringify({ operationId, grantId: grant.id }),
       });
       if (revealedGrantId.current === grant.id) setSecret(null);
+      setShowHistory(true);
       setNotice(`Access revoked for ${grant.label}. Its history is retained.`);
       revokeOperations.current.delete(grant.id);
     } catch (e) {
@@ -169,21 +200,101 @@ export function AgentAccess() {
   return (
     <section className="agent-access" aria-labelledby="agent-access-heading">
       <header>
-        <p className="eyebrow">Your external assistants</p>
+        <p className="eyebrow">Connections</p>
         <h2 id="agent-access-heading">Agent access</h2>
-        <p>
-          Give a client only the permissions it needs. Access ends at expiry or when you revoke it.
-        </p>
+        <p>Choose what an agent can read or change.</p>
       </header>
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
+      {(!creating || uncertain) && (
+        <>
+          <div className="agent-actions">
+            <h3>Issued access</h3>
+            <button className="secondary" type="button" disabled={busy} onClick={() => void load()}>
+              Reload grants
+            </button>
+          </div>
+          {loaded && grants.length === 0 && <p>No agent access has been issued.</p>}
+          <div className="agent-grants">
+            {[...grants]
+              .filter(
+                (grant) =>
+                  showHistory ||
+                  (!grant.revokedAt && new Date(grant.expiresAt).getTime() > Date.now()),
+              )
+              .sort(
+                (a, b) =>
+                  Number(!!a.revokedAt || new Date(a.expiresAt).getTime() <= Date.now()) -
+                  Number(!!b.revokedAt || new Date(b.expiresAt).getTime() <= Date.now()),
+              )
+              .map((grant) => {
+                const status = grant.revokedAt
+                  ? 'Revoked'
+                  : new Date(grant.expiresAt).getTime() <= Date.now()
+                    ? 'Expired'
+                    : 'Active';
+                return (
+                  <article key={grant.id}>
+                    <h4>{grant.label}</h4>
+                    <p>
+                      {status} · expires {new Date(grant.expiresAt).toLocaleString()}
+                    </p>
+                    <ul>
+                      {grant.scopes.map((scope) => (
+                        <li key={scope}>{scopeLabel(scope)}</li>
+                      ))}
+                    </ul>
+                    {!grant.revokedAt && <p>Revoking ends this agent’s access.</p>}
+                    {grant.revokedAt ? (
+                      <p>Revoked {new Date(grant.revokedAt).toLocaleString()} · history retained</p>
+                    ) : (
+                      <button
+                        className="secondary agent-revoke"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void revoke(grant)}
+                      >
+                        Revoke {grant.label}
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+          </div>
+        </>
+      )}
+      {(!creating || uncertain) &&
+        grants.some(
+          (grant) => grant.revokedAt || new Date(grant.expiresAt).getTime() <= Date.now(),
+        ) && (
+          <button
+            className="secondary"
+            type="button"
+            aria-expanded={showHistory}
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            {showHistory ? 'Hide expired and revoked access' : 'View expired and revoked access'}
+          </button>
+        )}
       {secret && (
         <div className="agent-key">
-          <h3>Copy this key now</h3>
+          <h3>Set up your agent</h3>
           <p>
-            This is its only display. Save it in your client's private credential configuration.
-            Leaving this screen or hiding the app clears the display; the key remains active until
-            expiry or revocation.
+            Endpoint: <code>{window.location.origin}/mcp</code>
+          </p>
+          <button
+            type="button"
+            onClick={() =>
+              void navigator.clipboard
+                .writeText(`${window.location.origin}/mcp`)
+                .then(() => setNotice('Endpoint copied.'))
+                .catch(() => setError('Select and copy the endpoint manually.'))
+            }
+          >
+            Copy endpoint
+          </button>
+          <p>
+            Save this key now. It is shown once and stays active until it expires or you revoke it.
           </p>
           <label>
             One-time agent key
@@ -209,75 +320,140 @@ export function AgentAccess() {
               type="button"
               onClick={() => {
                 setSecret(null);
+                setCreating(false);
+                setManual(false);
                 setNotice('Key hidden. It cannot be retrieved again.');
               }}
             >
               Done · hide key
             </button>
           </div>
+          <button
+            className="secondary"
+            type="button"
+            aria-expanded={manual}
+            onClick={() => setManual(!manual)}
+          >
+            Manual setup details
+          </button>
+          {manual && (
+            <p>
+              Use this endpoint in an MCP client that supports custom HTTP headers. Add{' '}
+              <code>Authorization: Bearer YOUR_KEY</code> in its private credential settings.
+            </p>
+          )}
         </div>
       )}
-      <div className="agent-connection">
-        <h3>Connect your MCP client</h3>
-        <p>
-          Endpoint: <code>{window.location.origin}/mcp</code>
-        </p>
-        <p>
-          Configure the HTTP header <code>Authorization: Bearer YOUR_KEY</code> privately in a
-          client that supports custom headers. Do not put the key in a URL or shared content. This
-          connection uses manual credentials.
-        </p>
-      </div>
-      <form onSubmit={(event) => void issue(event)}>
-        <h3>Create agent access</h3>
-        <label>
-          Agent name
-          <input
-            maxLength={100}
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-            disabled={busy || !!secret || uncertain}
-            placeholder="For example, workout planner"
-          />
-        </label>
-        <label>
-          Expires at (UTC)
-          <input
-            type="datetime-local"
-            value={expiry}
-            onChange={(event) => setExpiry(event.target.value)}
-            disabled={busy || !!secret || uncertain}
-          />
-        </label>
-        <p>The default is seven days. Choose a shorter time for a one-off task.</p>
-        <div className="agent-scope-grid">
-          {groups.map((group) => (
-            <fieldset key={group.title}>
-              <legend>{group.title}</legend>
-              {group.options.map((option) => (
-                <label className="agent-scope" key={option.scope}>
-                  <input
-                    type="checkbox"
-                    checked={scopes.includes(option.scope)}
-                    disabled={busy || !!secret || uncertain}
-                    onChange={() =>
-                      setScopes(
-                        scopes.includes(option.scope)
-                          ? scopes.filter((scope) => scope !== option.scope)
-                          : [...scopes, option.scope],
-                      )
-                    }
-                  />
-                  {option.label}
-                </label>
-              ))}
-            </fieldset>
-          ))}
-        </div>
-        <button type="submit" disabled={busy || !!secret || uncertain || !loaded}>
-          Create one-time key
+      {!secret && !creating && (
+        <button
+          type="button"
+          disabled={busy || uncertain || !loaded}
+          onClick={() => setCreating(true)}
+        >
+          Add agent
         </button>
-      </form>
+      )}
+      {creating && !secret && (
+        <form onSubmit={(event) => void issue(event)}>
+          <h3>Add agent</h3>
+          <label>
+            Agent name
+            <input
+              maxLength={100}
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              disabled={busy || uncertain}
+              placeholder="For example, workout planner"
+            />
+          </label>
+          <label>
+            Purpose
+            <select
+              value={purpose}
+              disabled={busy || uncertain}
+              onChange={(event) => {
+                const value = event.target.value;
+                setPurpose(value);
+                if (value !== 'custom') setScopes(purposes.find((p) => p.value === value)!.scopes);
+              }}
+            >
+              {purposes.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p>
+            {scopes.length
+              ? scopes.map(scopeLabel).join(' · ')
+              : 'Choose the permissions this agent needs.'}
+          </p>
+          {purpose === 'custom' && (
+            <div className="agent-scope-grid">
+              {groups.map((group) => (
+                <fieldset key={group.title}>
+                  <legend>{group.title}</legend>
+                  {group.options.map((option) => (
+                    <label className="agent-scope" key={option.scope}>
+                      <input
+                        type="checkbox"
+                        checked={scopes.includes(option.scope)}
+                        disabled={busy || uncertain}
+                        onChange={() =>
+                          setScopes(
+                            scopes.includes(option.scope)
+                              ? scopes.filter((scope) => scope !== option.scope)
+                              : [...scopes, option.scope],
+                          )
+                        }
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </fieldset>
+              ))}
+            </div>
+          )}
+          <label>
+            Access duration
+            <select
+              value={duration}
+              disabled={busy || uncertain}
+              onChange={(event) => setDuration(event.target.value)}
+            >
+              <option value="1">1 day</option>
+              <option value="7">7 days</option>
+              <option value="30">30 days</option>
+              <option value="custom">Custom date</option>
+            </select>
+          </label>
+          {duration === 'custom' && (
+            <label>
+              Access ends
+              <input
+                type="datetime-local"
+                value={expiry}
+                onChange={(event) => setExpiry(event.target.value)}
+                disabled={busy || uncertain}
+              />
+            </label>
+          )}
+          <div className="agent-actions">
+            <button type="submit" disabled={busy || uncertain || !loaded}>
+              Create one-time key
+            </button>
+            <button
+              className="secondary"
+              type="button"
+              disabled={busy}
+              onClick={() => setCreating(false)}
+            >
+              Cancel adding agent
+            </button>
+          </div>
+        </form>
+      )}
       {uncertain && (
         <button
           type="button"
@@ -290,43 +466,6 @@ export function AgentAccess() {
           I reviewed grants; create a replacement
         </button>
       )}
-      <div className="agent-actions">
-        <h3>Issued access</h3>
-        <button type="button" disabled={busy} onClick={() => void load()}>
-          Reload grants
-        </button>
-      </div>
-      {loaded && grants.length === 0 && <p>No agent access has been issued.</p>}
-      <div className="agent-grants">
-        {grants.map((grant) => {
-          const status = grant.revokedAt
-            ? 'Revoked'
-            : new Date(grant.expiresAt).getTime() <= Date.now()
-              ? 'Expired'
-              : 'Active';
-          return (
-            <article key={grant.id}>
-              <h4>{grant.label}</h4>
-              <p>
-                {status} · expires {new Date(grant.expiresAt).toLocaleString()}
-              </p>
-              <p>Created {new Date(grant.createdAt).toLocaleString()}</p>
-              <ul>
-                {grant.scopes.map((scope) => (
-                  <li key={scope}>{scopeLabel(scope)}</li>
-                ))}
-              </ul>
-              {grant.revokedAt ? (
-                <p>Revoked {new Date(grant.revokedAt).toLocaleString()} · history retained</p>
-              ) : (
-                <button type="button" disabled={busy} onClick={() => void revoke(grant)}>
-                  Revoke {grant.label}
-                </button>
-              )}
-            </article>
-          );
-        })}
-      </div>
     </section>
   );
 }

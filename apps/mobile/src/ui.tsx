@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
+  Text as NativeText,
   TextInput,
   View,
+  useWindowDimensions,
   type TextInputProps,
+  type TextProps,
 } from 'react-native';
 
 export type Palette = {
@@ -20,11 +22,11 @@ export type Palette = {
   error: string;
 };
 export const light: Palette = {
-  background: '#f5f4f0',
+  background: '#f5f6f5',
   surface: '#ffffff',
-  text: '#182b25',
-  muted: '#64756d',
-  line: '#dce2dc',
+  text: '#1c2521',
+  muted: '#5f6963',
+  line: '#dde2de',
   accent: '#24614c',
   accentText: '#ffffff',
   error: '#a53b32',
@@ -42,12 +44,30 @@ export const dark: Palette = {
 export const ThemeContext = React.createContext(light);
 export const usePalette = () => React.useContext(ThemeContext);
 
-export function Heading({ children, eyebrow }: { children: React.ReactNode; eyebrow?: string }) {
+/** Refresh native font measurement when Dynamic Type changes, without remounting editors. */
+export function ScalingText(props: TextProps) {
+  const { fontScale } = useWindowDimensions();
+  return <NativeText key={fontScale} {...props} />;
+}
+const Text = ScalingText;
+
+export function Heading({
+  children,
+  eyebrow,
+  compact = false,
+}: {
+  children: React.ReactNode;
+  eyebrow?: string;
+  compact?: boolean;
+}) {
   const palette = usePalette();
   return (
     <View style={styles.heading}>
       {eyebrow && <Text style={[styles.eyebrow, { color: palette.muted }]}>{eyebrow}</Text>}
-      <Text accessibilityRole="header" style={[styles.title, { color: palette.text }]}>
+      <Text
+        accessibilityRole="header"
+        style={[styles.title, compact && styles.sectionTitle, { color: palette.text }]}
+      >
         {children}
       </Text>
     </View>
@@ -78,14 +98,26 @@ export function Action({
   busy,
   secondary = false,
   disabled = false,
+  variant,
+  compact = false,
 }: {
   title: string;
   onPress: () => void;
   busy?: boolean;
   secondary?: boolean;
   disabled?: boolean;
+  variant?: 'primary' | 'secondary' | 'quiet' | 'destructive';
+  compact?: boolean;
 }) {
   const palette = usePalette();
+  const appearance = variant ?? (secondary ? 'secondary' : 'primary');
+  const prominent = appearance === 'primary';
+  const quiet = appearance === 'quiet';
+  const foreground = prominent
+    ? palette.accentText
+    : appearance === 'destructive'
+      ? palette.error
+      : palette.accent;
   return (
     <Pressable
       accessibilityRole="button"
@@ -95,39 +127,49 @@ export function Action({
       onPress={onPress}
       style={({ pressed }) => [
         styles.action,
+        compact && styles.compactAction,
         {
-          backgroundColor: secondary ? palette.surface : palette.accent,
-          borderColor: secondary ? palette.line : palette.accent,
+          backgroundColor: prominent ? palette.accent : quiet ? 'transparent' : palette.surface,
+          borderColor: quiet ? 'transparent' : prominent ? palette.accent : palette.line,
           opacity: pressed || disabled ? 0.6 : 1,
         },
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={secondary ? palette.text : palette.accentText} />
+        <ActivityIndicator color={foreground} />
       ) : (
-        <Text style={[styles.actionText, { color: secondary ? palette.text : palette.accentText }]}>
-          {title}
-        </Text>
+        <Text style={[styles.actionText, { color: foreground }]}>{title}</Text>
       )}
     </Pressable>
   );
 }
-export function Field({ label, ...props }: TextInputProps & { label: string }) {
+export function Field({
+  label,
+  error,
+  ...props
+}: TextInputProps & { label: string; error?: string }) {
   const palette = usePalette();
+  const { fontScale } = useWindowDimensions();
   return (
     <View style={styles.field}>
       <Text style={[styles.label, { color: palette.text }]}>{label}</Text>
       <TextInput
+        key={props.value !== undefined ? fontScale : undefined}
         {...props}
         testID={props.testID ?? `field-${label.toLowerCase().replace(/\s+/g, '-')}`}
         accessibilityLabel={label}
         placeholderTextColor={palette.muted}
         style={[
           styles.input,
-          { color: palette.text, backgroundColor: palette.surface, borderColor: palette.line },
+          {
+            color: palette.text,
+            backgroundColor: palette.surface,
+            borderColor: error ? palette.error : palette.line,
+          },
           props.style,
         ]}
       />
+      {!!error && <Body error>{error}</Body>}
     </View>
   );
 }
@@ -137,18 +179,30 @@ export function Choice<T extends string>({
   options,
   onChange,
   disabled = false,
+  showLabel = true,
 }: {
   disabled?: boolean;
+  showLabel?: boolean;
   label: string;
   value: T;
   options: readonly { value: T; label: string }[];
   onChange: (value: T) => void;
 }) {
   const palette = usePalette();
+  const { fontScale } = useWindowDimensions();
+  const segmented = options.length <= 3 && fontScale < 1.5;
   return (
     <View style={styles.field}>
-      <Text style={[styles.label, { color: palette.text }]}>{label}</Text>
-      <View style={styles.choices}>
+      {showLabel && <Text style={[styles.label, { color: palette.text }]}>{label}</Text>}
+      <View
+        style={[
+          styles.choices,
+          segmented && [
+            styles.segmented,
+            { backgroundColor: palette.background, borderColor: palette.line },
+          ],
+        ]}
+      >
         {options.map((option) => (
           <Pressable
             key={option.value}
@@ -159,16 +213,29 @@ export function Choice<T extends string>({
             onPress={() => onChange(option.value)}
             style={[
               styles.choice,
+              segmented && styles.segment,
               {
-                backgroundColor: value === option.value ? palette.accent : palette.surface,
-                borderColor: palette.line,
+                backgroundColor:
+                  value === option.value
+                    ? palette.surface
+                    : segmented
+                      ? 'transparent'
+                      : palette.background,
+                borderColor: segmented
+                  ? 'transparent'
+                  : value === option.value
+                    ? palette.accent
+                    : palette.line,
               },
             ]}
           >
             <Text
               style={[
                 styles.choiceText,
-                { color: value === option.value ? palette.accentText : palette.text },
+                {
+                  color: value === option.value ? palette.accent : palette.muted,
+                  fontWeight: value === option.value ? '600' : '400',
+                },
               ]}
             >
               {option.label}
@@ -179,24 +246,142 @@ export function Choice<T extends string>({
     </View>
   );
 }
+
+/** Secondary controls remain mounted after first opening so drafts survive closing. */
+export function Disclosure({
+  title,
+  children,
+  defaultOpen = false,
+  disabled = false,
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  disabled?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const palette = usePalette();
+  const [localOpen, setOpen] = useState(defaultOpen);
+  const open = controlledOpen ?? localOpen;
+  const [visited, setVisited] = useState(open);
+  useEffect(() => {
+    if (open) setVisited(true);
+  }, [open]);
+  return (
+    <View style={styles.disclosure}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ expanded: open, disabled }}
+        disabled={disabled}
+        onPress={() => {
+          setOpen(!open);
+          onOpenChange?.(!open);
+          setVisited(true);
+        }}
+        style={({ pressed }) => [
+          styles.disclosureRow,
+          { borderColor: palette.line, opacity: pressed || disabled ? 0.6 : 1 },
+        ]}
+      >
+        <Text style={[styles.rowTitle, { color: palette.text }]}>{title}</Text>
+        <Text
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+          style={{ color: palette.muted }}
+        >
+          {open ? '−' : '+'}
+        </Text>
+      </Pressable>
+      {visited && (
+        <View
+          accessibilityElementsHidden={!open}
+          importantForAccessibility={open ? 'auto' : 'no-hide-descendants'}
+          style={[styles.disclosureContent, { display: open ? 'flex' : 'none' }]}
+        >
+          {children}
+        </View>
+      )}
+    </View>
+  );
+}
+
+export function ListRow({
+  title,
+  detail,
+  trailing,
+  onPress,
+  selected = false,
+  disabled = false,
+}: {
+  title: string;
+  detail?: string;
+  trailing?: React.ReactNode;
+  onPress?: () => void;
+  selected?: boolean;
+  disabled?: boolean;
+}) {
+  const palette = usePalette();
+  const content = (
+    <>
+      <View style={styles.rowContent}>
+        <Text style={[styles.rowTitle, { color: palette.text }]}>{title}</Text>
+        {!!detail && <Text style={[styles.rowDetail, { color: palette.muted }]}>{detail}</Text>}
+      </View>
+      {trailing}
+      {!!onPress && (
+        <Text
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+          style={{ color: palette.muted }}
+        >
+          ›
+        </Text>
+      )}
+    </>
+  );
+  const style = [
+    styles.listRow,
+    { borderColor: palette.line, backgroundColor: selected ? palette.background : 'transparent' },
+  ];
+  return onPress ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [...style, { opacity: pressed || disabled ? 0.6 : 1 }]}
+    >
+      {content}
+    </Pressable>
+  ) : (
+    <View style={style}>{content}</View>
+  );
+}
 export const styles = StyleSheet.create({
-  heading: { gap: 8, marginBottom: 24 },
+  heading: { gap: 4, marginBottom: 16 },
   eyebrow: { fontSize: 12, fontWeight: '700', letterSpacing: 1.8, textTransform: 'uppercase' },
-  title: { fontSize: 34, fontWeight: '700', letterSpacing: -1 },
-  body: { fontSize: 16, lineHeight: 25 },
-  card: { padding: 24, borderRadius: 20, borderWidth: 1, gap: 18 },
+  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
+  sectionTitle: { fontSize: 19, fontWeight: '600', letterSpacing: -0.2 },
+  body: { fontSize: 15, lineHeight: 22 },
+  card: { padding: 16, borderRadius: 14, borderWidth: 1, gap: 12 },
   action: {
-    minHeight: 52,
+    minHeight: 44,
     borderWidth: 1,
-    borderRadius: 13,
-    padding: 14,
+    borderRadius: 10,
+    padding: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionText: { fontSize: 16, fontWeight: '600' },
-  field: { gap: 8 },
-  label: { fontSize: 15, fontWeight: '600' },
-  input: { minHeight: 52, padding: 14, fontSize: 16, borderWidth: 1, borderRadius: 12 },
+  compactAction: { paddingVertical: 8, paddingHorizontal: 12 },
+  field: { gap: 6 },
+  label: { fontSize: 14, fontWeight: '500' },
+  input: { minHeight: 44, padding: 12, fontSize: 17, borderWidth: 1, borderRadius: 10 },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   choice: {
     minHeight: 48,
@@ -208,4 +393,27 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   choiceText: { fontSize: 15, fontWeight: '600' },
+  segmented: { flexWrap: 'nowrap', gap: 2, padding: 3, borderWidth: 1, borderRadius: 11 },
+  segment: { flex: 1, flexGrow: 1, minHeight: 44, padding: 8, borderRadius: 8 },
+  disclosure: { gap: 0 },
+  disclosureRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  disclosureContent: { gap: 12, paddingTop: 12, paddingBottom: 8 },
+  rowTitle: { fontSize: 16, lineHeight: 23, flexShrink: 1 },
+  rowDetail: { fontSize: 14, lineHeight: 20, marginTop: 3 },
+  rowContent: { flex: 1, minWidth: 0 },
+  listRow: {
+    minHeight: 52,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
 });

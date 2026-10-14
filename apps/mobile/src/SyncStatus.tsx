@@ -1,12 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Image } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import type { InstallationClient } from './client';
 import { useOfflineRevision } from './offline-client';
 import type { LocalRecord, OutboxEntry, SyncState, DurablePhoto, OfflineCommand } from './offline';
 import { reviewCommandDifferences, reviewFields } from './offline/recovery';
 import { shareRetainedPhoto, exportRecoveryFiles } from './offline/photo-export';
-import { Action, Body, Card } from './ui';
-export function SyncStatus({ client }: { client: InstallationClient }) {
+import { ScalingText as Text, Action, Body, Card, Disclosure, usePalette } from './ui';
+export function SyncStatus({
+  client,
+  compact = false,
+  onOpen,
+}: {
+  client: InstallationClient;
+  compact?: boolean;
+  onOpen?: () => void;
+}) {
+  const palette = usePalette();
   const revision = useOfflineRevision(client);
   const [entries, setEntries] = useState<OutboxEntry[]>([]);
   const [records, setRecords] = useState<LocalRecord[]>([]);
@@ -24,10 +33,35 @@ export function SyncStatus({ client }: { client: InstallationClient }) {
   >({});
   const [error, setError] = useState('');
   const [exportPath, setExportPath] = useState('');
+  const [summary, setSummary] = useState({
+    pendingChangeCount: 0,
+    pendingPhotoCount: 0,
+    reviewChangeCount: 0,
+    reviewPhotoCount: 0,
+  });
   useEffect(() => {
     let active = true;
     const offline = client.offline;
     if (!offline) return;
+    if (compact) {
+      void Promise.all([offline.store.state(), offline.store.syncSummary()])
+        .then(([s, counts]) => {
+          if (active) {
+            setState(s);
+            setSummary(counts);
+            setError('');
+          }
+        })
+        .catch((caught: unknown) => {
+          if (active)
+            setError(
+              caught instanceof Error ? caught.message : 'Sync status could not be checked.',
+            );
+        });
+      return () => {
+        active = false;
+      };
+    }
     void Promise.all([
       offline.store.outbox(),
       offline.store.records(),
@@ -51,11 +85,53 @@ export function SyncStatus({ client }: { client: InstallationClient }) {
     return () => {
       active = false;
     };
-  }, [client, revision]);
+  }, [client, revision, compact]);
   const offline = client.offline;
   if (!offline) return null;
   const pending = entries.filter((e) => !['synced', 'discarded'].includes(e.state));
   const review = pending.filter((e) => ['conflict', 'review'].includes(e.state));
+  if (compact) {
+    const needsReview =
+      state?.replayPaused || summary.reviewChangeCount || summary.reviewPhotoCount;
+    const issue = offline.needsSignIn || needsReview || offline.error || error;
+    const count = summary.pendingChangeCount + summary.pendingPhotoCount;
+    if (!issue && !count) return null;
+    const title = offline.needsSignIn
+      ? 'Sign in to sync'
+      : needsReview
+        ? 'Saved changes need review'
+        : offline.error || error
+          ? 'Sync needs attention'
+          : `${count} ${count === 1 ? 'item' : 'items'} waiting to sync`;
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${title}. Open sync and recovery`}
+        onPress={onOpen}
+        style={({ pressed }) => ({
+          minHeight: 44,
+          borderRadius: 10,
+          backgroundColor: palette.surface,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          opacity: pressed ? 0.6 : 1,
+        })}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Text style={{ color: issue ? palette.error : palette.muted, flex: 1, fontSize: 15 }}>
+            {title}
+          </Text>
+          <Text
+            importantForAccessibility="no"
+            accessibilityElementsHidden
+            style={{ color: palette.muted }}
+          >
+            ›
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }
   const act = async (work: () => Promise<unknown>) => {
     try {
       await work();
@@ -154,8 +230,6 @@ export function SyncStatus({ client }: { client: InstallationClient }) {
                         {proof.retainedEntry.content.text || 'Photo diary entry'}
                         {' · '}
                         {new Date(proof.retainedEntry.content.occurredAt).toLocaleString()}
-                        {' · '}
-                        {photo.size} bytes · SHA-256 {photo.sha256}
                       </Body>
                     )}
                     {proof.recoveryEntryId ? (
@@ -321,10 +395,12 @@ export function SyncStatus({ client }: { client: InstallationClient }) {
         />
       )}
       {!!exportPath && (
-        <Body>
-          Recovery copy saved in app Documents: {exportPath}. It includes the image files and a
-          manifest; the originals remain retained.
-        </Body>
+        <>
+          <Body>Recovery copy saved. The original changes and photos remain on this device.</Body>
+          <Disclosure title="Export location">
+            <Body>{exportPath}</Body>
+          </Disclosure>
+        </>
       )}
       <Action title="Synchronize now" secondary onPress={() => void offline.sync()} />
     </Card>

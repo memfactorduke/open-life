@@ -71,3 +71,14 @@ export const FoodFinalizeSchema = z.strictObject({
 export type FoodEntry = z.infer<typeof FoodEntrySchema>;
 export type FoodCommand = z.infer<typeof FoodCommandSchema>;
 export type FoodUpload = z.infer<typeof FoodUploadSchema>;
+
+/** Recent visible diary entries, independent of API or device storage ordering. */
+export function latestFoodEntries(entries: readonly FoodEntry[]): FoodEntry[] {
+  return entries
+    .filter((entry) => !entry.deletedAt)
+    .sort((a, b) => {
+      const time = Date.parse(b.content.occurredAt) - Date.parse(a.content.occurredAt);
+      return time || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    })
+    .slice(0, 3);
+}

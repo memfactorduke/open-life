@@ -1,0 +1,55 @@
+{
+  "checkedAt": "2026-10-14T05:16:08.872504+00:00",
+  "status": "corrected-native-candidate-awaiting-actual-acceptance",
+  "baseCommit": "09ccc041dbbf63f9aceae76310eabb9055ea9145",
+  "nativeAutomated": {
+    "tests": 224,
+    "suites": 34,
+    "result": "passed"
+  },
+  "workspaceTypecheck": "passed",
+  "lint": "passed",
+  "productionBuild": "passed",
+  "webEntry": {
+    "rawKB": 516.26,
+    "gzipKB": 156.05
+  },
+  "sqliteSummary": {
+    "archivedOperationsAndPhotos": 6000,
+    "result": "exact-counts-no-archived-json-hydration"
+  },
+  "independentFindings": {
+    "notificationNavigation": "fixed",
+    "directRoutineFreshness": "fixed",
+    "materialRemainingInTargetedFollowup": 0
+  },
+  "physicalIpadGate": "2026-10-14T03:00:00-04:00",
+  "deployment": "not-accepted",
+  "appleDistribution": "not-accepted",
+  "receipts": [
+    "shell-verification.json",
+    "today-verification.json",
+    "tasks-verification.json",
+    "food-verification.json",
+    "connections-verification.json",
+    "workflow-verification.json"
+  ],
+  "format": "passed",
+  "domainAutomated": {
+    "tests": 68,
+    "suites": 13,
+    "result": "passed"
+  },
+  "nativeFindings": {
+    "foodFormatter": "source-fix-awaiting-native-retest",
+    "cacheFreshness": "source-fix-with-bound-acknowledgements-awaiting-native-retest",
+    "dynamicType": "source-fix-preserves-drafts-awaiting-live-font-change-retest",
+    "recentFoodOrdering": "fixed-with-unordered-entry-regression"
+  },
+  "previousFullBrowserRun": {
+    "passed": 134,
+    "failed": 1,
+    "skipped": 0,
+    "reason": "Today showed oldest three instead of newest three; source corrected"
+  }
+}

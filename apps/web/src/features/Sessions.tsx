@@ -11,6 +11,7 @@ import {
   timerRemaining,
   ExerciseListResponseSchema,
   RoutineListResponseSchema,
+  RoutineResponseSchema,
   weightToKg,
   weightFromKg,
   distanceToMeters,
@@ -104,7 +105,7 @@ export function Sessions({
 }: {
   active?: boolean;
   preferences: Preferences;
-  focusTarget?: { id?: string; action?: 'create' | 'capture' };
+  focusTarget?: { id?: string; routineId?: string; action?: 'create' | 'capture' };
 }) {
   const [sessions, setSessions] = useState<WorkoutSession[]>([]),
     [routines, setRoutines] = useState<Routine[]>([]),
@@ -112,6 +113,10 @@ export function Sessions({
   const [session, setSession] = useState<WorkoutSession | null>(null),
     [selected, setSelected] = useState(''),
     [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [clockError, setClockError] = useState('');
+  const mounted = useRef(true);
+  const loadSequence = useRef(0);
+  const clockSequence = useRef(0);
   const [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false),
     [loaded, setLoaded] = useState(false),
@@ -123,6 +128,7 @@ export function Sessions({
   const [rest, setRest] = useState('90'),
     [autoRest, setAutoRest] = useState(false),
     [now, setNow] = useState(0),
+    [clockRevision, setClockRevision] = useState(0),
     [groups, setGroups] = useState<string[]>([]),
     [future, setFuture] = useState<string[]>([]),
     [notes, setNotes] = useState('');
@@ -146,6 +152,8 @@ export function Sessions({
           Object.values(value.values).some((v) => v !== ''),
     ) ||
     (!!session && notes !== session.notes);
+  const startAllowed = useRef(false);
+  startAllowed.current = active && !busy && !pending.current && !hasDraft();
   useEffect(() => {
     if (!focusTarget || !loaded || busy || handledFocus.current === focusTarget) return;
     handledFocus.current = focusTarget;
@@ -154,6 +162,39 @@ export function Sessions({
       return;
     }
     setView('train');
+    if (focusTarget.action === 'create' && focusTarget.routineId) {
+      if (sessions.some((value) => value.status === 'active')) {
+        setNotice('Finish the current workout before starting another.');
+        return;
+      }
+      let active = true;
+      const intent = focusTarget;
+      void request(`/api/routines/${intent.routineId}`, RoutineResponseSchema)
+        .then(({ routine }) => {
+          if (!active || !startAllowed.current) return;
+          if (routine.archivedAt) {
+            setNotice('This routine is archived. Choose another routine.');
+            return;
+          }
+          return run(
+            SessionCommandSchema.parse({
+              type: 'session.start',
+              operationId: crypto.randomUUID(),
+              sessionId: crypto.randomUUID(),
+              expectedRevision: 0,
+              name: routine.name,
+              routineId: routine.id,
+              expectedRoutineRevision: routine.revision,
+            }),
+          );
+        })
+        .catch((error) => {
+          if (active) setNotice(errorText(error, 'Unable to read this routine. Try Start again.'));
+        });
+      return () => {
+        active = false;
+      };
+    }
     if (!focusTarget.id || session?.id === focusTarget.id) return;
     let active = true;
     void request(`/api/sessions/${focusTarget.id}`, SessionResponseSchema)
@@ -178,14 +219,22 @@ export function Sessions({
     );
   }
   async function load(more = false) {
+    const sequence = ++loadSequence.current;
     try {
       const response = await fetch(`/api/sessions${more && cursor ? `?cursor=${cursor}` : ''}`, {
         credentials: 'include',
       });
       if (!response.ok)
         throw new RequestError(response.status, 'Workout history could not be loaded.');
-      await syncClock();
+      if (!mounted.current || sequence !== loadSequence.current) return;
+      void syncClock().catch(() => {});
       const data = SessionListSchema.parse(await response.json());
+      const [rs, es, activeData] = await Promise.all([
+        request('/api/routines', RoutineListResponseSchema),
+        request('/api/exercises', ExerciseListResponseSchema),
+        request('/api/sessions?status=active', SessionListSchema),
+      ]);
+      if (!mounted.current || sequence !== loadSequence.current) return;
       setSessions((previous) =>
         more
           ? [
@@ -195,11 +244,6 @@ export function Sessions({
           : data.sessions,
       );
       setCursor(data.nextCursor);
-      const [rs, es, activeData] = await Promise.all([
-        request('/api/routines', RoutineListResponseSchema),
-        request('/api/exercises', ExerciseListResponseSchema),
-        request('/api/sessions?status=active', SessionListSchema),
-      ]);
       setRoutines(rs.routines);
       setExercises(es.exercises);
       setLoaded(true);
@@ -217,6 +261,7 @@ export function Sessions({
         }
       }
     } catch (error) {
+      if (!mounted.current || sequence !== loadSequence.current) return;
       setNotice(error instanceof Error ? error.message : 'Unable to open workouts.');
     }
   }
@@ -233,12 +278,23 @@ export function Sessions({
     }
   }
   async function syncClock() {
+    const sequence = ++clockSequence.current;
     const started = performance.now();
-    const data = await request('/api/sessions/clock', z.object({ now: z.iso.datetime() }));
-    clock.current = { server: Date.parse(data.now), local: (started + performance.now()) / 2 };
-    setNow(performance.now());
+    try {
+      const data = await request('/api/sessions/clock', z.object({ now: z.iso.datetime() }));
+      if (!mounted.current || sequence !== clockSequence.current) return;
+      clock.current = { server: Date.parse(data.now), local: (started + performance.now()) / 2 };
+      setNow(performance.now());
+      setClockRevision((value) => value + 1);
+      setClockError('');
+    } catch (error) {
+      if (mounted.current && sequence === clockSequence.current)
+        setClockError('Timer time could not be refreshed. Check your connection and retry.');
+      throw error;
+    }
   }
   useEffect(() => {
+    mounted.current = true;
     device.current = crypto.randomUUID();
     try {
       device.current = localStorage.getItem('workout-device') || device.current;
@@ -250,15 +306,27 @@ export function Sessions({
     const wake = () => void syncClock().catch(() => {});
     window.addEventListener('focus', wake);
     return () => {
+      mounted.current = false;
+      loadSequence.current += 1;
+      clockSequence.current += 1;
       window.removeEventListener('focus', wake);
     };
   }, []);
   useEffect(() => {
-    if (!active || session?.timer?.state !== 'running') return;
-    setNow(performance.now());
-    const id = window.setInterval(() => setNow(performance.now()), 500);
+    const timer = session?.timer;
+    if (!active || timer?.state !== 'running' || !clock.current) return;
+    const tick = () => {
+      const current = performance.now();
+      setNow(current);
+      const basis = clock.current!;
+      return timerRemaining(timer, new Date(basis.server + current - basis.local).toISOString());
+    };
+    if (tick() === 0) return;
+    const id = window.setInterval(() => {
+      if (tick() === 0) clearInterval(id);
+    }, 500);
     return () => clearInterval(id);
-  }, [active, session?.timer?.state]);
+  }, [active, session?.timer, clockRevision]);
   const command = (change: Record<string, unknown>) =>
     SessionCommandSchema.parse({
       operationId: crypto.randomUUID(),
@@ -450,6 +518,10 @@ export function Sessions({
         )
       : session.timer.remainingSeconds
     : null;
+  const timerFinished =
+    !!session?.timer &&
+    (session.timer.state === 'finished' ||
+      ((!!clock.current || session.timer.state === 'paused') && remaining === 0));
   const currentReadSelection = useRef('');
   currentReadSelection.current = `${session?.id}:${session?.revision}:${item?.exerciseId}`;
   const performanceLoading = useRef(false);
@@ -540,22 +612,15 @@ export function Sessions({
 
   return (
     <section className="session-area">
-      <div className="intro">
-        <p className="eyebrow">Training</p>
-        <h2>One set at a time.</h2>
-        <p>Record what you did. Your routine stays a separate plan.</p>
-      </div>
       <div className="segmented">
-        <button
-          aria-pressed={view === 'train'}
-          className={view === 'train' ? '' : 'secondary'}
-          onClick={() => setView('train')}
-        >
-          Current workout
-        </button>
+        {view === 'history' && (
+          <button className="secondary" onClick={() => setView('train')}>
+            Current workout
+          </button>
+        )}
         <button
           aria-pressed={view === 'history'}
-          className={view === 'history' ? '' : 'secondary'}
+          className="secondary"
           onClick={() => setView('history')}
         >
           Workout history
@@ -621,7 +686,7 @@ export function Sessions({
           </button>
         </section>
       )}
-      {view === 'train' && (!session || session.status !== 'active') && (
+      {view === 'train' && !session && (
         <form
           className="session-card start-workout"
           onSubmit={(event) => {
@@ -633,7 +698,7 @@ export function Sessions({
                 operationId: crypto.randomUUID(),
                 sessionId: crypto.randomUUID(),
                 expectedRevision: 0,
-                name: routine?.name || name,
+                name: routine?.name || name.trim() || 'Workout',
                 routineId: routine?.id || null,
                 expectedRoutineRevision: routine?.revision || null,
               }),
@@ -641,9 +706,7 @@ export function Sessions({
           }}
         >
           <h3>Start a workout</h3>
-          <button type="button" className="secondary" onClick={() => void refreshLibrary()}>
-            Refresh routine library
-          </button>
+
           <label>
             <span>Routine</span>
             <select
@@ -661,19 +724,19 @@ export function Sessions({
             </select>
           </label>
           {!routineId && (
-            <label>
-              Workout name
-              <input
-                required
-                maxLength={500}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </label>
+            <details>
+              <summary>Name workout</summary>
+              <label>
+                Workout name
+                <input
+                  maxLength={500}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </label>
+            </details>
           )}
-          <button disabled={disabled || !loaded || (!routineId && !name.trim())}>
-            Start workout
-          </button>
+          <button disabled={disabled || !loaded}>Start workout</button>
         </form>
       )}
       {view === 'history' && (
@@ -729,69 +792,45 @@ export function Sessions({
       )}
       {view === 'train' && session && (
         <>
+          {!editable && (
+            <button
+              className="secondary"
+              onClick={() => {
+                if (hasDraft()) {
+                  setNotice('Save or discard the current draft first.');
+                  return;
+                }
+                setSession(null);
+                setDrafts({});
+                setNotes('');
+              }}
+            >
+              Start another workout
+            </button>
+          )}
           <div className="session-heading">
             <div>
               <h3>{session.name}</h3>
               <p>
-                {session.status === 'abandoned' ? 'Partial / abandoned' : session.status} · revision{' '}
-                {session.revision} ·{' '}
-                {new Date(session.startedAt).toLocaleString(undefined, {
+                {session.status === 'abandoned' ? 'Partial / abandoned' : session.status} ·{' '}
+                {new Date(session.startedAt).toLocaleDateString(undefined, {
                   timeZone: preferences.timeZone,
                 })}
               </p>
             </div>
             {editable && (
-              <details>
-                <summary>Finish this workout</summary>
-                <p>Only saved actual sets become results. Planned exercises remain unperformed.</p>
-                {hasDraft() && <p>Save or discard your draft before finishing this workout.</p>}
-                <button
-                  disabled={disabled || hasDraft()}
-                  onClick={() => safeRun({ type: 'session.finish' })}
-                >
-                  Finish and save workout
-                </button>
+              <div className="session-finish">
+                {hasDraft() && <small>Save or discard the draft to finish.</small>}
                 <button
                   className="secondary"
                   disabled={disabled || hasDraft()}
-                  onClick={() => safeRun({ type: 'session.abandon' })}
+                  onClick={() => safeRun({ type: 'session.finish' })}
                 >
-                  Abandon partial workout
+                  Finish workout
                 </button>
-              </details>
+              </div>
             )}
           </div>
-          {session.timer && (
-            <section className="session-timer" aria-label="Workout timer">
-              <strong>
-                {session.timer.kind === 'rest' ? 'Rest' : 'Exercise'} · {Math.ceil(remaining || 0)}{' '}
-                seconds
-              </strong>
-              <span>
-                {remaining === 0 ? 'Time elapsed' : session.timer.state}
-                {!clock.current ? ' · sync to refresh server time' : ''}
-              </span>
-              {editable && (
-                <div className="session-actions">
-                  {session.timer.state === 'running' ? (
-                    <button disabled={disabled} onClick={() => timer('pause')}>
-                      Pause timer
-                    </button>
-                  ) : (
-                    <button disabled={disabled} onClick={() => timer('resume')}>
-                      Resume timer
-                    </button>
-                  )}
-                  <button disabled={disabled} onClick={() => timer('reset')}>
-                    Reset timer
-                  </button>
-                  <button className="secondary" disabled={disabled} onClick={() => timer('cancel')}>
-                    Cancel timer
-                  </button>
-                </div>
-              )}
-            </section>
-          )}
           <div className="session-layout">
             <nav className="session-exercises" aria-label="Workout exercises">
               {visible.map((value) => (
@@ -815,10 +854,7 @@ export function Sessions({
             {item && (
               <article className="session-card">
                 <h3>{item.snapshot.name}</h3>
-                <p>
-                  {activityLabel(item, session)} · {item.snapshot.mode}
-                  {item.replacedItemId ? ' · Substitution' : ''}
-                </p>
+                {item.replacedItemId && <p>Substituted exercise</p>}
                 {session.supersets
                   .filter((group) => group.itemIds.includes(item.id))
                   .map((group) => (
@@ -829,104 +865,8 @@ export function Sessions({
                         .join(' → ')}
                     </p>
                   ))}
-                <details>
-                  <summary>Snapshot plan · {item.targets.length} targets</summary>
-                  {item.targets.length ? (
-                    item.targets.map((target) => (
-                      <p key={target.id}>
-                        {target.kind} · {resultText(target.measurements, preferences)}
-                      </p>
-                    ))
-                  ) : (
-                    <p>No targets were planned.</p>
-                  )}
-                  <p>{item.notes || 'No exercise notes.'}</p>
-                </details>
-                {((editable && item.status !== 'removed' && item.status !== 'skipped') ||
-                  draft.setId) && (
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void record();
-                    }}
-                  >
-                    <fieldset disabled={disabled}>
-                      <legend>{draft.setId ? 'Correct actual set' : 'Record actual set'}</legend>
-                      <div className="session-measurements">
-                        {fields(item).map((key) => (
-                          <label key={key}>
-                            {label(key, inputPreferences)}
-                            <input
-                              type="number"
-                              min={0}
-                              step={key === 'reps' ? 1 : 'any'}
-                              value={draft.values[key] || ''}
-                              onChange={(event) =>
-                                update({ values: { ...draft.values, [key]: event.target.value } })
-                              }
-                            />
-                          </label>
-                        ))}
-                      </div>
-                      <div className="session-inline">
-                        <label>
-                          Set kind
-                          <select
-                            value={draft.kind}
-                            onChange={(event) =>
-                              update({ kind: event.target.value as Draft['kind'] })
-                            }
-                          >
-                            <option value="working">Working</option>
-                            <option value="warmup">Warm-up</option>
-                          </select>
-                        </label>
-                        {session.supersets.some((group) => group.itemIds.includes(item.id)) && (
-                          <label>
-                            Superset round
-                            <input
-                              type="number"
-                              min={1}
-                              max={1000}
-                              step={1}
-                              required
-                              value={draft.round}
-                              onChange={(event) => update({ round: event.target.value })}
-                            />
-                          </label>
-                        )}
-                      </div>
-                      <details open={!!draft.setId}>
-                        <summary>Set notes{draft.setId ? ' and correction' : ''}</summary>
-                        <label>
-                          Set notes
-                          <textarea
-                            value={draft.notes}
-                            onChange={(event) => update({ notes: event.target.value })}
-                          />
-                        </label>
-                        {draft.setId && (
-                          <label>
-                            Correction reason
-                            <input
-                              required
-                              value={draft.reason}
-                              onChange={(event) => update({ reason: event.target.value })}
-                            />
-                          </label>
-                        )}
-                      </details>
-                      <button>{draft.setId ? 'Save correction' : 'Save actual set'}</button>
-                      {draft.setId && (
-                        <button type="button" className="secondary" onClick={() => update(fresh())}>
-                          Cancel correction
-                        </button>
-                      )}
-                    </fieldset>
-                  </form>
-                )}
                 <section className="actual-results">
-                  <h4>Actual sets</h4>
+                  <h4 className={editable ? 'sr-only' : undefined}>Actual sets</h4>
                   {!item.results.filter((set) => !set.removedAt).length && (
                     <p>No performed sets recorded.</p>
                   )}
@@ -993,8 +933,209 @@ export function Sessions({
                       </div>
                     ))}
                 </section>
-                <details open className="previous-performance">
-                  <summary>Previous comparable performance</summary>
+                {((editable && item.status !== 'removed' && item.status !== 'skipped') ||
+                  draft.setId) && (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void record();
+                    }}
+                  >
+                    <fieldset disabled={disabled}>
+                      <legend className={draft.setId ? undefined : 'sr-only'}>
+                        {draft.setId ? 'Correct set' : 'Log set'}
+                      </legend>
+                      {previous[0] && (
+                        <p className="previous-set-summary">
+                          Previous set ·{' '}
+                          {resultText(
+                            previous[0].item.results.filter((set) => !set.removedAt).at(-1)!
+                              .measurements,
+                            preferences,
+                          )}
+                        </p>
+                      )}
+                      <div className="session-measurements">
+                        {fields(item).map((key) => (
+                          <label key={key}>
+                            {label(key, inputPreferences)}
+                            <input
+                              type="number"
+                              min={0}
+                              step={key === 'reps' ? 1 : 'any'}
+                              value={draft.values[key] || ''}
+                              onChange={(event) =>
+                                update({ values: { ...draft.values, [key]: event.target.value } })
+                              }
+                            />
+                          </label>
+                        ))}
+                      </div>
+                      <details open={!!draft.setId}>
+                        <summary>Set options</summary>
+                        <div className="session-inline">
+                          <label>
+                            Set kind
+                            <select
+                              value={draft.kind}
+                              onChange={(event) =>
+                                update({ kind: event.target.value as Draft['kind'] })
+                              }
+                            >
+                              <option value="working">Working</option>
+                              <option value="warmup">Warm-up</option>
+                            </select>
+                          </label>
+                          {session.supersets.some((group) => group.itemIds.includes(item.id)) && (
+                            <label>
+                              Superset round
+                              <input
+                                type="number"
+                                min={1}
+                                max={1000}
+                                step={1}
+                                required
+                                value={draft.round}
+                                onChange={(event) => update({ round: event.target.value })}
+                              />
+                            </label>
+                          )}
+                        </div>
+                        <details open={!!draft.setId}>
+                          <summary>Set notes{draft.setId ? ' and correction' : ''}</summary>
+                          <label>
+                            Set notes
+                            <textarea
+                              value={draft.notes}
+                              onChange={(event) => update({ notes: event.target.value })}
+                            />
+                          </label>
+                          {draft.setId && (
+                            <label>
+                              Correction reason
+                              <input
+                                required
+                                value={draft.reason}
+                                onChange={(event) => update({ reason: event.target.value })}
+                              />
+                            </label>
+                          )}
+                        </details>
+                      </details>
+                      <button>{draft.setId ? 'Save correction' : 'Log set'}</button>
+                      {draft.setId && (
+                        <button type="button" className="secondary" onClick={() => update(fresh())}>
+                          Cancel correction
+                        </button>
+                      )}
+                    </fieldset>
+                  </form>
+                )}
+                {session.timer && (
+                  <section className="session-timer" aria-label="Workout timer">
+                    <strong>
+                      {session.timer.kind === 'rest' ? 'Rest' : 'Exercise'}
+                      {timerFinished
+                        ? ' finished'
+                        : session.timer.state === 'running' && !clock.current
+                          ? ' · Connect to refresh timer'
+                          : ` · ${Math.ceil(remaining || 0)} seconds`}
+                    </strong>
+                    {!timerFinished && !(session.timer.state === 'running' && !clock.current) && (
+                      <span>{session.timer.state}</span>
+                    )}
+                    {clockError && (
+                      <div role="status">
+                        <p>{clockError}</p>
+                        <button
+                          className="secondary"
+                          onClick={() => void syncClock().catch(() => {})}
+                        >
+                          Refresh timer time
+                        </button>
+                      </div>
+                    )}
+                    {editable && (
+                      <div className="session-actions">
+                        {!timerFinished &&
+                          (session.timer.state === 'running' ? (
+                            <button disabled={disabled} onClick={() => timer('pause')}>
+                              Pause timer
+                            </button>
+                          ) : (
+                            <button disabled={disabled} onClick={() => timer('resume')}>
+                              Resume timer
+                            </button>
+                          ))}
+                        <button disabled={disabled} onClick={() => timer('reset')}>
+                          Reset timer
+                        </button>
+                        <button
+                          className="secondary"
+                          disabled={disabled}
+                          onClick={() => timer('cancel')}
+                        >
+                          Cancel timer
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                )}
+                {editable && (
+                  <section className="rest-controls" aria-label="Rest timer controls">
+                    <button
+                      className="secondary"
+                      disabled={disabled || Number(rest) <= 0}
+                      onClick={() => timer('start', 'rest')}
+                    >
+                      Start rest timer
+                    </button>
+                    <details>
+                      <summary>Timer options</summary>
+                      <label>
+                        Timer duration (seconds)
+                        <input
+                          type="number"
+                          min={1}
+                          max={86400}
+                          value={rest}
+                          onChange={(event) => setRest(event.target.value)}
+                        />
+                      </label>
+                      <div className="session-actions">
+                        <button
+                          disabled={disabled || Number(rest) <= 0}
+                          onClick={() => timer('start', 'exercise')}
+                        >
+                          Start exercise timer
+                        </button>
+                      </div>
+                      <label className="check-label">
+                        <input
+                          type="checkbox"
+                          checked={autoRest}
+                          onChange={(event) => setAutoRest(event.target.checked)}
+                        />
+                        Start rest timer after saving a set
+                      </label>
+                    </details>
+                  </section>
+                )}
+                <details>
+                  <summary>Snapshot plan · {item.targets.length} targets</summary>
+                  {item.targets.length ? (
+                    item.targets.map((target) => (
+                      <p key={target.id}>
+                        {target.kind} · {resultText(target.measurements, preferences)}
+                      </p>
+                    ))
+                  ) : (
+                    <p>No targets were planned.</p>
+                  )}
+                  <p>{item.notes || 'No exercise notes.'}</p>
+                </details>
+                <details className="previous-performance">
+                  <summary>Previous sets</summary>
                   {performanceCursor && (
                     <button className="secondary" onClick={() => void loadPerformance(true)}>
                       Load older exercise performance
@@ -1148,7 +1289,14 @@ export function Sessions({
           </div>
           {editable && (
             <details className="session-card">
-              <summary>Workout tools</summary>
+              <summary>Workout options</summary>{' '}
+              <button
+                className="secondary"
+                disabled={disabled || hasDraft()}
+                onClick={() => safeRun({ type: 'session.abandon' })}
+              >
+                Abandon partial workout
+              </button>
               <label>
                 Add exercise
                 <select value={exerciseId} onChange={(event) => setExerciseId(event.target.value)}>
@@ -1174,38 +1322,6 @@ export function Sessions({
               >
                 Add to workout
               </button>
-              <label>
-                Timer duration (seconds)
-                <input
-                  type="number"
-                  min={1}
-                  max={86400}
-                  value={rest}
-                  onChange={(event) => setRest(event.target.value)}
-                />
-              </label>
-              <div className="session-actions">
-                <button
-                  disabled={disabled || Number(rest) <= 0}
-                  onClick={() => timer('start', 'rest')}
-                >
-                  Start rest timer
-                </button>
-                <button
-                  disabled={disabled || Number(rest) <= 0}
-                  onClick={() => timer('start', 'exercise')}
-                >
-                  Start exercise timer
-                </button>
-              </div>
-              <label className="check-label">
-                <input
-                  type="checkbox"
-                  checked={autoRest}
-                  onChange={(event) => setAutoRest(event.target.checked)}
-                />
-                Start rest timer after saving a set
-              </label>
               <h4>Ordered superset</h4>
               <p>Select exercises in the order you want to perform them.</p>
               {visible
@@ -1278,7 +1394,7 @@ export function Sessions({
             </details>
           )}
           <details className="session-card">
-            <summary>Workout notes and history</summary>
+            <summary>Notes and history</summary>
             <label>
               Workout notes
               <textarea
@@ -1330,7 +1446,7 @@ export function Sessions({
           </details>
           {session.sourceRoutineId && (
             <details className="session-card">
-              <summary>Update future routine explicitly</summary>
+              <summary>Update routine</summary>
               <p>
                 Choose the exercises to use in the future plan. This changes the reusable routine,
                 while saved workout results remain intact. The selected exercises replace the

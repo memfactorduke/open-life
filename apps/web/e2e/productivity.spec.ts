@@ -70,6 +70,7 @@ test('configuration, organization, dates and parallel steps preserve one outcome
     title = `Fictional outcome ${suffix}`,
     board = `Fictional board ${suffix}`,
     project = `Fictional project ${suffix}`;
+  await page.locator('.task-more > summary').click();
   await page.getByRole('button', { name: 'Configure boards & projects' }).click();
   const config = page.locator('.configuration-panel');
   await config.getByLabel('Name', { exact: true }).fill(board);
@@ -88,6 +89,7 @@ test('configuration, organization, dates and parallel steps preserve one outcome
   await page.getByRole('button', { name: 'Add to Planned' }).click();
   await page.getByRole('button', { name: title, exact: true }).click();
   const detail = page.getByRole('dialog');
+  await detail.getByText('Options · organization & dates', { exact: true }).click();
   await detail.getByLabel('Task board').selectOption({ label: board });
   await detail.getByLabel('Task project').selectOption({ label: project });
   await detail.getByLabel('Task priority').selectOption('high');
@@ -97,6 +99,8 @@ test('configuration, organization, dates and parallel steps preserve one outcome
   await detail.getByLabel('Due date', { exact: true }).fill('2026-11-01T12:00');
   await detail.getByRole('button', { name: 'Save dates' }).click();
   await expect(detail.getByRole('status').first()).toContainText('Saved.');
+  await detail.getByText('Steps · one shared outcome', { exact: true }).click();
+  await detail.getByRole('button', { name: 'Create a step', exact: true }).click();
   await detail.getByLabel('Step title', { exact: true }).fill('Draft fictional copy');
   await detail.getByRole('combobox', { name: 'Responsibility', exact: true }).selectOption('agent');
   await detail.getByRole('button', { name: 'Add step', exact: true }).click();
@@ -119,15 +123,31 @@ test('configuration, organization, dates and parallel steps preserve one outcome
   await page.getByRole('button', { name: title, exact: true }).click();
   await expect(detail.getByText('Ready to start', { exact: true })).toHaveCount(2);
   await expect(detail.getByText('Waiting for prerequisites', { exact: true })).toBeVisible();
+  await detail
+    .locator('.step-card')
+    .filter({ has: page.getByText('Draft fictional copy', { exact: true }) })
+    .getByText('Step options', { exact: true })
+    .click();
   await detail.getByLabel('Status of Draft fictional copy').selectOption('completed');
   await expect(detail.getByLabel('Status of Draft fictional copy')).toHaveValue('completed');
+  await detail
+    .locator('.step-card')
+    .filter({ has: page.getByText('Record fictional voice', { exact: true }) })
+    .getByText('Step options', { exact: true })
+    .click();
   await detail.getByLabel('Status of Record fictional voice').selectOption('completed');
   await expect(detail.getByText('Ready to start', { exact: true })).toHaveCount(1);
+  await detail
+    .locator('.step-card')
+    .filter({ has: page.getByText('Assemble fictional episode', { exact: true }) })
+    .getByText('Step options', { exact: true })
+    .click();
   await detail.getByLabel('Status of Assemble fictional episode').selectOption('completed');
   await expect(
     detail.getByText('Required work is satisfied. You can complete the outcome.'),
   ).toBeVisible();
   await detail.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByText('Search and filters', { exact: true }).click();
   await page.getByLabel('Board filter').selectOption({ label: board });
   await expect(page.getByRole('region', { name: 'Ideas tasks' })).toBeVisible();
   await page.screenshot({
@@ -167,6 +187,8 @@ test('an uncertain step save retries the exact command and creates one step', as
       await route.abort('failed');
     } else await route.continue();
   });
+  await detail.getByText('Steps · one shared outcome', { exact: true }).click();
+  await detail.getByRole('button', { name: 'Create a step', exact: true }).click();
   await detail.getByLabel('Step title', { exact: true }).fill('One fictional step');
   await detail.getByRole('button', { name: 'Add step', exact: true }).click();
   await detail.getByRole('button', { name: 'Retry the same change', exact: true }).click();
@@ -225,6 +247,7 @@ test('future repeat edits, occurrence skip and cancellation retain occurrence hi
     detail.getByText('This series is cancelled. Its occurrence history is retained.'),
   ).toBeVisible();
   await detail.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('.task-more > summary').click();
   await page.getByRole('button', { name: 'Archive', exact: true }).click();
   await expect(page.getByRole('button', { name: title, exact: true })).toHaveCount(2);
   const saved = (await (await page.request.get('/api/recurrence')).json()).series.find(
@@ -241,6 +264,7 @@ test('drag ordering and the Move up alternative persist', async ({ page }) => {
     await page.getByRole('button', { name: 'Add to Planned' }).click();
     await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible();
   }
+  await page.getByText('Search and filters', { exact: true }).click();
   await page.getByLabel('Search tasks').fill(prefix);
   await page.getByRole('button', { name: 'Find tasks' }).click();
   const region = page.getByRole('region', { name: 'Planned tasks' });
@@ -259,6 +283,7 @@ test('drag ordering and the Move up alternative persist', async ({ page }) => {
   await first.getByRole('button', { name: 'Move up', exact: true }).click();
   await expect(region.locator('.task-title')).toHaveText([one, two]);
   await page.reload();
+  await page.getByText('Search and filters', { exact: true }).click();
   await page.getByLabel('Search tasks').fill(prefix);
   await page.getByRole('button', { name: 'Find tasks' }).click();
   await expect(region.locator('.task-title')).toHaveText([one, two]);
@@ -285,9 +310,49 @@ test('a stale board opens a saved-version review before any overwrite', async ({
   await page.getByRole('button', { name: title, exact: true }).click();
   const detail = page.getByRole('dialog');
   await expect(detail.getByRole('heading', { name: 'Review the saved task' })).toBeVisible();
+  await detail.getByRole('button', { name: 'Edit task', exact: true }).click();
   await expect(detail.getByRole('button', { name: 'Save task', exact: true })).toBeDisabled();
-  await expect(detail.getByText('Saved on another device', { exact: true })).toBeVisible();
+  await expect(
+    detail.locator('.revision-review').getByText('Saved on another device', { exact: true }),
+  ).toBeVisible();
   await detail.getByRole('button', { name: 'Use saved version' }).click();
   await expect(detail.getByLabel('Notes', { exact: true })).toHaveValue('Saved on another device');
   await expect(detail.getByRole('button', { name: 'Save task', exact: true })).toBeEnabled();
+});
+
+test('reading a task keeps setup secondary and retains a draft across closing and remote edits', async ({
+  page,
+}) => {
+  const title = `Fictional reading ${crypto.randomUUID().slice(0, 8)}`;
+  await page.getByLabel('New task', { exact: true }).fill(title);
+  await page.getByRole('button', { name: 'Add to Planned' }).click();
+  await page.getByRole('button', { name: title, exact: true }).click();
+  const detail = page.getByRole('dialog');
+  await expect(detail.getByLabel('Title', { exact: true })).toBeHidden();
+  await expect(detail.getByRole('button', { name: 'Release to Next' })).toBeVisible();
+  await expect(detail.getByRole('button', { name: 'Apply workflow template' })).toHaveCount(0);
+  await detail.getByRole('button', { name: 'Edit task', exact: true }).click();
+  await detail.getByLabel('Notes', { exact: true }).fill('Keep my unsaved draft');
+  await detail.getByRole('button', { name: 'Close', exact: true }).click();
+  const task = (
+    await (await page.request.get(`/api/tasks/query?search=${encodeURIComponent(title)}`)).json()
+  ).tasks[0];
+  const updated = await page.request.post('/api/tasks/commands', {
+    headers: { Origin: origin },
+    data: {
+      type: 'task.edit',
+      operationId: crypto.randomUUID(),
+      taskId: task.id,
+      expectedRevision: task.revision,
+      content: { ...task.content, notes: 'Saved remotely' },
+    },
+  });
+  expect(updated.ok()).toBeTruthy();
+  await page.getByRole('button', { name: title, exact: true }).click();
+  await detail.getByRole('button', { name: 'Edit task', exact: true }).click();
+  await expect(detail.getByLabel('Notes', { exact: true })).toHaveValue('Keep my unsaved draft');
+  await expect(detail.getByRole('button', { name: 'Save task', exact: true })).toBeDisabled();
+  await expect(
+    detail.locator('.revision-review').getByText('Saved remotely', { exact: true }),
+  ).toBeVisible();
 });

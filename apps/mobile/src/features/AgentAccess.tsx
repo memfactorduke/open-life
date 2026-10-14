@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, Text, View } from 'react-native';
+import { AppState, Pressable, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import {
   AgentGrantCreateSchema,
@@ -8,9 +8,11 @@ import {
   AgentGrantRevokeResponseSchema,
   type AgentScope,
 } from '@mems-life/domain';
+import { DateTimeField } from '../DateTimeField';
+import * as Clipboard from 'expo-clipboard';
 import type { z } from 'zod';
 import { type InstallationClient, RequestRejectedError } from '../client';
-import { Action, Body, Card, Field, Heading, usePalette } from '../ui';
+import { ScalingText as Text, Action, Body, Card, Field, Heading, Choice, usePalette } from '../ui';
 
 type Grant = z.infer<typeof AgentGrantListSchema>['grants'][number];
 const groups: { title: string; options: { scope: AgentScope; label: string }[] }[] = [
@@ -44,10 +46,27 @@ const groups: { title: string; options: { scope: AgentScope; label: string }[] }
 ];
 const scopeLabel = (scope: AgentScope) =>
   groups.flatMap((g) => g.options).find((o) => o.scope === scope)?.label ?? scope;
-export function AgentAccess({ client }: { client: InstallationClient }) {
+const purposes: { value: string; label: string; scopes: AgentScope[] }[] = [
+  { value: 'read', label: 'Read only', scopes: ['tasks:read'] },
+  { value: 'tasks', label: 'Task assistant', scopes: ['tasks:read', 'tasks:write'] },
+  { value: 'workouts', label: 'Workout planner', scopes: ['workouts:read', 'workouts:plan'] },
+  { value: 'custom', label: 'Custom', scopes: [] },
+];
+export function AgentAccess({
+  client,
+  active = true,
+}: {
+  client: InstallationClient;
+  active?: boolean;
+}) {
   const palette = usePalette();
   const [grants, setGrants] = useState<Grant[]>([]),
     [label, setLabel] = useState(''),
+    [creating, setCreating] = useState(false),
+    [showHistory, setShowHistory] = useState(false),
+    [purpose, setPurpose] = useState('read'),
+    [duration, setDuration] = useState('7'),
+    [manual, setManual] = useState(false),
     [scopes, setScopes] = useState<AgentScope[]>(['tasks:read']),
     [expiry, setExpiry] = useState(() => new Date(Date.now() + 7 * 86400000).toISOString()),
     [secret, setSecret] = useState<string | null>(null),
@@ -83,13 +102,25 @@ export function AgentAccess({ client }: { client: InstallationClient }) {
       subscription.remove();
     };
   }, [client]);
+  useEffect(() => {
+    if (!active) {
+      generation.current++;
+      setSecret(null);
+      setCreating(false);
+      setManual(false);
+      setNotice('');
+    }
+  }, [active]);
   async function issue() {
     if (working.current || secret || uncertain) return;
     const parsed = AgentGrantCreateSchema.safeParse({
       operationId: Crypto.randomUUID(),
       label,
       scopes,
-      expiresAt: expiry,
+      expiresAt:
+        duration === 'custom'
+          ? expiry
+          : new Date(Date.now() + Number(duration) * 86400000).toISOString(),
     });
     if (
       !parsed.success ||
@@ -97,7 +128,7 @@ export function AgentAccess({ client }: { client: InstallationClient }) {
       new Date(parsed.data.expiresAt).getTime() > Date.now() + 366 * 86400000
     ) {
       setError(
-        'Enter a name, choose at least one permission, and set an expiry within the next year using the UTC format shown.',
+        'Enter a name, choose at least one permission, and set an expiry within the next year with a valid date and time.',
       );
       return;
     }
@@ -155,6 +186,7 @@ export function AgentAccess({ client }: { client: InstallationClient }) {
         ),
       );
       if (revealedGrantId.current === grant.id) setSecret(null);
+      setShowHistory(true);
       setNotice(`Access revoked for ${grant.label}. Its history is retained.`);
       revokeOperations.current.delete(grant.id);
     } catch (e) {
@@ -172,19 +204,84 @@ export function AgentAccess({ client }: { client: InstallationClient }) {
   const disabled = busy || !!secret || uncertain;
   return (
     <View style={{ gap: 16 }}>
-      <Heading eyebrow="Your external assistants">Agent access</Heading>
-      <Body>
-        Give a client only the permissions it needs. Access ends at expiry or when you revoke it.
-      </Body>
+      <Heading eyebrow="Connections">Agent access</Heading>
+      <Body>Choose what an agent can read or change.</Body>
       {error ? <Body error>{error}</Body> : null}
       {notice ? <Body>{notice}</Body> : null}
+      {(!creating || uncertain) && (
+        <>
+          <Action title="Reload grants" secondary disabled={busy} onPress={() => void load()} />
+          {loaded && grants.length === 0 ? <Body>No agent access has been issued.</Body> : null}
+          {[...grants]
+            .filter(
+              (grant) =>
+                showHistory ||
+                (!grant.revokedAt && new Date(grant.expiresAt).getTime() > Date.now()),
+            )
+            .sort(
+              (a, b) =>
+                Number(!!a.revokedAt || new Date(a.expiresAt).getTime() <= Date.now()) -
+                Number(!!b.revokedAt || new Date(b.expiresAt).getTime() <= Date.now()),
+            )
+            .map((grant) => (
+              <Card key={grant.id}>
+                <Body>{grant.label}</Body>
+                <Body>
+                  {grant.revokedAt
+                    ? 'Revoked'
+                    : new Date(grant.expiresAt).getTime() <= Date.now()
+                      ? 'Expired'
+                      : 'Active'}{' '}
+                  · expires {new Date(grant.expiresAt).toLocaleString()}
+                </Body>
+                <Body>{grant.scopes.map(scopeLabel).join(' · ')}</Body>
+                {!grant.revokedAt && <Body>Revoking ends this agent’s access.</Body>}
+                {grant.revokedAt ? (
+                  <Body>
+                    Revoked {new Date(grant.revokedAt).toLocaleString()} · history retained
+                  </Body>
+                ) : (
+                  <Action
+                    title={`Revoke ${grant.label}`}
+                    variant="destructive"
+                    disabled={busy}
+                    onPress={() => void revoke(grant)}
+                  />
+                )}
+              </Card>
+            ))}
+        </>
+      )}
+      {(!creating || uncertain) &&
+        grants.some(
+          (grant) => grant.revokedAt || new Date(grant.expiresAt).getTime() <= Date.now(),
+        ) && (
+          <Action
+            title={
+              showHistory ? 'Hide expired and revoked access' : 'View expired and revoked access'
+            }
+            secondary
+            onPress={() => setShowHistory(!showHistory)}
+          />
+        )}
       {secret ? (
         <Card>
-          <Heading>Copy this key now</Heading>
+          <Heading>Set up your agent</Heading>
+          <Body>Endpoint</Body>
+          <Text selectable style={{ color: palette.text }}>
+            {client.baseURL.replace(/\/$/, '')}/mcp
+          </Text>
+          <Action
+            title="Copy endpoint"
+            secondary
+            onPress={() =>
+              void Clipboard.setStringAsync(`${client.baseURL.replace(/\/$/, '')}/mcp`)
+                .then(() => setNotice('Endpoint copied.'))
+                .catch(() => setError('Select and copy the endpoint manually.'))
+            }
+          />
           <Body>
-            This is its only display. Touch and hold the key to copy it to your client's private
-            credential configuration. Leaving this screen or hiding the app clears the display; the
-            key remains active until expiry or revocation.
+            Save this key now. It is shown once and stays active until it expires or you revoke it.
           </Body>
           <Text
             selectable
@@ -194,101 +291,140 @@ export function AgentAccess({ client }: { client: InstallationClient }) {
             {secret}
           </Text>
           <Action
+            title="Copy key"
+            onPress={() =>
+              void Clipboard.setStringAsync(secret)
+                .then(() => setNotice('Key copied.'))
+                .catch(() => setError('Select and copy the key manually.'))
+            }
+          />
+          <Action
+            title={manual ? 'Hide manual setup' : 'Manual setup details'}
+            secondary
+            onPress={() => setManual(!manual)}
+          />
+          {manual && (
+            <Body>
+              Use this endpoint in an MCP client that supports custom HTTP headers. Add
+              Authorization: Bearer YOUR_KEY in its private credential settings.
+            </Body>
+          )}
+          <Action
             title="Done · hide key"
+            secondary
             onPress={() => {
               setSecret(null);
+              setCreating(false);
+              setManual(false);
               setNotice('Key hidden. It cannot be retrieved again.');
             }}
           />
         </Card>
       ) : null}
-      <Card>
-        <Body>Connect your MCP client</Body>
-        <Text selectable style={{ color: palette.text }}>
-          {client.baseURL.replace(/\/$/, '')}/mcp
-        </Text>
-        <Body>
-          Configure the HTTP header Authorization: Bearer YOUR_KEY privately in a client that
-          supports custom headers. Do not put the key in a URL or shared content. This connection
-          uses manual credentials.
-        </Body>
-      </Card>
-      <Card>
-        <Body>Create agent access</Body>
-        <Field
-          label="Agent name"
-          value={label}
-          onChangeText={setLabel}
-          maxLength={100}
-          editable={!disabled}
-        />
-        <Field
-          label="Expires at (UTC)"
-          value={expiry}
-          onChangeText={setExpiry}
-          editable={!disabled}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {[1, 7, 30].map((days) => (
-            <Action
-              key={days}
-              title={`${days} ${days === 1 ? 'day' : 'days'}`}
-              secondary
-              disabled={disabled}
-              onPress={() => setExpiry(new Date(Date.now() + days * 86400000).toISOString())}
-            />
-          ))}
-        </View>
-        <Body>
-          Use YYYY-MM-DDTHH:mm:ss.sssZ. The default is seven days; choose a shorter time for a
-          one-off task.
-        </Body>
-        {groups.map((group) => (
-          <View key={group.title} style={{ gap: 8 }}>
-            <Body>{group.title}</Body>
-            {group.options.map((option) => (
-              <Pressable
-                key={option.scope}
-                accessibilityRole="checkbox"
-                accessibilityLabel={option.label}
-                accessibilityState={{ checked: scopes.includes(option.scope), disabled }}
-                disabled={disabled}
-                onPress={() =>
-                  setScopes(
-                    scopes.includes(option.scope)
-                      ? scopes.filter((scope) => scope !== option.scope)
-                      : [...scopes, option.scope],
-                  )
-                }
-                style={{
-                  minHeight: 48,
-                  padding: 12,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: palette.line,
-                  backgroundColor: scopes.includes(option.scope) ? palette.accent : palette.surface,
-                }}
-              >
-                <Text
-                  style={{
-                    color: scopes.includes(option.scope) ? palette.accentText : palette.text,
-                  }}
-                >
-                  {scopes.includes(option.scope) ? '✓ ' : ''}
-                  {option.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        ))}
+      {!secret && !creating && (
         <Action
-          title="Create one-time key"
-          disabled={disabled || !loaded}
-          onPress={() => void issue()}
+          title="Add agent"
+          disabled={busy || uncertain || !loaded}
+          onPress={() => setCreating(true)}
         />
-      </Card>
+      )}
+      {creating && !secret && (
+        <Card>
+          <Heading>Add agent</Heading>
+          <Field
+            label="Agent name"
+            value={label}
+            onChangeText={setLabel}
+            maxLength={100}
+            editable={!disabled}
+            placeholder="For example, workout planner"
+          />
+          <Choice
+            label="Purpose"
+            value={purpose}
+            disabled={disabled}
+            options={purposes.map(({ value, label }) => ({ value, label }))}
+            onChange={(value) => {
+              setPurpose(value);
+              if (value !== 'custom') setScopes(purposes.find((p) => p.value === value)!.scopes);
+            }}
+          />
+          <Body>
+            {scopes.length
+              ? scopes.map(scopeLabel).join(' · ')
+              : 'Choose the permissions this agent needs.'}
+          </Body>
+          {purpose === 'custom' &&
+            groups.map((group) => (
+              <View key={group.title} style={{ gap: 8 }}>
+                <Body>{group.title}</Body>
+                {group.options.map((option) => (
+                  <Pressable
+                    key={option.scope}
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={option.label}
+                    accessibilityState={{ checked: scopes.includes(option.scope), disabled }}
+                    disabled={disabled}
+                    onPress={() =>
+                      setScopes(
+                        scopes.includes(option.scope)
+                          ? scopes.filter((scope) => scope !== option.scope)
+                          : [...scopes, option.scope],
+                      )
+                    }
+                    style={{
+                      minHeight: 48,
+                      padding: 12,
+                      borderWidth: 1,
+                      borderRadius: 12,
+                      borderColor: palette.line,
+                    }}
+                  >
+                    <Text style={{ color: palette.text }}>
+                      {scopes.includes(option.scope) ? '✓ ' : ''}
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ))}
+          <Choice
+            label="Access duration"
+            value={duration}
+            disabled={disabled}
+            options={[
+              { value: '1', label: '1 day' },
+              { value: '7', label: '7 days' },
+              { value: '30', label: '30 days' },
+              { value: 'custom', label: 'Custom date' },
+            ]}
+            onChange={setDuration}
+          />
+          {duration === 'custom' && (
+            <DateTimeField
+              label="Access ends"
+              value={expiry}
+              timezone={Intl.DateTimeFormat().resolvedOptions().timeZone}
+              nullable={false}
+              disabled={disabled}
+              onChange={(value) => {
+                if (value) setExpiry(value);
+              }}
+            />
+          )}
+          <Action
+            title="Create one-time key"
+            disabled={disabled || !loaded}
+            onPress={() => void issue()}
+          />
+          <Action
+            title="Cancel adding agent"
+            secondary
+            disabled={busy}
+            onPress={() => setCreating(false)}
+          />
+        </Card>
+      )}
       {uncertain ? (
         <Action
           title="I reviewed grants; create a replacement"
@@ -299,32 +435,6 @@ export function AgentAccess({ client }: { client: InstallationClient }) {
           }}
         />
       ) : null}
-      <Action title="Reload grants" secondary disabled={busy} onPress={() => void load()} />
-      {loaded && grants.length === 0 ? <Body>No agent access has been issued.</Body> : null}
-      {grants.map((grant) => (
-        <Card key={grant.id}>
-          <Body>{grant.label}</Body>
-          <Body>
-            {grant.revokedAt
-              ? 'Revoked'
-              : new Date(grant.expiresAt).getTime() <= Date.now()
-                ? 'Expired'
-                : 'Active'}{' '}
-            · expires {new Date(grant.expiresAt).toLocaleString()}
-          </Body>
-          <Body>Created {new Date(grant.createdAt).toLocaleString()}</Body>
-          <Body>{grant.scopes.map(scopeLabel).join('\n')}</Body>
-          {grant.revokedAt ? (
-            <Body>Revoked {new Date(grant.revokedAt).toLocaleString()} · history retained</Body>
-          ) : (
-            <Action
-              title={`Revoke ${grant.label}`}
-              disabled={busy}
-              onPress={() => void revoke(grant)}
-            />
-          )}
-        </Card>
-      ))}
     </View>
   );
 }

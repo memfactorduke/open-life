@@ -47,3 +47,13 @@
 .notification-settings button {
   justify-self: start;
 }
+.notification-settings {
+  margin-block: 0;
+}
+.notification-choice {
+  min-height: 44px;
+  align-items: center;
+}
+.notification-settings button {
+  min-height: 44px;
+}

@@ -87,6 +87,7 @@ test('capture, deliberate phases, completion, archive, deletion and undo persist
   await page.getByLabel(`Move ${title}`, { exact: true }).selectOption('active');
   await expect(page.getByRole('region', { name: 'Active tasks' })).toContainText(title);
   await page.getByRole('button', { name: title, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Edit task', exact: true }).click();
   await page.getByLabel('Description', { exact: true }).fill('A real persisted task description.');
   await page.getByLabel('Notes', { exact: true }).fill('Fictional notes for verification.');
   await page.getByRole('button', { name: 'Save task', exact: true }).click();
@@ -98,25 +99,32 @@ test('capture, deliberate phases, completion, archive, deletion and undo persist
     .getByRole('article')
     .filter({ has: page.getByRole('button', { name: title, exact: true }) });
   await card.getByRole('button', { name: 'Complete', exact: true }).click();
+  await page.locator('.task-more > summary').click();
   await page.getByRole('button', { name: 'Completed', exact: true }).click();
   await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Reopen', exact: true }).click();
   await page.getByRole('button', { name: 'Board', exact: true }).click();
   await page.getByRole('button', { name: title, exact: true }).click();
-  await page.getByRole('button', { name: 'Archive', exact: true }).last().click();
+  await page.getByRole('dialog').getByText('More task actions', { exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Archive', exact: true }).click();
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('button', { name: 'Archive', exact: true }).click();
   await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible();
   await card.getByRole('button', { name: 'Unarchive', exact: true }).click();
   await page.getByRole('button', { name: 'Board', exact: true }).click();
   await page.getByRole('button', { name: title, exact: true }).click();
-  await page.getByRole('button', { name: 'Delete task', exact: true }).click();
+  await page.getByRole('dialog').getByText('More task actions', { exact: true }).click();
+  page.once('dialog', (dialog) => {
+    void dialog.accept();
+  });
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete task', exact: true }).click();
   await expect(page.getByRole('button', { name: title, exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible();
   await page.getByRole('button', { name: title, exact: true }).click();
+  await page.getByRole('dialog').getByText('More task actions', { exact: true }).click();
   await page.getByText('Change history', { exact: true }).click();
   await expect(page.locator('.history-drawer')).toContainText('restore');
   await page.screenshot({ path: test.info().outputPath('task-details.png'), fullPage: true });
@@ -140,6 +148,7 @@ test('task conflict preserves edits and lost-response retry uses the original co
   await page.getByLabel('New task', { exact: true }).fill(title);
   await page.getByRole('button', { name: 'Add to Planned' }).click();
   await page.getByRole('button', { name: title, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Edit task', exact: true }).click();
   await page.getByLabel('Description', { exact: true }).fill('Local edit preserved.');
   const saved = (await (await page.request.get('/api/tasks?view=open')).json()).tasks.find(
     (item: { content: { title: string } }) => item.content.title === title,
@@ -184,6 +193,7 @@ test('task conflict preserves edits and lost-response retry uses the original co
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: title, exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Edit task', exact: true }).click();
   await expect(page.getByLabel('Description', { exact: true })).toHaveValue(
     'Local edit preserved.',
   );
@@ -195,19 +205,28 @@ test('custom exercise and reusable routine save targets in canonical units', asy
   const routineName = `Fictional routine ${suffix}`;
   const preferences = (await (await page.request.get('/api/preferences')).json()).value;
   await page.goto('/#workouts');
+  await page.getByRole('button', { name: 'Routines', exact: true }).first().click();
   await page.getByRole('button', { name: 'Exercise library', exact: true }).click();
   await page.getByRole('button', { name: 'New exercise', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill(exerciseName);
   await page.getByLabel('Measurement', { exact: true }).selectOption('weighted');
   await page.getByRole('button', { name: 'Save exercise', exact: true }).click();
   await expect(page.getByRole('heading', { name: exerciseName, exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Routines', exact: true }).click();
+  await page
+    .locator('.workout-library')
+    .getByRole('button', { name: 'Routines', exact: true })
+    .click();
   await page.getByRole('button', { name: 'New routine', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill(routineName);
   const exercise = (await (await page.request.get('/api/exercises')).json()).exercises.find(
     (value: { name: string }) => value.name === exerciseName,
   );
-  await page.getByLabel('Add an exercise', { exact: true }).selectOption(exercise.id);
+  await page.getByRole('button', { name: 'Add exercise', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Exercise picker' })
+    .getByRole('button', { name: exercise.name, exact: true })
+    .click();
+  await page.locator('.routine-item > summary').click();
   await page.getByRole('button', { name: 'Add target', exact: true }).click();
   await page.getByLabel('Repetitions', { exact: true }).fill('8');
   await page.getByLabel(`Load (${preferences.weightUnit})`, { exact: true }).fill('100');
@@ -224,14 +243,17 @@ test('custom exercise and reusable routine save targets in canonical units', asy
     6,
   );
   await page.reload();
+  await page.getByRole('button', { name: 'Routines', exact: true }).first().click();
   const card = page
     .getByRole('article')
     .filter({ has: page.getByRole('heading', { name: routineName, exact: true }) });
   await card.getByRole('button', { name: 'Edit routine', exact: true }).click();
+  await page.locator('.routine-item > summary').click();
   await expect(page.getByLabel(`Load (${preferences.weightUnit})`, { exact: true })).toHaveValue(
     '100',
   );
   await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await card.getByLabel(`More options for ${routineName}`).click();
   await card.getByRole('button', { name: 'Duplicate', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: `${routineName} (copy)`, exact: true }),
@@ -252,6 +274,7 @@ test('routine conflict preserves local edits and exact replay recovers a committ
 }) => {
   const name = `Fictional recovery ${crypto.randomUUID().slice(0, 8)}`;
   await page.goto('/#workouts');
+  await page.getByRole('button', { name: 'Routines', exact: true }).first().click();
   await page.getByRole('button', { name: 'New routine', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill(name);
   await page.getByRole('button', { name: 'Save routine', exact: true }).click();
@@ -296,5 +319,6 @@ test('routine conflict preserves local edits and exact replay recovers a committ
   expect((await replay).postData()).toBe(original);
   await expect(page.getByRole('dialog')).toBeHidden();
   await page.reload();
+  await page.getByRole('button', { name: 'Routines', exact: true }).first().click();
   await expect(page.getByRole('heading', { name: `${name} local`, exact: true })).toBeVisible();
 });

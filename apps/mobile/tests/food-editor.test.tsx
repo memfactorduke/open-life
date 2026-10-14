@@ -1,4 +1,5 @@
 import React from 'react';
+import { Temporal } from '@js-temporal/polyfill';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { defaultPreferences, type FoodEntry } from '@mems-life/domain';
@@ -35,10 +36,11 @@ it('preserves typed notes when another diary entry is selected', async () => {
     />,
   );
   await screen.findByRole('button', { name: 'Edit entry' });
-  await fireEvent.changeText(screen.getByLabelText('Food notes'), 'Unsaved dinner');
+  await fireEvent.press(screen.getByRole('button', { name: 'Add entry', exact: true }));
+  await fireEvent.changeText(screen.getByLabelText('What did you eat?'), 'Unsaved dinner');
   expect(screen.getByRole('button', { name: 'Edit entry' })).toBeDisabled();
   await fireEvent.press(screen.getByRole('button', { name: 'Edit entry' }));
-  expect(screen.getByLabelText('Food notes').props.value).toBe('Unsaved dinner');
+  expect(screen.getByLabelText('What did you eat?').props.value).toBe('Unsaved dinner');
 });
 
 it('a late history response cannot replace the newly selected date', async () => {
@@ -55,9 +57,16 @@ it('a late history response cannot replace the newly selected date', async () =>
         }),
   );
   await render(<Food client={client(request)} preferences={defaultPreferences()} />);
-  await fireEvent.changeText(screen.getByLabelText('History date'), '2026-10-01');
+  await fireEvent.press(screen.getByRole('button', { name: 'Choose day' }));
+  await fireEvent(
+    screen.getByLabelText('Diary day picker'),
+    'valueChange',
+    {},
+    new Date('2026-10-01T12:00:00Z'),
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Show day' }));
   await waitFor(() => expect(resolveOld).toBeDefined());
-  await fireEvent.changeText(screen.getByLabelText('History date'), '2026-10-02');
+  await fireEvent.press(screen.getByRole('button', { name: 'Next day' }));
   await screen.findByText('Newer day');
   await act(async () => resolveOld({ entries: [entry] }));
   expect(screen.getByText('Newer day')).toBeTruthy();
@@ -78,15 +87,14 @@ it('locks save and entry switching until photo selection finishes and then unloc
   const request = jest.fn(async () => ({ entries: [entry] }));
   await render(<Food client={client(request)} preferences={defaultPreferences()} />);
   await screen.findByRole('button', { name: 'Edit entry' });
+  await fireEvent.press(screen.getByRole('button', { name: 'Add entry', exact: true }));
   await fireEvent.press(screen.getByRole('button', { name: 'Choose photos' }));
   await waitFor(() => expect(finish).toBeDefined());
-  expect(screen.getByRole('button', { name: 'Save food entry' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Save entry' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Edit entry' })).toBeDisabled();
-  expect(screen.getByLabelText('Food notes').props.editable).toBe(false);
+  expect(screen.getByLabelText('What did you eat?').props.editable).toBe(false);
   await act(async () => finish({ canceled: true, assets: null }));
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'Save food entry' })).toBeEnabled(),
-  );
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save entry' })).toBeEnabled());
   expect(screen.getByRole('button', { name: 'Edit entry' })).toBeEnabled();
 });
 
@@ -104,6 +112,7 @@ it('notification navigation preserves a photo-only entry timestamp correction', 
   const view = await render(<Food client={current} preferences={defaultPreferences()} />);
   await screen.findByRole('button', { name: 'Edit entry' });
   await fireEvent.press(screen.getByRole('button', { name: 'Edit entry' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Edit time' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Choose date and time' }));
   await fireEvent.press(screen.getByRole('button', { name: 'Enter timestamp manually' }));
   await fireEvent.changeText(
@@ -118,5 +127,44 @@ it('notification navigation preserves a photo-only entry timestamp correction', 
     screen.getByText('Your diary draft is retained. Save it before opening another entry.'),
   ).toBeTruthy();
   expect(request).not.toHaveBeenCalledWith(`/api/food/${other.id}`);
-  expect(screen.getByText('Correct your entry')).toBeTruthy();
+  expect(screen.getByLabelText('What did you eat?').props.value).toBe('');
+});
+
+it('starts with daily entries and keeps a canceled draft available to resume', async () => {
+  await render(
+    <Food
+      client={client(jest.fn(async () => ({ entries: [entry] })))}
+      preferences={defaultPreferences()}
+    />,
+  );
+  await screen.findByText('Fictional lunch');
+  expect(screen.queryByLabelText('What did you eat?')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Delete entry' })).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Add entry', exact: true }));
+  await fireEvent.changeText(screen.getByLabelText('What did you eat?'), 'Dinner draft');
+  await fireEvent.press(screen.getByRole('button', { name: 'Cancel', exact: true }));
+  expect(screen.queryByLabelText('What did you eat?')).toBeNull();
+  await fireEvent.press(screen.getByRole('button', { name: 'Resume draft' }));
+  expect(screen.getByLabelText('What did you eat?').props.value).toBe('Dinner draft');
+});
+
+it('opens the actual diary when Hermes rejects Temporal locale formatting', async () => {
+  const unsupported = jest
+    .spyOn(Temporal.PlainDate.prototype, 'toLocaleString')
+    .mockImplementation(() => {
+      throw new Error('Missing internal slot calendar-id');
+    });
+  try {
+    await render(
+      <Food
+        client={client(jest.fn(async () => ({ entries: [entry] })))}
+        preferences={defaultPreferences()}
+      />,
+    );
+    await screen.findByText('Fictional lunch');
+    expect(screen.getByRole('button', { name: 'Choose day' })).toBeEnabled();
+    expect(unsupported).not.toHaveBeenCalled();
+  } finally {
+    unsupported.mockRestore();
+  }
 });

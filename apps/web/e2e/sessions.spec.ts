@@ -64,7 +64,7 @@ test.afterEach(async ({ page }) => {
         });
   }
 });
-async function fixture(page: Page) {
+async function fixture(page: Page, start = true, reload = true) {
   const exerciseId = crypto.randomUUID(),
     otherId = crypto.randomUUID(),
     routineId = crypto.randomUUID();
@@ -134,12 +134,17 @@ async function fixture(page: Page) {
       ],
     },
   });
-  await page.goto('/#workouts');
-  await page.reload();
-  await page.getByRole('button', { name: 'Train', exact: true }).click();
-  await page.getByLabel('Routine', { exact: true }).selectOption(routineId);
-  await page.getByRole('button', { name: 'Start workout', exact: true }).click();
-  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+  if (reload) {
+    await page.goto('/#workouts');
+    await page.reload();
+  }
+  if (!start) await page.getByRole('button', { name: 'Routines', exact: true }).click();
+  if (start) {
+    await page.getByRole('button', { name: 'Workout', exact: true }).click();
+    await page.getByLabel('Routine', { exact: true }).selectOption(routineId);
+    await page.getByRole('button', { name: 'Start workout', exact: true }).click();
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+  }
   return { exerciseId, otherId, routineId, name };
 }
 test('actual sets, exact retry, draft navigation, timer, finish and reasoned historical correction persist', async ({
@@ -148,7 +153,7 @@ test('actual sets, exact retry, draft navigation, timer, finish and reasoned his
   const fixtureIds = await fixture(page);
   const area = page.locator('.session-area');
   const card = area.locator('article.session-card');
-  await card.getByRole('button', { name: 'Save actual set', exact: true }).click();
+  await card.getByRole('button', { name: 'Log set', exact: true }).click();
   await expect(area).toContainText('Record the repetitions you performed.');
   await expect(card.locator('.actual-set')).toHaveCount(0);
   await card.getByLabel('Repetitions', { exact: true }).fill('7');
@@ -179,28 +184,43 @@ test('actual sets, exact retry, draft navigation, timer, finish and reasoned his
     }
     await route.continue();
   });
-  await card.getByRole('button', { name: 'Save actual set', exact: true }).click();
+  await card.getByRole('button', { name: 'Log set', exact: true }).click();
   await expect(area.getByRole('button', { name: 'Retry the same change' })).toBeVisible();
   await area.getByRole('button', { name: 'Retry the same change' }).click();
   await expect(card.locator('.actual-set')).toHaveCount(1);
   expect(attempts).toHaveLength(2);
   expect(attempts[0]).toBe(attempts[1]);
   await page.unroute('**/api/sessions/commands');
-  await area.getByText('Workout tools', { exact: true }).click();
+  for (const [label, width, height] of [
+    ['phone', 390, 844],
+    ['tablet', 834, 1194],
+    ['desktop', 1440, 900],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: test.info().outputPath(`active-logger-${label}.png`),
+      fullPage: true,
+    });
+  }
+
+  await area.getByText('Timer options', { exact: true }).click();
   await area.getByLabel('Timer duration (seconds)').fill('40');
   await area.getByRole('button', { name: 'Start rest timer' }).click();
   await expect(area.getByLabel('Workout timer')).toContainText('Rest');
   await area.getByRole('button', { name: 'Pause timer' }).click();
   await expect(area.getByLabel('Workout timer')).toContainText('paused');
   await page.reload();
-  await page.getByRole('button', { name: 'Train', exact: true }).click();
+  await page.getByRole('button', { name: 'Workout', exact: true }).click();
   await expect(page.getByLabel('Workout timer')).toContainText('paused');
   await area.getByRole('button', { name: 'Resume timer' }).click();
   await expect(area.getByLabel('Workout timer')).toContainText('running');
   await area.getByRole('button', { name: 'Reset timer' }).click();
   await expect(area.getByLabel('Workout timer')).toContainText('40 seconds');
-  await area.getByText('Finish this workout', { exact: true }).click();
-  await area.getByRole('button', { name: 'Finish and save workout' }).click();
+
+  await area.getByRole('button', { name: 'Finish workout' }).click();
   await expect(area.locator('.session-heading')).toContainText('completed');
   await card.getByRole('button', { name: 'Correct set 1' }).click();
   await card.getByLabel('Repetitions', { exact: true }).fill('8');
@@ -209,7 +229,7 @@ test('actual sets, exact retry, draft navigation, timer, finish and reasoned his
   await expect(card.locator('.actual-set')).toContainText('Repetitions: 8');
   await page.screenshot({ path: test.info().outputPath('sessions-desktop.png'), fullPage: true });
   await expect(card.locator('.actual-set')).toContainText('Corrected');
-  await area.getByText('Workout notes and history', { exact: true }).click();
+  await area.getByText('Notes and history', { exact: true }).click();
   await area.getByRole('button', { name: 'Show correction history', exact: true }).click();
   await expect(area.getByText(/session.correct-set/).first()).toBeVisible();
   const sessionId = [...owned.sessions][0];
@@ -250,11 +270,11 @@ test('revision conflict shows saved actual values while preserving editable draf
     notes: 'Other client actual',
     round: null,
   });
-  await card.getByRole('button', { name: 'Save actual set' }).click();
+  await card.getByRole('button', { name: 'Log set' }).click();
   await expect(area.locator('.conflict')).toContainText('Repetitions: 5');
   await expect(card.getByLabel('Repetitions', { exact: true })).toHaveValue('9');
   await area.getByRole('button', { name: 'Use current results; keep my draft for review' }).click();
-  await card.getByRole('button', { name: 'Save actual set' }).click();
+  await card.getByRole('button', { name: 'Log set' }).click();
   await expect(card.locator('.actual-set')).toHaveCount(2);
 });
 
@@ -265,7 +285,7 @@ test('zero repetitions and missing optional load remain explicit actual values',
   const area = page.locator('.session-area'),
     card = area.locator('article.session-card');
   await card.getByLabel('Repetitions', { exact: true }).fill('0');
-  await card.getByRole('button', { name: 'Save actual set', exact: true }).click();
+  await card.getByRole('button', { name: 'Log set', exact: true }).click();
   await expect(card.locator('.actual-set')).toHaveCount(1);
   await expect(card.locator('.actual-set')).toContainText('Repetitions: 0');
   await expect(card.locator('.actual-set')).toContainText('not recorded');
@@ -276,11 +296,108 @@ test('zero repetitions and missing optional load remain explicit actual values',
     loadKg: null,
   });
   expect(saved.items[1].results).toEqual([]);
-  await area.getByText('Finish this workout', { exact: true }).click();
-  await area.getByRole('button', { name: 'Finish and save workout' }).click();
+
+  await area.getByRole('button', { name: 'Finish workout' }).click();
   await expect(area.locator('.session-heading')).toContainText('completed');
   const persisted = (await (await page.request.get(`/api/sessions/${saved.id}`)).json()).session;
   expect(persisted.status).toBe('completed');
   expect(persisted.items[1].results).toEqual([]);
   expect(persisted.items[1].status).toBe('planned');
 });
+
+test('library Start opens the routine logger once without another setup form', async ({ page }) => {
+  const ids = await fixture(page, false);
+  const starts: unknown[] = [];
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/sessions/commands') && request.method() === 'POST') {
+      const body = request.postDataJSON();
+      if (body.type === 'session.start') starts.push(body);
+    }
+  });
+  await page.getByRole('button', { name: `Start ${ids.name}`, exact: true }).click();
+  const area = page.locator('.session-area');
+  await expect(area.getByLabel('Repetitions', { exact: true })).toBeVisible();
+  await expect(area.getByRole('button', { name: 'Log set', exact: true })).toBeVisible();
+  await expect(area.getByRole('button', { name: 'Finish workout', exact: true })).toBeVisible();
+  await expect(area.getByRole('button', { name: 'Start workout', exact: true })).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const logBounds = await area.getByRole('button', { name: 'Log set', exact: true }).boundingBox();
+  expect(logBounds).not.toBeNull();
+  expect(logBounds!.y + logBounds!.height).toBeLessThan(770);
+  await page.getByRole('link', { name: 'Food', exact: false }).click();
+  await page.getByRole('link', { name: 'Workouts', exact: false }).click();
+  expect(starts).toHaveLength(1);
+  await area.getByLabel('Repetitions', { exact: true }).fill('6');
+  await area.getByRole('button', { name: 'Log set', exact: true }).click();
+  await expect(area.locator('.actual-set')).toHaveCount(1);
+  for (const [label, width, height] of [
+    ['phone', 390, 844],
+    ['tablet', 834, 1194],
+    ['desktop', 1440, 900],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath(`logger-${label}.png`), fullPage: true });
+  }
+  await area.getByRole('button', { name: 'Finish workout', exact: true }).click();
+  await expect(area.locator('.session-heading')).toContainText('completed');
+  await expect(area.getByRole('button', { name: 'Start workout', exact: true })).toHaveCount(0);
+});
+
+for (const newlyCreated of [false, true])
+  test(`direct Start reads ${newlyCreated ? 'new' : 'edited'} routine data after the logger mounted`, async ({
+    page,
+  }) => {
+    await page.getByRole('link', { name: 'Workouts', exact: false }).click();
+    await expect(
+      page.locator('.session-area').getByRole('button', { name: 'Start workout', exact: true }),
+    ).toBeVisible();
+    const ids = await fixture(page, false, !newlyCreated);
+    // Keep the logger mounted while the routine changes.
+    await page.getByRole('button', { name: 'Workout', exact: true }).click();
+    await expect(
+      page.locator('.session-area').getByRole('button', { name: 'Start workout', exact: true }),
+    ).toBeVisible();
+    const { routine } = await (await page.request.get(`/api/routines/${ids.routineId}`)).json();
+    const name = `${routine.name} updated`;
+    await post(page, 'routines', {
+      type: 'routine.edit',
+      routineId: routine.id,
+      expectedRevision: routine.revision,
+      content: { name, notes: routine.notes, items: routine.items },
+    });
+    await page.getByRole('button', { name: 'Routines', exact: true }).click();
+    if (newlyCreated) {
+      // A library editor save refreshes its records without remounting the logger.
+      page.on('request', (request) => {
+        if (request.method() === 'POST' && request.url().endsWith('/api/routines/commands')) {
+          const body = request.postDataJSON();
+          if (body.type === 'routine.create') owned.routines.add(body.routineId);
+        }
+      });
+      await page.getByRole('button', { name: 'New routine', exact: true }).click();
+      const editor = page.getByRole('dialog');
+      await editor
+        .getByLabel('Name', { exact: true })
+        .fill(`Fictional library refresh ${crypto.randomUUID()}`);
+      await editor.getByRole('button', { name: 'Save routine', exact: true }).click();
+      await expect(editor).not.toBeVisible();
+    }
+    const starts: Record<string, unknown>[] = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && request.url().endsWith('/api/sessions/commands')) {
+        const body = request.postDataJSON();
+        if (body.type === 'session.start') starts.push(body);
+      }
+    });
+    await page.getByRole('button', { name: new RegExp(`^Start ${ids.name}( updated)?$`) }).click();
+    await expect(page.locator('.session-area .session-heading')).toContainText(name);
+    expect(starts).toHaveLength(1);
+    expect(starts[0]).toMatchObject({
+      routineId: routine.id,
+      expectedRoutineRevision: routine.revision + 1,
+      name,
+    });
+  });

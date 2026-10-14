@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Switch, Text, View, StyleSheet } from 'react-native';
+import { AppState, Linking, Switch, View, StyleSheet } from 'react-native';
 import * as Crypto from 'expo-crypto';
+import * as Notifications from 'expo-notifications';
 import { z } from 'zod';
 import {
   defaultNotificationPreferences,
@@ -9,7 +10,7 @@ import {
 } from '@mems-life/domain';
 import { RequestRejectedError, type InstallationClient } from '../client';
 import { registerRemoteNotifications } from '../notifications';
-import { Action, Body, Card, usePalette } from '../ui';
+import { ScalingText as Text, Action, Body, Card, usePalette } from '../ui';
 const Response = NotificationPreferencesRecordSchema.extend({ providerConfigured: z.boolean() });
 type Record = z.infer<typeof NotificationPreferencesRecordSchema>;
 const choices: { key: keyof NotificationPreferences; label: string; description: string }[] = [
@@ -41,6 +42,8 @@ export function NotificationSettings({
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState(false);
+  const [notificationDenied, setNotificationDenied] = useState(false);
+  const working = useRef(false);
   const pending = useRef<{
     operationId: string;
     expectedRevision: number;
@@ -63,8 +66,27 @@ export function NotificationSettings({
   useEffect(() => {
     void load();
   }, [client]);
+  useEffect(() => {
+    let active = true;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || !notificationDenied || working.current) return;
+      void Notifications.getPermissionsAsync()
+        .then((permission) => {
+          if (active && permission.granted) {
+            setNotificationDenied(false);
+            setMessage('Notifications are allowed. Save your choices to enable this device.');
+          }
+        })
+        .catch(() => undefined);
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [notificationDenied, client]);
   async function save() {
-    if (!record) return;
+    if (!record || working.current) return;
+    working.current = true;
     setBusy(true);
     setMessage('');
     setError('');
@@ -83,7 +105,8 @@ export function NotificationSettings({
       setConflict(false);
       pending.current = null;
       setMessage('Notification choices saved.');
-      await onSaved?.(saved);
+      if (saved.value.enabled) await enableDevice(saved);
+      else await onSaved?.(saved);
     } catch (e) {
       if (
         e instanceof RequestRejectedError &&
@@ -104,74 +127,71 @@ export function NotificationSettings({
         }
       } else setError(e instanceof Error ? e.message : 'Notification choices could not be saved.');
     } finally {
+      working.current = false;
       setBusy(false);
     }
   }
-  async function enableDevice() {
-    if (!record) return;
-    setBusy(true);
+  async function enableDevice(saved: Record) {
     setError('');
     setMessage('');
     try {
       const status = await registerRemoteNotifications({
         installation: client.baseURL,
-        preferences: record,
+        preferences: saved,
         providerConfigured: provider,
         api: {
           register: (body) => client.request('/api/notifications/devices', body, 'POST'),
           deactivate: async () => undefined,
         },
       });
+      setNotificationDenied(status.includes('Notifications are not allowed'));
       setMessage(
         status ||
           'This device is registered for remote alerts. Delivery still depends on the configured provider.',
       );
-      await onSaved?.(record);
+      await onSaved?.(saved);
     } catch (e) {
       setError(
         e instanceof Error
           ? e.message
           : 'Device alerts could not be enabled. Retry when connected.',
       );
-    } finally {
-      setBusy(false);
     }
   }
-  const changed = !!record && JSON.stringify(draft) !== JSON.stringify(record.value);
   return (
     <Card>
       <Text accessibilityRole="header" style={[s.title, { color: palette.text }]}>
         Notifications
       </Text>
-      <Body>
-        Today always shows what needs you, even with notifications off. Ordinary agent success does
-        not send an alert.
-      </Body>
+      <Body>Remind me when something needs me.</Body>
       {!record && !error && <Body>Loading notification choices…</Body>}
       {record && (
         <>
-          {choices.map((choice) => (
-            <View key={choice.key} style={s.choice}>
-              <View style={s.copy}>
-                <Text style={[s.label, { color: palette.text }]}>{choice.label}</Text>
-                <Body>{choice.description}</Body>
+          {choices
+            .filter((choice) => choice.key === 'enabled' || draft.enabled)
+            .map((choice) => (
+              <View key={choice.key} style={s.choice}>
+                <View style={s.copy}>
+                  <Text style={[s.label, { color: palette.text }]}>{choice.label}</Text>
+                  <Body>{choice.description}</Body>
+                </View>
+                <Switch
+                  accessibilityLabel={choice.label}
+                  disabled={busy || !!pending.current}
+                  value={draft[choice.key]}
+                  onValueChange={(value) => {
+                    pending.current = null;
+                    setDraft({ ...draft, [choice.key]: value });
+                    setMessage('');
+                    if (choice.key === 'enabled' && !value) setNotificationDenied(false);
+                  }}
+                />
               </View>
-              <Switch
-                accessibilityLabel={choice.label}
-                disabled={busy || !!pending.current}
-                value={draft[choice.key]}
-                onValueChange={(value) => {
-                  pending.current = null;
-                  setDraft({ ...draft, [choice.key]: value });
-                  setMessage('');
-                }}
-              />
-            </View>
-          ))}
+            ))}
           <Body>
             {provider
               ? 'Remote alerts are configured for this installation.'
-              : 'Remote alerts are not configured. Local due reminders and workout timers can still work.'}
+              : 'Remote alerts are unavailable. Local reminders and workout timers remain available.'}
           </Body>
           {conflict && (
             <>
@@ -201,16 +221,6 @@ export function NotificationSettings({
             busy={busy}
             onPress={() => void save()}
           />
-          <Body>
-            Save choices first, then enable this device. Permission is requested only when you press
-            the button below. Denied permission leaves your choices and Today intact.
-          </Body>
-          <Action
-            title="Enable alerts on this device"
-            secondary
-            disabled={busy || !record.value.enabled || changed || conflict}
-            onPress={() => void enableDevice()}
-          />
         </>
       )}
       {error && (
@@ -230,6 +240,17 @@ export function NotificationSettings({
         </>
       )}
       {message && <Body>{message}</Body>}
+      {notificationDenied && (
+        <Action
+          title="Open notification settings"
+          secondary
+          onPress={() =>
+            void Linking.openSettings().catch(() =>
+              setError('Open Settings on this device to allow notifications for Mem’s Life.'),
+            )
+          }
+        />
+      )}
     </Card>
   );
 }

@@ -345,6 +345,7 @@ export function TaskProductivity({
   action,
   blocked,
   onBusyChange,
+  onStepState,
 }: {
   task: Task;
   boards: Board[];
@@ -355,6 +356,7 @@ export function TaskProductivity({
   action: (task: Task, type: TaskCommand['type'], extra?: object) => void;
   blocked: boolean;
   onBusyChange: (busy: boolean) => void;
+  onStepState?: (state: { canComplete: boolean; hasAgent: boolean; nextStep: string }) => void;
 }) {
   const [organization, setOrganization] = useState(task.organization);
   const [tags, setTags] = useState(task.organization.tags.join(', '));
@@ -372,6 +374,7 @@ export function TaskProductivity({
     order: 0,
   });
   const [editing, setEditing] = useState<TaskStep | null>(null);
+  const [stepEditor, setStepEditor] = useState(false);
   const [assignment, setAssignment] = useState('');
   const [rule, setRule] = useState<RecurrenceRule>({
     frequency: 'daily',
@@ -425,6 +428,21 @@ export function TaskProductivity({
       active = false;
     };
   }, [task.id, task.revision]);
+  useEffect(() => {
+    if (steps)
+      onStepState?.({
+        canComplete: steps.canComplete,
+        hasAgent: steps.entries.some(({ step }) => step.content.responsibility !== 'human'),
+        nextStep: (() => {
+          const entry = steps.entries.find(
+            ({ step }) => step.content.required && step.status !== 'completed',
+          );
+          return entry
+            ? `${entry.step.content.title} · ${entry.step.content.responsibility === 'agent' ? 'Agent work' : 'Needs you'}${entry.waitingReason === 'dependencies' ? ' · Waiting for prerequisites' : ''}`
+            : '';
+        })(),
+      });
+  }, [steps, onStepState]);
   const [createdSeriesId, setCreatedSeriesId] = useState<string | null>(null);
   const currentSeries = series.find((s) => s.id === (task.schedule.seriesId ?? createdSeriesId));
   const locked = blocked || command.blocked || !!task.archivedAt || task.phase === 'completed';
@@ -441,8 +459,8 @@ export function TaskProductivity({
   return (
     <div className="task-productivity">
       {command.feedback}
-      <details open>
-        <summary>Organization & dates</summary>
+      <details>
+        <summary>Options · organization &amp; dates</summary>
         <fieldset disabled={locked}>
           <form
             onSubmit={(e) => {
@@ -608,17 +626,19 @@ export function TaskProductivity({
           {dateError}
         </p>
       )}
-      <details className="steps-panel" open>
+      <details className="steps-panel" open={!!steps?.entries.length || stepEditor}>
         <summary>Steps · one shared outcome</summary>
-        <p>
-          {task.phase === 'planned'
-            ? 'This task is Planned. Release it to Next before any step can start.'
-            : task.paused
-              ? 'Work is paused. Resume when ready.'
-              : steps?.canComplete
-                ? 'Required work is satisfied. You can complete the outcome.'
-                : 'Finish required steps and any final review before completing the outcome.'}
-        </p>
+        {!!steps?.entries.length && (
+          <p>
+            {task.phase === 'planned'
+              ? 'Release to Next to start these steps.'
+              : task.paused
+                ? 'Work is paused. Resume when ready.'
+                : steps?.canComplete
+                  ? 'Required work is satisfied. You can complete the outcome.'
+                  : 'Finish required steps and final review before completing this task.'}
+          </p>
+        )}
         {steps?.entries.map(({ step, ready, waitingReason }) => (
           <article className="step-card" key={step.id}>
             <div className="detail-heading">
@@ -655,181 +675,198 @@ export function TaskProductivity({
                   .join(', ')}
               </p>
             )}
-            <div className="card-actions">
-              <select
-                aria-label={`Status of ${step.content.title}`}
-                value={step.status}
-                disabled={locked}
-                onChange={(e) => stepCommand(step, 'step.status', { status: e.target.value })}
-              >
-                <option value="pending">Pending</option>
-                <option value="active" disabled={!!waitingReason}>
-                  Active
-                </option>
-                <option value="completed" disabled={!!waitingReason}>
-                  Completed
-                </option>
-                {!step.content.required && <option value="skipped">Skipped</option>}
-              </select>
+            {ready && step.status !== 'completed' && step.content.responsibility !== 'agent' && (
               <button
-                className="secondary"
                 disabled={locked}
-                onClick={() => {
-                  setEditing(step);
-                  setStepDraft(step.content);
-                  setAssignment(step.assignedTo ?? '');
-                }}
+                onClick={() => stepCommand(step, 'step.status', { status: 'completed' })}
               >
-                Edit step
+                Complete step {step.content.title}
               </button>
-              <button
-                className="secondary"
-                disabled={locked}
-                onClick={() => stepCommand(step, 'step.delete')}
-              >
-                Delete step
-              </button>
-            </div>
-          </article>
-        ))}
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (
-              await command.send('/api/steps/commands', {
-                type: editing ? 'step.edit' : 'step.create',
-                operationId: crypto.randomUUID(),
-                id: editing?.id ?? crypto.randomUUID(),
-                taskId: task.id,
-                expectedRevision: editing?.revision ?? 0,
-                expectedTaskRevision: task.revision,
-                content: stepDraft,
-              })
-            ) {
-              setEditing(null);
-              setStepDraft({
-                title: '',
-                instructions: '',
-                responsibility: 'human',
-                required: true,
-                dependencies: [],
-                order: steps?.entries.length ?? 0,
-              });
-            }
-          }}
-        >
-          <fieldset disabled={locked}>
-            <h4>{editing ? 'Edit step' : 'Add a step'}</h4>
-            <label>
-              Step title
-              <input
-                required
-                maxLength={500}
-                value={stepDraft.title}
-                onChange={(e) => setStepDraft({ ...stepDraft, title: e.target.value })}
-              />
-            </label>
-            <label>
-              Step instructions
-              <textarea
-                value={stepDraft.instructions}
-                onChange={(e) => setStepDraft({ ...stepDraft, instructions: e.target.value })}
-              />
-            </label>
-            <div className="productivity-grid">
-              <label>
-                Responsibility
+            )}
+            <details className="step-options">
+              <summary>Step options</summary>
+              <div className="card-actions">
                 <select
-                  value={stepDraft.responsibility}
-                  onChange={(e) =>
-                    setStepDraft({
-                      ...stepDraft,
-                      responsibility: e.target.value as typeof stepDraft.responsibility,
-                    })
-                  }
+                  aria-label={`Status of ${step.content.title}`}
+                  value={step.status}
+                  disabled={locked}
+                  onChange={(e) => stepCommand(step, 'step.status', { status: e.target.value })}
                 >
-                  <option value="human">Human</option>
-                  <option value="agent">Agent</option>
-                  <option value="either">Either</option>
+                  <option value="pending">Pending</option>
+                  <option value="active" disabled={!!waitingReason}>
+                    Active
+                  </option>
+                  <option value="completed" disabled={!!waitingReason}>
+                    Completed
+                  </option>
+                  {!step.content.required && <option value="skipped">Skipped</option>}
                 </select>
-              </label>
-              <label>
-                Step order
-                <input
-                  type="number"
-                  min={0}
-                  value={stepDraft.order}
-                  onChange={(e) => setStepDraft({ ...stepDraft, order: Number(e.target.value) })}
-                />
-              </label>
-            </div>
-            <label className="inline-check">
-              <input
-                type="checkbox"
-                checked={stepDraft.required}
-                onChange={(e) => setStepDraft({ ...stepDraft, required: e.target.checked })}
-              />
-              Required for parent completion
-            </label>
-            <fieldset>
-              <legend>Prerequisites (parallel steps need no dependency)</legend>
-              {steps?.entries
-                .filter((e) => e.step.id !== editing?.id)
-                .map(({ step }) => (
-                  <label className="inline-check" key={step.id}>
-                    <input
-                      type="checkbox"
-                      checked={stepDraft.dependencies.includes(step.id)}
-                      onChange={(e) =>
-                        setStepDraft({
-                          ...stepDraft,
-                          dependencies: e.target.checked
-                            ? [...stepDraft.dependencies, step.id]
-                            : stepDraft.dependencies.filter((id) => id !== step.id),
-                        })
-                      }
-                    />
-                    {step.content.title}
-                  </label>
-                ))}
-            </fieldset>
-            <button>{editing ? 'Save step' : 'Add step'}</button>
-            {editing && (
-              <>
                 <button
-                  type="button"
                   className="secondary"
+                  disabled={locked}
                   onClick={() => {
-                    setEditing(null);
-                    setStepDraft({
-                      title: '',
-                      instructions: '',
-                      responsibility: 'human',
-                      required: true,
-                      dependencies: [],
-                      order: steps?.entries.length ?? 0,
-                    });
+                    setStepEditor(true);
+                    setEditing(step);
+                    setStepDraft(step.content);
+                    setAssignment(step.assignedTo ?? '');
                   }}
                 >
-                  Cancel step edit
+                  Edit step
                 </button>
-                <label>
-                  Assignment
-                  <input value={assignment} onChange={(e) => setAssignment(e.target.value)} />
-                </label>
                 <button
-                  type="button"
                   className="secondary"
-                  onClick={() =>
-                    stepCommand(editing, 'step.assign', { assignedTo: assignment.trim() || null })
-                  }
+                  disabled={locked}
+                  onClick={() => stepCommand(step, 'step.delete')}
                 >
-                  Save assignment
+                  Delete step
                 </button>
-              </>
-            )}
-          </fieldset>
-        </form>
+              </div>
+            </details>
+          </article>
+        ))}
+        <button className="secondary" onClick={() => setStepEditor(!stepEditor)}>
+          {stepEditor ? 'Hide step editor' : 'Create a step'}
+        </button>
+        <div hidden={!stepEditor}>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (
+                await command.send('/api/steps/commands', {
+                  type: editing ? 'step.edit' : 'step.create',
+                  operationId: crypto.randomUUID(),
+                  id: editing?.id ?? crypto.randomUUID(),
+                  taskId: task.id,
+                  expectedRevision: editing?.revision ?? 0,
+                  expectedTaskRevision: task.revision,
+                  content: stepDraft,
+                })
+              ) {
+                setEditing(null);
+                setStepDraft({
+                  title: '',
+                  instructions: '',
+                  responsibility: 'human',
+                  required: true,
+                  dependencies: [],
+                  order: steps?.entries.length ?? 0,
+                });
+              }
+            }}
+          >
+            <fieldset disabled={locked}>
+              <h4>{editing ? 'Edit step' : 'Add a step'}</h4>
+              <label>
+                Step title
+                <input
+                  required
+                  maxLength={500}
+                  value={stepDraft.title}
+                  onChange={(e) => setStepDraft({ ...stepDraft, title: e.target.value })}
+                />
+              </label>
+              <label>
+                Step instructions
+                <textarea
+                  value={stepDraft.instructions}
+                  onChange={(e) => setStepDraft({ ...stepDraft, instructions: e.target.value })}
+                />
+              </label>
+              <div className="productivity-grid">
+                <label>
+                  Responsibility
+                  <select
+                    value={stepDraft.responsibility}
+                    onChange={(e) =>
+                      setStepDraft({
+                        ...stepDraft,
+                        responsibility: e.target.value as typeof stepDraft.responsibility,
+                      })
+                    }
+                  >
+                    <option value="human">Human</option>
+                    <option value="agent">Agent</option>
+                    <option value="either">Either</option>
+                  </select>
+                </label>
+                <label>
+                  Step order
+                  <input
+                    type="number"
+                    min={0}
+                    value={stepDraft.order}
+                    onChange={(e) => setStepDraft({ ...stepDraft, order: Number(e.target.value) })}
+                  />
+                </label>
+              </div>
+              <label className="inline-check">
+                <input
+                  type="checkbox"
+                  checked={stepDraft.required}
+                  onChange={(e) => setStepDraft({ ...stepDraft, required: e.target.checked })}
+                />
+                Required for parent completion
+              </label>
+              <fieldset>
+                <legend>Prerequisites (parallel steps need no dependency)</legend>
+                {steps?.entries
+                  .filter((e) => e.step.id !== editing?.id)
+                  .map(({ step }) => (
+                    <label className="inline-check" key={step.id}>
+                      <input
+                        type="checkbox"
+                        checked={stepDraft.dependencies.includes(step.id)}
+                        onChange={(e) =>
+                          setStepDraft({
+                            ...stepDraft,
+                            dependencies: e.target.checked
+                              ? [...stepDraft.dependencies, step.id]
+                              : stepDraft.dependencies.filter((id) => id !== step.id),
+                          })
+                        }
+                      />
+                      {step.content.title}
+                    </label>
+                  ))}
+              </fieldset>
+              <button>{editing ? 'Save step' : 'Add step'}</button>
+              {editing && (
+                <>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      setEditing(null);
+                      setStepDraft({
+                        title: '',
+                        instructions: '',
+                        responsibility: 'human',
+                        required: true,
+                        dependencies: [],
+                        order: steps?.entries.length ?? 0,
+                      });
+                    }}
+                  >
+                    Cancel step edit
+                  </button>
+                  <label>
+                    Assignment
+                    <input value={assignment} onChange={(e) => setAssignment(e.target.value)} />
+                  </label>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() =>
+                      stepCommand(editing, 'step.assign', { assignedTo: assignment.trim() || null })
+                    }
+                  >
+                    Save assignment
+                  </button>
+                </>
+              )}
+            </fieldset>
+          </form>
+        </div>
       </details>
       <details>
         <summary>Repeat & occurrence history</summary>

@@ -134,9 +134,9 @@ test('actual Food Save atomically queues selected retained photo; text acknowled
     expect(f.request).not.toHaveBeenCalled();
     await render(<Food client={f.client} />);
     await waitFor(() =>
-      expect(screen.getByLabelText('Food notes').props.value).toBe('Selected lunch'),
+      expect(screen.getByLabelText('What did you eat?').props.value).toBe('Selected lunch'),
     );
-    await fireEvent.press(screen.getByText('Save food entry'));
+    await fireEvent.press(screen.getByText('Save entry'));
     await waitFor(() => expect(screen.getByText(/Saved on this device. Waiting/)).toBeTruthy());
     const photos = await f.store.photos();
     expect(photos.find((p) => p.id === f.photo.id)?.status).toBe('pending');
