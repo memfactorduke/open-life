@@ -38,12 +38,12 @@ The temporary Docker configuration avoids an unavailable Docker Desktop credenti
 
 ## Use compiled administrator commands
 
-The image replaces only its copied root package scripts with compiled CLI commands. The repository's manifests and lock file remain unchanged. Existing deployment commands continue to work without a TypeScript runner.
+The final application image contains Node and the compiled administrator CLI, but no global npm, npx, or Yarn. Run the compiled CLI directly for installation and recovery. The build toolchain retains npm; the repository's manifests and lock file remain unchanged.
 
 ```sh
-docker compose --env-file /path/to/protected/installation.env run --rm app npm run db:migrate
-docker compose --env-file /path/to/protected/installation.env run --rm app npm run bootstrap
-docker compose --env-file /path/to/protected/installation.env run --rm app npm run recover
+docker compose --env-file /path/to/protected/installation.env run --rm app node apps/server/dist/cli.js migrate
+docker compose --env-file /path/to/protected/installation.env run --rm app node apps/server/dist/cli.js bootstrap
+docker compose --env-file /path/to/protected/installation.env run --rm app node apps/server/dist/cli.js recover
 ```
 
 These commands require a working Compose plugin and the private database service. See [development and private installation](development.md) for operator configuration and deployment requirements.
@@ -66,9 +66,9 @@ A service bundle could remove unused exports from some dependencies. It would al
 
 ## Isolated Compose maintenance tools
 
-The default service image remains minimal. The `operator` target instead starts from the official PostgreSQL 16.14 Bookworm image pinned to its registry digest, retaining `pg_dump`, `pg_restore` and their complete shared-library closure. It copies the verified Node 24.21.0 binary from the pinned matching Bookworm Node image and reuses the locked server production dependencies. The three portability scripts are copied with imports rewritten to compiled server modules. No TypeScript runner, handwritten source, Expo, React Native, browser tests or test runner enters the operator image. Build-time imports prove Node's library compatibility; the Compose verification exercises both PostgreSQL tools.
+Compose builds the `database` target for both live and restore PostgreSQL services. It preserves the official PostgreSQL 16.14 startup behavior and data directory while applying the security revisions shared with the operator. The default application image remains minimal. The `operator` target instead starts from the official PostgreSQL 16.14 Bookworm image pinned to its registry digest, retaining `pg_dump`, `pg_restore` and their complete shared-library closure. It copies the verified Node 24.21.0 binary from the pinned matching Bookworm Node image and reuses the locked server production dependencies. The three portability scripts are copied with imports rewritten to compiled server modules. No TypeScript runner, handwritten source, Expo, React Native, browser tests or test runner enters the operator image. Build-time imports prove Node's library compatibility; the Compose verification exercises both PostgreSQL tools.
 
-Adding PostgreSQL clients to the application would grow the always-running image and its privileges. Bookworm's default PostgreSQL 15 client cannot dump the PostgreSQL 16 service. Copying only PostgreSQL executables would omit libraries. Using the official PostgreSQL image as a separate maintenance target retains its verified packaging without an external package repository, lock changes or a runtime-specific agent adapter. The operator retains the image's OS/package licensing material and the application dependency notices.
+Adding PostgreSQL clients to the application would grow the always-running image and its privileges. Bookworm's default PostgreSQL 15 client cannot dump the PostgreSQL 16 service. Copying only PostgreSQL executables would omit libraries. Using the official PostgreSQL image as a separate maintenance target retains its verified packaging without an external package repository, lock changes or a runtime-specific agent adapter. The operator retains the image's OS/package licensing material and the application dependency notices. It removes the unused PostgreSQL server package, PostgreSQL startup entrypoint, and gosu; the PostgreSQL 16.14 clients and their dependency closure remain and are exercised by the actual backup/restore check.
 
 `operator`, `restore-database`, `restore-operator` and `restore-app` are disabled by default through Compose profiles. Operator services replace PostgreSQL's entrypoint with Node and default to `--help`; they start no database or application daemon and expose no port. They intentionally run as the privileged installation operator to read service-owned private media and write protected host archives. Treat access to this profile, Docker, the database environment and archive directories as administrator access. No HTTP or MCP maintenance endpoint is added.
 
@@ -94,3 +94,7 @@ node scripts/container-operator-verify.mjs
 ## Verification limits
 
 The disposable check covers application packaging on the daemon's architecture. It does not prove Caddy HTTPS, DNS, personal-data restore, mobile connectivity, signing, or behavior on another CPU architecture. Production readiness still requires those installation-specific checks and dependency review. The check uses generated fixture secrets and never reads an operator environment file.
+
+## Runtime security scope
+
+All three final targets apply explicitly pinned Debian Bookworm security updates without changing Node 24.21.0 or PostgreSQL 16.14. See [runtime image security](container-security.md) for alternatives, exact package revisions, advisory scope, and remaining native-source provenance limits. Image scans must record exact image and database identities; raw findings remain available and are not suppressed.
