@@ -3,11 +3,12 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
+  Text as NativeText,
   TextInput,
   View,
   useWindowDimensions,
   type TextInputProps,
+  type TextProps,
 } from 'react-native';
 
 export type Palette = {
@@ -42,6 +43,13 @@ export const dark: Palette = {
 };
 export const ThemeContext = React.createContext(light);
 export const usePalette = () => React.useContext(ThemeContext);
+
+/** Refresh native font measurement when Dynamic Type changes, without remounting editors. */
+export function ScalingText(props: TextProps) {
+  const { fontScale } = useWindowDimensions();
+  return <NativeText key={fontScale} {...props} />;
+}
+const Text = ScalingText;
 
 export function Heading({
   children,
@@ -141,10 +149,12 @@ export function Field({
   ...props
 }: TextInputProps & { label: string; error?: string }) {
   const palette = usePalette();
+  const { fontScale } = useWindowDimensions();
   return (
     <View style={styles.field}>
       <Text style={[styles.label, { color: palette.text }]}>{label}</Text>
       <TextInput
+        key={props.value !== undefined ? fontScale : undefined}
         {...props}
         testID={props.testID ?? `field-${label.toLowerCase().replace(/\s+/g, '-')}`}
         accessibilityLabel={label}

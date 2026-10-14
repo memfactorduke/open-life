@@ -5,19 +5,19 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
 import {
   AttentionResponseSchema,
+  latestFoodEntries,
   type AttentionItem,
   type AttentionResponse,
   type Preferences,
 } from '@mems-life/domain';
 import type { InstallationClient } from '../client';
 import { useOfflineRevision } from '../offline-client';
-import { Action, Body, Disclosure, usePalette } from '../ui';
+import { Action, Body, Disclosure, ScalingText, usePalette } from '../ui';
 
 export type TodayTarget =
   | { kind: 'task'; id?: string; action?: 'create' }
@@ -108,12 +108,14 @@ export function Today({
       style={[s.row, { borderColor: palette.line }]}
     >
       <View style={s.rowContent}>
-        <Text style={[s.itemTitle, { color: palette.text }]}>
+        <ScalingText style={[s.itemTitle, { color: palette.text }]}>
           {item.step?.content.title ?? item.task.content.title}
-        </Text>
-        {!!reason(item) && <Text style={[s.meta, { color: palette.muted }]}>{reason(item)}</Text>}
+        </ScalingText>
+        {!!reason(item) && (
+          <ScalingText style={[s.meta, { color: palette.muted }]}>{reason(item)}</ScalingText>
+        )}
       </View>
-      <Text
+      <ScalingText
         style={[
           s.status,
           {
@@ -124,7 +126,7 @@ export function Today({
         ]}
       >
         {labels[item.kind]}
-      </Text>
+      </ScalingText>
     </Pressable>
   );
   const quickAction = (title: string, onPress: () => void) => (
@@ -135,20 +137,20 @@ export function Today({
       contentContainerStyle={[s.page, { backgroundColor: palette.background }]}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={s.header}>
-        <View style={s.rowContent}>
-          <Text accessibilityRole="header" style={[s.title, { color: palette.text }]}>
+      <View testID="today-header" style={[s.header, fontScale >= 1.5 && s.largeHeader]}>
+        <View style={[s.rowContent, fontScale >= 1.5 && s.largeHeaderContent]}>
+          <ScalingText accessibilityRole="header" style={[s.title, { color: palette.text }]}>
             Today
-          </Text>
+          </ScalingText>
           {data && (
-            <Text style={[s.meta, { color: palette.muted }]}>
+            <ScalingText style={[s.meta, { color: palette.muted }]}>
               {new Intl.DateTimeFormat('en', {
                 timeZone: data.timezone,
                 weekday: 'long',
                 month: 'long',
                 day: 'numeric',
               }).format(new Date(data.now))}
-            </Text>
+            </ScalingText>
           )}
         </View>
         <Pressable
@@ -162,7 +164,7 @@ export function Today({
           {loading ? (
             <ActivityIndicator color={palette.accent} />
           ) : (
-            <Text style={[s.quickText, { color: palette.accent }]}>Refresh</Text>
+            <ScalingText style={[s.quickText, { color: palette.accent }]}>Refresh</ScalingText>
           )}
         </Pressable>
       </View>
@@ -180,15 +182,17 @@ export function Today({
       {data?.activeSession && (
         <View style={[s.workout, { backgroundColor: palette.surface, borderColor: palette.line }]}>
           <View style={s.rowContent}>
-            <Text style={[s.itemTitle, { color: palette.text }]}>{data.activeSession.name}</Text>
-            <Text style={[s.meta, { color: palette.muted }]}>
+            <ScalingText style={[s.itemTitle, { color: palette.text }]}>
+              {data.activeSession.name}
+            </ScalingText>
+            <ScalingText style={[s.meta, { color: palette.muted }]}>
               {data.activeSession.items.reduce(
                 (count, exercise) =>
                   count + exercise.results.filter((result) => !result.removedAt).length,
                 0,
               )}{' '}
               sets recorded
-            </Text>
+            </ScalingText>
           </View>
           {quickAction('Resume workout', () =>
             onOpen({ kind: 'session', id: data.activeSession!.id }),
@@ -207,9 +211,12 @@ export function Today({
           style={[s.columns, wide && s.wide]}
         >
           <View style={s.focus}>
-            <Text accessibilityRole="header" style={[s.sectionTitle, { color: palette.text }]}>
+            <ScalingText
+              accessibilityRole="header"
+              style={[s.sectionTitle, { color: palette.text }]}
+            >
               Needs you{ready.length ? ` · ${ready.length}` : ''}
-            </Text>
+            </ScalingText>
             {ready.length ? ready.map(attentionRow) : <Body>Nothing needs your attention.</Body>}
             {!!waiting.length && (
               <Disclosure title={`Waiting · ${waiting.length}`}>
@@ -219,13 +226,16 @@ export function Today({
           </View>
           <View style={s.food}>
             <View style={s.header}>
-              <Text accessibilityRole="header" style={[s.sectionTitle, { color: palette.text }]}>
+              <ScalingText
+                accessibilityRole="header"
+                style={[s.sectionTitle, { color: palette.text }]}
+              >
                 Food today · {data.food.count}
-              </Text>
+              </ScalingText>
               {quickAction('Add food entry', () => onOpen({ kind: 'food', action: 'capture' }))}
             </View>
             {!data.food.count && <Body>No entries yet.</Body>}
-            {data.food.entries.slice(0, 3).map((entry) => (
+            {latestFoodEntries(data.food.entries).map((entry) => (
               <Pressable
                 key={entry.id}
                 accessibilityRole="button"
@@ -233,16 +243,16 @@ export function Today({
                 onPress={() => onOpen({ kind: 'food', id: entry.id })}
                 style={[s.row, { borderColor: palette.line }]}
               >
-                <Text style={[s.itemTitle, s.rowContent, { color: palette.text }]}>
+                <ScalingText style={[s.itemTitle, s.rowContent, { color: palette.text }]}>
                   {entry.content.text.trim() || 'Photo entry'}
-                </Text>
-                <Text style={[s.meta, { color: palette.muted }]}>
+                </ScalingText>
+                <ScalingText style={[s.meta, { color: palette.muted }]}>
                   {new Intl.DateTimeFormat('en', {
                     timeZone: data.timezone,
                     hour: 'numeric',
                     minute: '2-digit',
                   }).format(new Date(entry.content.occurredAt))}
-                </Text>
+                </ScalingText>
               </Pressable>
             ))}
             {data.food.count > 3 && quickAction('View food diary', () => onOpen({ kind: 'food' }))}
@@ -261,6 +271,8 @@ const s = StyleSheet.create({
     gap: 12,
     flexWrap: 'wrap',
   },
+  largeHeader: { flexDirection: 'column', alignItems: 'stretch', flexWrap: 'nowrap' },
+  largeHeaderContent: { flex: 0, width: '100%' },
   title: { fontSize: 32, fontWeight: '700' },
   sectionTitle: { fontSize: 20, lineHeight: 28, fontWeight: '600' },
   itemTitle: { fontSize: 17, lineHeight: 24, fontWeight: '500' },

@@ -6,6 +6,8 @@ import {
   SyncSnapshotPageSchema,
   SyncChangesPageSchema,
   SessionCommandResponseSchema,
+  RoutineCommandResponseSchema,
+  ExerciseCommandResponseSchema,
   FoodCommandResponseSchema,
   FoodUploadResponseSchema,
   TaskCommandResponseSchema,
@@ -543,9 +545,70 @@ export class NativeOfflineClient {
           'The server was restored. Review retained changes before sending new actions.',
         );
       try {
-        return await this.base.request(path, body, method, {
-          expectedEpoch: options.expectedEpoch ?? (await this.store.state()).epoch ?? undefined,
+        const response = await this.base.request(path, body, method, {
+          expectedEpoch: options.expectedEpoch ?? localState.epoch ?? undefined,
         });
+        const record =
+          path === '/api/routines/commands'
+            ? { type: 'routine', value: RoutineCommandResponseSchema.parse(response).routine }
+            : path === '/api/exercises/commands'
+              ? { type: 'exercise', value: ExerciseCommandResponseSchema.parse(response).exercise }
+              : path === '/api/sessions/commands'
+                ? { type: 'session', value: SessionCommandResponseSchema.parse(response).session }
+                : path === '/api/tasks/commands'
+                  ? { type: 'task', value: TaskCommandResponseSchema.parse(response).task }
+                  : null;
+        if (record) {
+          const submitted = body as {
+            operationId?: string;
+            type?: string;
+            routineId?: string;
+            newId?: string;
+            exerciseId?: string;
+            sessionId?: string;
+            taskId?: string;
+          };
+          const expectedId =
+            record.type === 'routine'
+              ? submitted.type === 'routine.duplicate'
+                ? submitted.newId
+                : submitted.routineId
+              : record.type === 'exercise'
+                ? submitted.exerciseId
+                : record.type === 'session'
+                  ? submitted.sessionId
+                  : submitted.taskId;
+          if (
+            !submitted.operationId ||
+            (response as { operationId?: string }).operationId !== submitted.operationId ||
+            !expectedId ||
+            record.value.id !== expectedId
+          )
+            throw new OfflineError(
+              'INVALID_ACK',
+              'The acknowledgement does not match this saved change. Keep your input and check its outcome before retrying.',
+            );
+          const changed =
+            path === '/api/tasks/commands'
+              ? TaskCommandResponseSchema.parse(response).changedTasks
+              : [];
+          await this.store.ingestValidatedRecords(
+            [record, ...changed.map((value) => ({ type: 'task', value }))].map(
+              ({ type, value }) => ({
+                recordType: type,
+                id: value.id,
+                revision: value.revision,
+                value,
+              }),
+            ),
+            {
+              epoch: localState.epoch,
+              authenticationGeneration: localState.authenticationGeneration ?? 0,
+            },
+          );
+          this.notify();
+        }
+        return response;
       } catch (error) {
         const failure = error as { code?: string; epoch?: string };
         if (failure.code === 'SYNC_EPOCH_CHANGED') {

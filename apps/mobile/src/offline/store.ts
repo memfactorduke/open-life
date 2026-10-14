@@ -663,6 +663,7 @@ export class OfflineStore {
     await this.db.transaction(async (tx) => {
       const s = await this.state(tx);
       s.signedOut = true;
+      s.authenticationGeneration = (s.authenticationGeneration ?? 0) + 1;
       await this.setState(s, tx);
       await tx.run(
         "UPDATE offline_outbox SET state='uncertain' WHERE partition=? AND state='attempted'",
@@ -1154,8 +1155,24 @@ export class OfflineStore {
         );
     });
   }
-  async ingestValidatedRecords(records: SyncRecord[]): Promise<void> {
+  async ingestValidatedRecords(
+    records: SyncRecord[],
+    guard?: { epoch: string | null; authenticationGeneration: number },
+  ): Promise<void> {
     await this.db.transaction(async (tx) => {
+      if (guard) {
+        const state = await this.state(tx);
+        if (
+          state.signedOut ||
+          state.replayPaused ||
+          state.epoch !== guard.epoch ||
+          (state.authenticationGeneration ?? 0) !== guard.authenticationGeneration
+        )
+          throw new OfflineError(
+            'ACK_REVIEW_REQUIRED',
+            'The account or server changed while saving. Check the saved outcome before trying again.',
+          );
+      }
       for (const record of records) await this.applyConfirmed(record, tx);
     });
   }

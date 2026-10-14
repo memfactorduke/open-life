@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, Text, View } from 'react-native';
+import { AppState, Pressable, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import {
   AgentGrantCreateSchema,
@@ -12,7 +12,7 @@ import { DateTimeField } from '../DateTimeField';
 import * as Clipboard from 'expo-clipboard';
 import type { z } from 'zod';
 import { type InstallationClient, RequestRejectedError } from '../client';
-import { Action, Body, Card, Field, Heading, Choice, usePalette } from '../ui';
+import { ScalingText as Text, Action, Body, Card, Field, Heading, Choice, usePalette } from '../ui';
 
 type Grant = z.infer<typeof AgentGrantListSchema>['grants'][number];
 const groups: { title: string; options: { scope: AgentScope; label: string }[] }[] = [

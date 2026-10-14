@@ -270,3 +270,83 @@ it('ignores a late refresh after Today becomes inactive', async () => {
   expect(screen.queryByRole('button', { name: 'Resume workout' })).toBeNull();
   expect(screen.queryByText('Needs you · 2')).toBeNull();
 });
+
+it('stacks the Today header at accessibility sizes and preserves loaded content across font changes', async () => {
+  jest
+    .mocked(useWindowDimensions)
+    .mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1 });
+  const request = jest.fn(async () => day());
+  const client = { ...createInstallationClient('https://fictional.example'), request };
+  const preferences = defaultPreferences();
+  const onOpen = jest.fn();
+  const view = await render(<Today client={client} preferences={preferences} onOpen={onOpen} />);
+  await screen.findByText('Food today · 1');
+  expect(screen.getByTestId('today-header')).toHaveStyle({ flexDirection: 'row' });
+  for (const fontScale of [1.95, 3.1]) {
+    jest
+      .mocked(useWindowDimensions)
+      .mockReturnValue({ width: 390, height: 844, scale: 3, fontScale });
+    await view.rerender(<Today client={client} preferences={preferences} onOpen={onOpen} />);
+    expect(screen.getByTestId('today-header')).toHaveStyle({
+      flexDirection: 'column',
+      alignItems: 'stretch',
+    });
+    expect(screen.getByText('Today').parent).toHaveStyle({ width: '100%', flex: 0 });
+    expect(screen.getByRole('button', { name: 'Refresh Today' })).toBeOnTheScreen();
+    expect(screen.getByText('Food today · 1')).toBeOnTheScreen();
+  }
+  expect(request).toHaveBeenCalledTimes(1);
+});
+
+it('shows the newest three unordered food entries, keeps the full count, and opens the exact newest entry', async () => {
+  const projection = day();
+  const entry = projection.food.entries[0]!;
+  projection.food = {
+    count: 4,
+    route: '/food',
+    entries: [
+      {
+        ...entry,
+        id: id(5),
+        content: { ...entry.content, text: 'Older breakfast', occurredAt: '2026-10-12T07:00:00Z' },
+      },
+      {
+        ...entry,
+        id: id(8),
+        content: { ...entry.content, text: 'Newest dinner', occurredAt: '2026-10-12T19:00:00Z' },
+      },
+      {
+        ...entry,
+        id: id(6),
+        content: { ...entry.content, text: 'Recent lunch', occurredAt: '2026-10-12T12:00:00Z' },
+      },
+      {
+        ...entry,
+        id: id(7),
+        content: { ...entry.content, text: 'Recent snack', occurredAt: '2026-10-12T15:00:00Z' },
+      },
+    ],
+  };
+  const onOpen = jest.fn();
+  await render(
+    <Today
+      client={{
+        ...createInstallationClient('https://fictional.example'),
+        request: jest.fn(async () => projection),
+      }}
+      preferences={defaultPreferences()}
+      onOpen={onOpen}
+    />,
+  );
+  await screen.findByText('Food today · 4');
+  const rows = screen.getAllByRole('button', { name: /^Open food:/ });
+  expect(rows.map((row) => row.props.accessibilityLabel)).toEqual([
+    'Open food: Newest dinner',
+    'Open food: Recent snack',
+    'Open food: Recent lunch',
+  ]);
+  expect(screen.queryByText('Older breakfast')).toBeNull();
+  expect(screen.getByRole('button', { name: 'View food diary' })).toBeOnTheScreen();
+  await fireEvent.press(rows[0]!);
+  expect(onOpen).toHaveBeenLastCalledWith({ kind: 'food', id: id(8) });
+});

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AttentionResponseSchema,
+  latestFoodEntries,
   type AttentionItem,
   type AttentionResponse,
   type Preferences,
@@ -186,7 +187,7 @@ export function Today({
             </header>
             {!data.food.count && <p className="today-muted">No entries yet.</p>}
             <ul className="today-food">
-              {data.food.entries.slice(0, 3).map((entry) => (
+              {latestFoodEntries(data.food.entries).map((entry) => (
                 <li key={entry.id}>
                   <button onClick={() => onOpen({ kind: 'food', id: entry.id })}>
                     <strong>{entry.content.text.trim() || 'Photo entry'}</strong>

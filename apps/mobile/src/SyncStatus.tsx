@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import type { InstallationClient } from './client';
 import { useOfflineRevision } from './offline-client';
 import type { LocalRecord, OutboxEntry, SyncState, DurablePhoto, OfflineCommand } from './offline';
 import { reviewCommandDifferences, reviewFields } from './offline/recovery';
 import { shareRetainedPhoto, exportRecoveryFiles } from './offline/photo-export';
-import { Action, Body, Card, Disclosure, usePalette } from './ui';
+import { ScalingText as Text, Action, Body, Card, Disclosure, usePalette } from './ui';
 export function SyncStatus({
   client,
   compact = false,

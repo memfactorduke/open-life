@@ -10,7 +10,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  Text,
   useColorScheme,
   useWindowDimensions,
   View,
@@ -54,6 +53,7 @@ import { createOfflineClient } from './offline-client';
 import { SyncStatus } from './SyncStatus';
 import { Today, type TodayTarget } from './features/Today';
 import {
+  ScalingText as Text,
   Action,
   Body,
   Card,

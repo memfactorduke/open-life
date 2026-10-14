@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Switch, Text, View, StyleSheet } from 'react-native';
+import { Switch, View, StyleSheet } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { z } from 'zod';
 import {
@@ -9,7 +9,7 @@ import {
 } from '@mems-life/domain';
 import { RequestRejectedError, type InstallationClient } from '../client';
 import { registerRemoteNotifications } from '../notifications';
-import { Action, Body, Card, usePalette } from '../ui';
+import { ScalingText as Text, Action, Body, Card, usePalette } from '../ui';
 const Response = NotificationPreferencesRecordSchema.extend({ providerConfigured: z.boolean() });
 type Record = z.infer<typeof NotificationPreferencesRecordSchema>;
 const choices: { key: keyof NotificationPreferences; label: string; description: string }[] = [

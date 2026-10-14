@@ -5,6 +5,50 @@ import sharp from 'sharp';
 const origin = process.env.WEB_TEST_URL ?? 'https://localhost:3443';
 test.use({ baseURL: origin, ignoreHTTPSErrors: true });
 
+const ownedFood = new Set<string>();
+const ownedTasks = new Set<string>();
+test.beforeEach(async ({ page }) => {
+  ownedFood.clear();
+  ownedTasks.clear();
+  page.on('request', (request) => {
+    if (request.method() !== 'POST') return;
+    const path = new URL(request.url()).pathname;
+    if (!['/api/food/commands', '/api/tasks/commands'].includes(path)) return;
+    const command = request.postDataJSON();
+    if (command.type === 'food.create') ownedFood.add(command.entryId);
+    if (command.type === 'task.create') ownedTasks.add(command.taskId);
+  });
+});
+test.afterEach(async ({ page }) => {
+  for (const [area, ids, recordKey, idKey] of [
+    ['food', ownedFood, 'entry', 'entryId'],
+    ['tasks', ownedTasks, 'task', 'taskId'],
+  ] as const) {
+    for (const recordId of ids) {
+      const current = await page.request.get(
+        area === 'food' ? '/api/food' : `/api/tasks/${recordId}`,
+      );
+      if (!current.ok()) continue;
+      const result = await current.json();
+      const record =
+        area === 'food'
+          ? result.entries.find((entry: { id: string }) => entry.id === recordId)
+          : result[recordKey];
+      if (!record || record.deletedAt) continue;
+      const deleted = await page.request.post(`/api/${area}/commands`, {
+        headers: { Origin: new URL(origin).origin },
+        data: {
+          type: `${area === 'tasks' ? 'task' : 'food'}.delete`,
+          operationId: crypto.randomUUID(),
+          [idKey]: recordId,
+          expectedRevision: record.revision,
+        },
+      });
+      expect(deleted.ok(), await deleted.text()).toBeTruthy();
+    }
+  }
+});
+
 test('production CSP permits private photos while preserving secure task files and accessible layouts', async ({
   page,
 }, testInfo) => {

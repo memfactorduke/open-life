@@ -64,4 +64,5 @@ export type SyncState = {
   replayPaused: boolean;
   activeSessionId: string | null;
   signedOut: boolean;
+  authenticationGeneration?: number;
 };

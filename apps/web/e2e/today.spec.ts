@@ -96,7 +96,7 @@ const day: AttentionResponse = {
     finishedAt: null,
   },
   food: {
-    count: 1,
+    count: 4,
     route: '/food',
     entries: [
       {
@@ -108,6 +108,19 @@ const day: AttentionResponse = {
         updatedAt: now,
         deletedAt: null,
       },
+      ...[
+        { id: id(5), text: 'Older breakfast', occurredAt: '2026-10-12T07:00:00Z' },
+        { id: id(8), text: 'Newest dinner', occurredAt: '2026-10-12T19:00:00Z' },
+        { id: id(7), text: 'Recent snack', occurredAt: '2026-10-12T15:00:00Z' },
+      ].map(({ id: entryId, text, occurredAt }) => ({
+        id: entryId,
+        revision: 1,
+        content: { text, occurredAt, timezone: 'UTC' },
+        photoIds: [],
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      })),
     ],
   },
 };
@@ -155,6 +168,7 @@ test('fictional daily focus adapts across phone, tablet rotation, compact split 
           value: defaultPreferences({ name: 'A long fictional name '.repeat(12), timeZone: 'UTC' }),
         },
       });
+    if (path === '/api/food') return route.fulfill({ json: { entries: day.food.entries } });
     if (path === '/api/attention')
       return route.fulfill(
         fail
@@ -185,7 +199,20 @@ test('fictional daily focus adapts across phone, tablet rotation, compact split 
   });
   await page.goto('/#today');
   await expect(page.locator('#today-heading')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Food today · 1', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Food today · 4', exact: true })).toBeVisible();
+  await expect(page.locator('.today-food button')).toHaveCount(3);
+  await expect(page.locator('.today-food button')).toHaveText([
+    /Newest dinner/,
+    /Recent snack/,
+    /Fictional lunch/,
+  ]);
+  await expect(page.locator('.today-food')).not.toContainText('Older breakfast');
+  await page.locator('.today-food button').first().click();
+  await expect(page.getByRole('textbox', { name: 'What did you eat?', exact: true })).toHaveValue(
+    'Newest dinner',
+  );
+  await page.getByRole('link', { name: 'Today', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Food today · 4', exact: true })).toBeVisible();
   for (const [label, width, height] of [
     ['phone', 390, 844],
     ['compact-tablet', 600, 800],
