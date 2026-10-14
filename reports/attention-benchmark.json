@@ -1,0 +1,39 @@
+{
+  "fixtureAttempts": 10001,
+  "equivalent": true,
+  "measurements": [
+    {
+      "name": "prior",
+      "milliseconds": [
+        3218.961625, 2825.454209, 2978.872542000001, 2964.8682499999995, 3031.7637919999997
+      ],
+      "attemptAndResultTransfer": [
+        {
+          "rows": 0,
+          "bytes": 2
+        },
+        {
+          "rows": 10001,
+          "bytes": 10511053
+        }
+      ]
+    },
+    {
+      "name": "hardened",
+      "milliseconds": [
+        8.912874999999985, 8.194250000000466, 5.439458000000741, 4.835124999999607,
+        5.5303750000002765
+      ],
+      "attemptAndResultTransfer": [
+        {
+          "rows": 0,
+          "bytes": 2
+        },
+        {
+          "rows": 1,
+          "bytes": 1053
+        }
+      ]
+    }
+  ]
+}

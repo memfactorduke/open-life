@@ -1,0 +1,57 @@
+name: Release checks
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
+permissions:
+  contents: read
+concurrency:
+  group: release-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      TEST_DATABASE_URL: postgresql://mems_life@127.0.0.1:55432/mems_life_test
+    services:
+      postgres:
+        image: postgres:16.14-bookworm@sha256:64154d0babcb1741988719e703419af0382b19953706149f9872fbd0f438efa8
+        env:
+          POSTGRES_USER: mems_life
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: postgres
+        ports:
+          - 127.0.0.1:55432:5432
+        options: >-
+          --health-cmd "pg_isready -U mems_life -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install PostgreSQL 16
+        run: sudo apt-get update && sudo apt-get install -y postgresql-16
+      - run: npm ci
+      - run: npm run verify:toolchain
+      - name: Ensure allowlisted fixture databases
+        run: bash scripts/db.sh ensure-databases
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+      - name: Operations script tests
+        run: |
+          export PATH="/usr/lib/postgresql/16/bin:$PATH"
+          node --test scripts/test/*.test.mjs
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Production browser fixture
+        env:
+          RC_WEB_TODAY_LIVE: '1'
+        run: node scripts/rc-web-e2e.mjs

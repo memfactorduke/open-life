@@ -1,5 +1,11 @@
 # Release progress
 
+## Release candidate hardening, 13 October 2026
+
+The deep first-production audit is merged in [PR #4](https://github.com/memfactorduke/open-life/pull/4), application merge `6841794`. Current scoped verification passed 51 domain tests, 178 mobile tests, 37 PostgreSQL/service tests and 114 Chromium/Firefox/WebKit journeys with zero browser skips, plus types, lint, formatting and independent clean installation/builds. Independent review repaired stale offline acknowledgements after restore/logout, board activation, consent revocation, UI draft/request races and bounded history/snapshot reads. The [HTML audit](../reports/release-candidate-audit.html) includes raw performance measurements and remaining acceptance.
+
+A fresh simulator Release artifact built successfully with unchanged captured inputs; its actual device journeys continue separately. The new operations/CI hardening is being reviewed. Physical iPad camera/airplane checks remain unavailable before 03:00 Eastern on 14 October, and WHOOP configuration/consent remains absent. The current continuation monitor preserves these boundaries. Older evidence below retains its original source/artifact identity.
+
 Mem's Life is implemented. On October 13, 2026, **28 of 29 tickets and 153 of 154 acceptance criteria are verified**. Ticket 29 remains open for physical-camera and live-provider validation. The source is in [PR #2](https://github.com/memfactorduke/open-life/pull/2).
 
 ## Built product

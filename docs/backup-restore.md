@@ -112,3 +112,9 @@ Keep backups according to an operator retention policy. Deletion revokes live ap
 ## Verified boundary
 
 `apps/server/test/portability.test.ts` uses independent fictional databases `mems_life_portability_test` and `mems_life_restore_test` plus temporary media. It exercises a real CLI dump/restore, owner export secret omission, histories/receipts/tombstones, lost post-backup records, changed epoch, closed restored maintenance, staged byte preservation and tamper rejection. Native resnapshot/replay behavior has its separate sync engine and native release evidence; this service test alone does not prove device recovery or live provider effects.
+
+## Release candidate hardening
+
+The operator now holds the drain barrier on a dedicated PostgreSQL connection. A new mutation uses a nonblocking shared-lock check and returns 503 during maintenance; it does not occupy a pool slot while waiting. Already admitted writers still drain before the backup starts. This behavior is verified with a two-connection pool and a concurrent mutation.
+
+Archive and private media paths must be separate, new real directories. Secret copies open regular operator-only files without following symlinks. Archives are flushed before maintenance resumes. Restore validates a plain decoded database name and keeps a committed but failed validation closed with a rotated synchronization epoch.

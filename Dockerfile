@@ -41,12 +41,12 @@ COPY --from=build /app/packages/domain/dist ./packages/domain/dist
 COPY --from=build /app/apps/server/dist ./apps/server/dist
 COPY --from=build /app/LICENSE /app/.runtime/THIRD-PARTY-NOTICES.txt ./
 COPY --from=build /app/.runtime/native-licenses ./native-licenses
-COPY scripts/backup.mjs scripts/export.mjs scripts/restore.mjs ./scripts/
+COPY scripts/backup.mjs scripts/export.mjs scripts/restore.mjs scripts/operator-safety.mjs ./scripts/
 RUN sed -i 's|apps/server/src/|apps/server/dist/|g; s|\.ts|.js|g' scripts/*.mjs \
     && test "$(node --version)" = v24.21.0 \
     && pg_dump --version | grep '16.14' \
     && pg_restore --version | grep '16.14' \
-    && node --input-type=module -e "await import('./apps/server/dist/portability.js'); await import('./apps/server/dist/operations.js')"
+    && node --input-type=module -e "import fs from 'node:fs'; const backup = fs.readFileSync('scripts/backup.mjs','utf8'); if (!backup.includes(\"from './operator-safety.mjs'\")) throw new Error('operator-safety import missing'); if (backup.includes('apps/server/src/')) throw new Error('source import was not rewritten'); await import('./scripts/operator-safety.mjs'); await import('./apps/server/dist/portability.js'); await import('./apps/server/dist/operations.js')"
 # Intentionally privileged local operator: reads service-owned private media and
 # writes protected host archives. No PostgreSQL server entrypoint or daemon.
 ENTRYPOINT ["node"]

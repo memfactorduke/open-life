@@ -1,0 +1,30 @@
+{
+  "recordedAt": "2026-10-14T03:05:28.736Z",
+  "command": "PATH=/opt/homebrew/opt/node@24/bin:$PATH node .runtime/rc-audit/repro/offline-benchmark.mjs",
+  "runtime": "v24.21.0",
+  "seam": "Actual Node SQLite in-memory database; Expo/device timing not claimed",
+  "workload": {
+    "archivedSyntheticReceipts": 6000,
+    "initialSyncedFoodReceipt": 1,
+    "pendingFoodCreates": 60,
+    "description": "Approximately six months of retained workout/food event receipts plus one offline week of captures; fictional records"
+  },
+  "before": {
+    "commit": "e29889a",
+    "elapsedMs": 1516.7643339999997,
+    "materializedOutboxRows": 1097041,
+    "sendCount": 60
+  },
+  "after": {
+    "commit": "6e93c3dce9d3c06037a03efff5686f344a9b0f05",
+    "elapsedMs": 27.52612500000032,
+    "materializedOutboxRows": 180,
+    "sendCount": 60
+  },
+  "sourceHashes": {
+    "beforeStore": "226b8a17608c191cda0726ad3ef3ba6812bb56e956f3dd163cd88db1f3866b22",
+    "beforeCoordinator": "da78ffc14c0cc32cc9e6b4bde3f546d12b62d35d2d242775af6b8ead89f99109",
+    "afterStore": "81cc85d2e0c87292202f7b6f2863618728398c96494e02f26bca678a882bbabd",
+    "afterCoordinator": "465dbf2877021d08806e674635c88309efdf8612005a0b13090cc4991a597162"
+  }
+}

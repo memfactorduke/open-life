@@ -81,3 +81,15 @@ Original source is MIT under `LICENSE`. Dependencies retain their own licenses a
 ## Dependency audit evidence
 
 The October 13 full workspace audit reported 61 advisories, including 15 moderate and 46 high findings. Each exact final Linux ARM64 application and operator image inventory contained 212 npm packages and returned no matching npm registry advisories. The refreshed images use stable captured production source, with actual private task-file history, restart, backup and restore checks recorded in `.scratch/mems-life-v1/evidence/final-history-container/verification.json`. These scopes differ: the image inventory excludes development/native app packages, and the npm check excludes operating-system and bundled native-library vulnerabilities. License validation counted 1,143 hashed files and 390 source references; it is an inventory check, not proof of complete source provenance or legal compliance. Native-library source provenance remains a distribution gate. Several automatic fixes replace the supported Expo/Jest/React Native pairing. Do not run `npm audit fix --force`. Repeat the inventory audit when distributed artifacts change and review third-party notices before distribution.
+
+## Repeatable release checks
+
+GitHub's release workflow creates the exact allowlisted isolated test databases, runs the application checks, builds the clients, and then runs operations and production browser checks. Build the web assets before running the fixture-based operations tests locally:
+
+```sh
+npm run build
+node --test scripts/test/*.test.mjs
+node scripts/rc-web-e2e.mjs
+```
+
+The browser helper uses a fictional database, private generated credentials and local HTTPS. It supervises the browser test process group and cleans up on interruption. Set `RC_WEB_TODAY_LIVE=1` for the additional Today fixture proof. If the default fixture ports are in use, choose separate `RC_WEB_APP_PORT` and `RC_WEB_TLS_PORT` values; avoid unrelated listeners.
