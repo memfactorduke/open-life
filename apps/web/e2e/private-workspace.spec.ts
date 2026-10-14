@@ -113,9 +113,7 @@ test('a committed save with a lost response is reconciled before newer edits are
     await route.abort('failed');
   });
   await page.getByRole('button', { name: 'Save preferences' }).click();
-  await expect(page.getByRole('alert')).toContainText(
-    "The preference save is unconfirmed.",
-  );
+  await expect(page.getByRole('alert')).toContainText('The preference save is unconfirmed.');
   await page.unroute('**/api/preferences');
   await page.getByLabel('Display name').fill('Newer unsaved edit');
   await page.getByRole('button', { name: 'Save preferences' }).click();

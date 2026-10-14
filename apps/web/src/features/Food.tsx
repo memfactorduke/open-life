@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Temporal } from '@js-temporal/polyfill';
 import {
+  formatFoodDay,
   FoodListResponseSchema,
   FoodCommandResponseSchema,
   FoodUploadResponseSchema,
@@ -321,11 +322,7 @@ export function Food({
     busy || pending.current !== null || files.some((file) => uploads.current.has(file));
   const changeDay = (amount: number) =>
     setDay(Temporal.PlainDate.from(day).add({ days: amount }).toString());
-  const dayLabel = Temporal.PlainDate.from(day).toLocaleString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
+  const dayLabel = formatFoodDay(day);
   function begin() {
     if (!hasDraft()) reset();
     setComposerOpen(true);

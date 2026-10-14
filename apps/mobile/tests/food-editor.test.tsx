@@ -1,4 +1,5 @@
 import React from 'react';
+import { Temporal } from '@js-temporal/polyfill';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { defaultPreferences, type FoodEntry } from '@mems-life/domain';
@@ -145,4 +146,25 @@ it('starts with daily entries and keeps a canceled draft available to resume', a
   expect(screen.queryByLabelText('What did you eat?')).toBeNull();
   await fireEvent.press(screen.getByRole('button', { name: 'Resume draft' }));
   expect(screen.getByLabelText('What did you eat?').props.value).toBe('Dinner draft');
+});
+
+it('opens the actual diary when Hermes rejects Temporal locale formatting', async () => {
+  const unsupported = jest
+    .spyOn(Temporal.PlainDate.prototype, 'toLocaleString')
+    .mockImplementation(() => {
+      throw new Error('Missing internal slot calendar-id');
+    });
+  try {
+    await render(
+      <Food
+        client={client(jest.fn(async () => ({ entries: [entry] })))}
+        preferences={defaultPreferences()}
+      />,
+    );
+    await screen.findByText('Fictional lunch');
+    expect(screen.getByRole('button', { name: 'Choose day' })).toBeEnabled();
+    expect(unsupported).not.toHaveBeenCalled();
+  } finally {
+    unsupported.mockRestore();
+  }
 });

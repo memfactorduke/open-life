@@ -65,8 +65,9 @@ test('production CSP permits private photos while preserving secure task files a
   })
     .jpeg()
     .toBuffer();
-  await page.getByRole('textbox', { name: 'Notes', exact: true }).fill(name);
-  await page.getByLabel('Add private photos').setInputFiles([
+  await page.getByRole('button', { name: 'Add entry', exact: true }).click();
+  await page.getByRole('textbox', { name: 'What did you eat?', exact: true }).fill(name);
+  await page.getByLabel('Add photos', { exact: true }).setInputFiles([
     { name: 'fictional-meal.png', mimeType: 'image/png', buffer: png },
     { name: 'fictional-meal.jpeg', mimeType: 'image/jpeg', buffer: jpeg },
   ]);
@@ -108,13 +109,17 @@ test('production CSP permits private photos while preserving secure task files a
   await page.getByRole('button', { name: taskName, exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel('File to attach').setInputFiles({
+  await dialog.getByText('More task actions', { exact: true }).click();
+  await dialog.getByRole('button', { name: 'Manage agent work', exact: true }).click();
+  const workflow = dialog.getByRole('region', { name: 'Agent workflow', exact: true });
+  await workflow.getByText('Private task files', { exact: true }).click();
+  await workflow.getByLabel('File to attach').setInputFiles({
     name: 'fictional-script.txt',
     mimeType: 'text/plain',
     buffer: Buffer.from('<script>window.unsafeExecution=true</script>'),
   });
-  await dialog.getByRole('button', { name: 'Attach private file', exact: true }).press('Enter');
-  const link = dialog.getByRole('link', { name: 'fictional-script.txt', exact: true });
+  await workflow.getByRole('button', { name: 'Attach private file', exact: true }).press('Enter');
+  const link = workflow.getByRole('link', { name: 'fictional-script.txt', exact: true });
   await expect(link).toBeVisible();
   const attachment = await page.request.get((await link.getAttribute('href'))!);
   expect(attachment.status()).toBe(200);
@@ -125,14 +130,27 @@ test('production CSP permits private photos while preserving secure task files a
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.screenshot({ path: testInfo.outputPath('task-file-tablet.png'), fullPage: true });
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-  await page.getByRole('link', { name: 'Settings', exact: false }).click();
+  await page.getByRole('link', { name: 'Settings', exact: true }).click();
+  await page.getByRole('link', { name: 'Profile', exact: true }).click();
   await page.getByLabel('Appearance').selectOption('dark');
   await page.getByRole('button', { name: 'Save preferences' }).press('Enter');
   await expect(page.getByRole('status').first()).toHaveText('Your preferences are saved.');
   await page.reload();
   await expect(page.getByLabel('Appearance')).toHaveValue('dark');
-  await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: '← Settings', exact: true }).click();
+  await page.getByRole('link', { name: 'Notifications', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Notifications', exact: true, level: 1 }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: '← Settings', exact: true }).click();
+  await page.getByRole('link', { name: 'Connections', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Agent access', exact: true })).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('connections-dark-tablet.png'),
+    fullPage: true,
+  });
+  await page.getByRole('link', { name: '← Settings', exact: true }).click();
+  await page.getByRole('link', { name: 'Profile', exact: true }).click();
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.getByLabel('Display name').focus();
   const focus = await page.getByLabel('Display name').evaluate((element) => ({

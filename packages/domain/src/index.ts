@@ -4,6 +4,7 @@ export * from './tasks.js';
 export * from './workouts.js';
 export * from './sessions.js';
 export * from './food.js';
+export * from './food-time.js';
 export * from './whoop.js';
 export * from './organization.js';
 export * from './recurrence.js';

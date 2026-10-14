@@ -7,6 +7,7 @@ import * as Crypto from 'expo-crypto';
 import { File } from 'expo-file-system';
 import {
   FoodCommandSchema,
+  formatFoodDay,
   FoodListResponseSchema,
   FoodResponseSchema,
   FoodCommandResponseSchema,
@@ -458,11 +459,7 @@ export function Food({
   } catch {
     /* Saved invalid drafts stay repairable. */
   }
-  const dayLabel = Temporal.PlainDate.from(day).toLocaleString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
+  const dayLabel = formatFoodDay(day);
   const openEntry = (entry: FoodEntry) => {
     setSelected(entry);
     setText(entry.content.text);
